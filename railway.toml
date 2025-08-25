@@ -1,6 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "npm install --no-audit --no-fund && npm run generate && npm run build --filter=server"
+buildCommand = "npm install --no-audit --no-fund --include=dev && npm run generate && npm run build -- --filter=server"
 
 [deploy]
 startCommand = "node apps/server/dist/server.js"
