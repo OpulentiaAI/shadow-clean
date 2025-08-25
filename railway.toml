@@ -1,8 +1,9 @@
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "apps/server/Dockerfile"
+builder = "NIXPACKS"
+buildCommand = "npm install --no-audit --no-fund && npm run generate && npm run build --filter=server"
 
 [deploy]
+startCommand = "node apps/server/dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 
@@ -13,3 +14,6 @@ root = "/"
   [services.env]
   NODE_ENV = "production"
   AGENT_MODE = "local"
+  # Ensure Nixpacks uses Node 22
+  NIXPACKS_NODE_VERSION = "22"
+  NODE_VERSION = "22"
