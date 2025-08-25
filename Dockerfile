@@ -15,7 +15,8 @@ COPY apps/sidecar/package*.json ./apps/sidecar/
 COPY packages/*/package*.json ./packages/*/
 
 # Install dependencies
-RUN npm ci
+# Use npm install to avoid lockfile strictness in CI containers
+RUN npm install --no-audit --no-fund
 
 # Copy source code
 COPY . .
