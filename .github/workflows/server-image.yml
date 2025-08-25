@@ -1,0 +1,51 @@
+name: Build and Push Server Image (GHCR)
+
+on:
+  push:
+    branches:
+      - vercel-deploy
+    paths:
+      - 'apps/server/**'
+      - 'packages/**'
+      - 'Dockerfile'
+      - 'apps/server/Dockerfile'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'turbo.json'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Extract short SHA
+        id: vars
+        run: echo "sha_short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/shadow-server:vercel-deploy-${{ steps.vars.outputs.sha_short }}
+            ghcr.io/${{ github.repository_owner }}/shadow-server:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
