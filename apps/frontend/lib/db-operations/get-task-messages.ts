@@ -22,7 +22,7 @@ export async function getTaskMessages(taskId: string): Promise<Message[]> {
       ],
     });
 
-    const finalMessages: Message[] = messages.map((msg) => ({
+    const finalMessages: Message[] = messages.map((msg: any) => ({
       id: msg.id,
       role: msg.role as "user" | "assistant" | "system",
       content: msg.content,

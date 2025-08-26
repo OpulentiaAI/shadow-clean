@@ -338,7 +338,9 @@ export async function getGitHubRepositories(
   } catch (error) {
     console.error("Error getting GitHub repositories:", error);
 
-    await handleStaleInstallation(error, userId);
+    if (userId) {
+      await handleStaleInstallation(error, userId);
+    }
 
     return { groups: [] };
   }

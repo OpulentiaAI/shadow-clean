@@ -1,11 +1,12 @@
 [build]
-builder = "NIXPACKS"
+builder = "nixpacks"
 buildCommand = "npm install --no-audit --no-fund --include=dev && npm run generate && npm run build -- --filter=server"
 
 [deploy]
 startCommand = "node apps/server/dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
+preDeployCommand = ["npm run db:migrate:deploy"]
 
 [[services]]
 name = "shadow-backend"

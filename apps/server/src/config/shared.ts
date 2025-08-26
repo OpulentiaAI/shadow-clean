@@ -21,7 +21,8 @@ const USING_PAT =
 
 export const sharedConfigSchema = z.object({
   // Server configuration
-  API_PORT: z.coerce.number().default(4000),
+  // Prefer platform-assigned PORT if present (e.g., Railway, Render)
+  API_PORT: z.coerce.number().default(Number(process.env.PORT) || 4000),
   API_URL: z.string().default("http://localhost:4000"),
   // Socket.IO timeouts (ms)
   SOCKET_PING_TIMEOUT_MS: z.coerce.number().default(30000),

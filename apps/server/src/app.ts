@@ -19,6 +19,7 @@ import { filesRouter } from "./files/router";
 import { handleGitHubWebhook } from "./webhooks/github-webhook";
 import { getIndexingStatus } from "./routes/indexing-status";
 import { modelContextService } from "./services/model-context-service";
+import morgan from "morgan";
 
 const app = express();
 export const chatService = new ChatService();
@@ -50,6 +51,13 @@ app.use(
 app.use("/api/webhooks", express.raw({ type: "application/json" }));
 
 app.use(express.json());
+
+// HTTP request logging
+app.use(
+  morgan(
+    ":method :url :status :res[content-length] - :response-time ms :remote-addr :user-agent"
+  )
+);
 
 // API key authentication for protected routes
 app.use("/api", (req, res, next) => {
