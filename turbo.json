@@ -94,6 +94,33 @@
       "dependsOn": ["^generate"],
       "cache": false,
       "env": ["DATABASE_URL", "DIRECT_URL"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": [
+        "ANTHROPIC_API_KEY",
+        "OPENAI_API_KEY",
+        "DATABASE_URL",
+        "DIRECT_URL"
+      ]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "test:run": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": ["coverage/**"]
+    },
+    "test:ui": {
+      "cache": false,
+      "persistent": true
     }
   }
 }

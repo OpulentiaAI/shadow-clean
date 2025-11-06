@@ -9,6 +9,11 @@
     "start": "node dist/server.js",
     "lint": "eslint 'src/**/*.ts'",
     "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "docker:build": "docker build -f Dockerfile -t shadow-sidecar ../../",
     "docker:run": "docker run -p 8080:8080 -v $(pwd)/workspace:/workspace shadow-sidecar"
   },

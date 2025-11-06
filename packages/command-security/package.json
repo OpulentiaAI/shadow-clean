@@ -14,7 +14,12 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint 'src/**/*.ts'",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
