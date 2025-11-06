@@ -9,6 +9,11 @@
     "start": "node dist/server.js",
     "lint": "eslint 'src/**/*.ts'",
     "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:watch": "vitest watch",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "docker:build": "docker build -f Dockerfile -t shadow-sidecar ../../",
     "docker:run": "docker run -p 8080:8080 -v $(pwd)/workspace:/workspace shadow-sidecar"
   },
@@ -32,8 +37,10 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.3",
     "@types/node": "^24.0.13",
+    "@vitest/ui": "^4.0.7",
     "eslint": "^9.31.0",
     "tsx": "^4.19.2",
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "vitest": "^4.0.7"
   }
 }
