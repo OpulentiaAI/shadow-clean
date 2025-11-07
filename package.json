@@ -25,6 +25,7 @@
     "db:prod:migrate:resolve": "./scripts/db-prod.sh migrate resolve",
     "db:prod:migrate:diff": "./scripts/db-prod.sh migrate diff",
     "generate": "turbo run generate",
+    "postinstall": "turbo run generate",
     "prebuild": "npm run generate",
     "start:railway": "cd apps/server && npm start",
     "start:production": "concurrently \"cd apps/server && npm start\" \"cd apps/sidecar && npm start\""
