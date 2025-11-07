@@ -173,7 +173,11 @@ describe('StreamProcessor-unit-test', () => {
 });
 
 describe('StreamProcessor-integration-test', () => {
-  it.skipIf(!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'nokey')(
+  it.skipIf(
+    !process.env.RUN_INTEGRATION_TESTS ||
+    !process.env.ANTHROPIC_API_KEY ||
+    process.env.ANTHROPIC_API_KEY === 'nokey'
+  )(
     'creates real stream with Anthropic API',
     { timeout: 30000 },
     async () => {
