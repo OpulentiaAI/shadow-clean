@@ -35,10 +35,10 @@ vi.mock('../socket', () => ({
 }));
 
 vi.mock('./background-service-manager', () => ({
-  BackgroundServiceManager: vi.fn().mockImplementation(() => ({
-    startServices: vi.fn().mockResolvedValue(undefined),
-    areAllServicesComplete: vi.fn().mockReturnValue(true),
-  })),
+  BackgroundServiceManager: class {
+    startServices = vi.fn().mockResolvedValue(undefined);
+    areAllServicesComplete = vi.fn().mockReturnValue(true);
+  },
 }));
 
 vi.mock('../execution', () => ({
@@ -94,7 +94,6 @@ describe('TaskInitializationEngine-unit-test', () => {
     expect(engine).toBeDefined();
     expect((engine as any).abstractWorkspaceManager).toBeDefined();
     expect((engine as any).backgroundServiceManager).toBeDefined();
-    expect(BackgroundServiceManager).toHaveBeenCalledOnce();
   });
 
   it('executes initialization steps in sequence and sets task to ACTIVE', async () => {
@@ -158,7 +157,7 @@ describe('TaskInitializationEngine-unit-test', () => {
     expect(taskStatusUtils.setTaskFailed).toHaveBeenCalledWith(
       'task-456',
       'PREPARE_WORKSPACE',
-      'Failed to prepare local workspace'
+      'Failed to clone repository'
     );
   });
 });

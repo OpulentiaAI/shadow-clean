@@ -16,11 +16,11 @@ vi.mock('../../tools', () => ({
 }));
 
 vi.mock('../models/model-provider', () => ({
-  ModelProvider: vi.fn().mockImplementation(() => ({
-    getModel: vi.fn().mockReturnValue({
+  ModelProvider: class {
+    getModel = vi.fn().mockReturnValue({
       constructor: { name: 'MockModel' },
-    }),
-  })),
+    });
+  },
 }));
 
 vi.mock('../observability/braintrust-service', () => ({
@@ -89,14 +89,14 @@ describe('StreamProcessor-unit-test', () => {
       '/test/workspace'
     );
 
-    // Verify streamText was called
-    expect(aiSdk.streamText).toHaveBeenCalled();
-
-    // Collect stream chunks
+    // Collect stream chunks (this will trigger streamText call)
     const chunks = [];
     for await (const chunk of stream) {
       chunks.push(chunk);
     }
+
+    // Verify streamText was called after stream consumption
+    expect(aiSdk.streamText).toHaveBeenCalled();
 
     // Verify chunks were emitted
     expect(chunks.length).toBeGreaterThan(0);
@@ -175,6 +175,7 @@ describe('StreamProcessor-unit-test', () => {
 describe('StreamProcessor-integration-test', () => {
   it.skipIf(!process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY === 'nokey')(
     'creates real stream with Anthropic API',
+    { timeout: 30000 },
     async () => {
       const streamProcessor = new StreamProcessor();
 
@@ -194,7 +195,7 @@ describe('StreamProcessor-integration-test', () => {
       ];
 
       const systemPrompt = 'You are a helpful assistant. Follow instructions exactly.';
-      const model = AvailableModels.CLAUDE_HAIKU_3_5;
+      const model = AvailableModels.CLAUDE_3_5_HAIKU;
 
       const stream = streamProcessor.createMessageStream(
         systemPrompt,
@@ -224,7 +225,6 @@ describe('StreamProcessor-integration-test', () => {
       expect(chunks.length).toBeGreaterThan(0);
       expect(hasContent).toBe(true);
       expect(hasCompletion).toBe(true);
-    },
-    { timeout: 30000 }
+    }
   );
 });

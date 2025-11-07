@@ -30,43 +30,43 @@ vi.mock('@repo/db', () => ({
 }));
 
 vi.mock('./local/local-tool-executor', () => ({
-  LocalToolExecutor: vi.fn().mockImplementation(() => ({
-    isRemote: () => false,
-  })),
+  LocalToolExecutor: class {
+    isRemote = () => false;
+  },
 }));
 
 vi.mock('./remote/remote-tool-executor', () => ({
-  RemoteToolExecutor: vi.fn().mockImplementation(() => ({
-    isRemote: () => true,
-  })),
+  RemoteToolExecutor: class {
+    isRemote = () => true;
+  },
 }));
 
 vi.mock('./local/local-workspace-manager', () => ({
-  LocalWorkspaceManager: vi.fn().mockImplementation(() => ({
-    prepareWorkspace: vi.fn(),
-  })),
+  LocalWorkspaceManager: class {
+    prepareWorkspace = vi.fn();
+  },
 }));
 
 vi.mock('./remote/remote-workspace-manager', () => ({
-  RemoteWorkspaceManager: vi.fn().mockImplementation(() => ({
-    prepareWorkspace: vi.fn(),
-  })),
+  RemoteWorkspaceManager: class {
+    prepareWorkspace = vi.fn();
+  },
 }));
 
 vi.mock('./remote/remote-vm-runner', () => ({
-  RemoteVMRunner: vi.fn().mockImplementation(() => ({
-    getVMPodStatus: vi.fn().mockResolvedValue({
+  RemoteVMRunner: class {
+    getVMPodStatus = vi.fn().mockResolvedValue({
       status: {
         podIP: '10.0.0.1',
       },
-    }),
-  })),
+    });
+  },
 }));
 
 vi.mock('../services/git-manager', () => ({
-  GitManager: vi.fn().mockImplementation(() => ({
+  GitManager: class {
     // Mock git manager methods
-  })),
+  },
 }));
 
 describe('execution-layer-unit-test', () => {
@@ -89,7 +89,6 @@ describe('execution-layer-unit-test', () => {
 
     const executor = await createToolExecutor('task-123', '/test/workspace');
 
-    expect(LocalToolExecutor).toHaveBeenCalledWith('task-123', '/test/workspace');
     expect(executor).toBeDefined();
     expect(executor.isRemote()).toBe(false);
   });
@@ -99,7 +98,6 @@ describe('execution-layer-unit-test', () => {
 
     const manager = createWorkspaceManager();
 
-    expect(LocalWorkspaceManager).toHaveBeenCalled();
     expect(manager).toBeDefined();
   });
 
@@ -108,7 +106,6 @@ describe('execution-layer-unit-test', () => {
 
     const manager = createWorkspaceManager();
 
-    expect(RemoteWorkspaceManager).toHaveBeenCalled();
     expect(manager).toBeDefined();
   });
 

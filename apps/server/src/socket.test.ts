@@ -149,6 +149,7 @@ describe('socket-server-unit-test', () => {
 describe('socket-server-integration-test', () => {
   it.skipIf(!process.env.RUN_INTEGRATION_TESTS)(
     'creates socket server and handles real connections',
+    { timeout: 10000 },
     async () => {
       const httpServer = createServer();
       const io = createSocketServer(httpServer);
@@ -176,7 +177,6 @@ describe('socket-server-integration-test', () => {
           });
         });
       });
-    },
-    { timeout: 10000 }
+    }
   );
 });

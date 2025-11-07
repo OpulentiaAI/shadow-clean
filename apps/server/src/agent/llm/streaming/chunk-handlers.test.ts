@@ -4,12 +4,12 @@ import { AIStreamChunk, ToolName, AvailableModels } from '@repo/types';
 
 // Mock ToolValidator
 vi.mock('../validation/tool-validator', () => ({
-  ToolValidator: vi.fn().mockImplementation(() => ({
-    validateToolResult: vi.fn().mockReturnValue({
+  ToolValidator: class {
+    validateToolResult = vi.fn().mockReturnValue({
       isValid: true,
       validatedResult: { success: true, data: 'test' },
-    }),
-  })),
+    });
+  },
 }));
 
 describe('ChunkHandlers-unit-test', () => {
