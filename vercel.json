@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd apps/frontend && npm run build",
+  "buildCommand": "npx turbo build --filter=frontend",
   "outputDirectory": "apps/frontend/.next",
   "installCommand": "npm ci"
 }
