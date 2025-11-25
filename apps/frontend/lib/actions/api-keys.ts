@@ -18,6 +18,11 @@ import { getUserSettings } from "@/lib/db-operations/user-settings";
 
 export type { ApiKeyProvider };
 
+// Environment variable fallbacks for local development
+const ENV_OPENAI_KEY = process.env.OPENAI_API_KEY;
+const ENV_ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const ENV_OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+
 export async function getApiKeys(): Promise<ApiKeys> {
   const cookieStore = await cookies();
   const openaiKey = cookieStore.get("openai-key")?.value;
@@ -26,10 +31,11 @@ export async function getApiKeys(): Promise<ApiKeys> {
   // const groqKey = cookieStore.get("groq-key")?.value;
   // const ollamaKey = cookieStore.get("ollama-key")?.value;
 
+  // Use cookie values first, then fallback to environment variables
   return {
-    openai: openaiKey || undefined,
-    anthropic: anthropicKey || undefined,
-    openrouter: openrouterKey || undefined,
+    openai: openaiKey || ENV_OPENAI_KEY || undefined,
+    anthropic: anthropicKey || ENV_ANTHROPIC_KEY || undefined,
+    openrouter: openrouterKey || ENV_OPENROUTER_KEY || undefined,
     // groq: groqKey || undefined,
     // ollama: ollamaKey || undefined,
   };

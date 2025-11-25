@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Bypass auth for local development
+const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -10,6 +13,11 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon")
   ) {
+    return NextResponse.next();
+  }
+
+  // Bypass auth in local development mode
+  if (BYPASS_AUTH) {
     return NextResponse.next();
   }
 

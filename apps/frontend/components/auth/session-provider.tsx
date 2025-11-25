@@ -3,6 +3,19 @@
 import { useSession } from "@/lib/auth/auth-client";
 import { createContext, ReactNode, useContext } from "react";
 
+// Dev user for local development without auth
+const DEV_USER_ID = "dev-local-user";
+const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
+
+const DEV_SESSION = {
+  user: {
+    id: DEV_USER_ID,
+    name: "Local Dev User",
+    email: "dev@localhost",
+    image: null,
+  },
+};
+
 type Session = {
   user: {
     id: string;
@@ -25,8 +38,12 @@ const SessionContext = createContext<SessionContextType>({
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { data: session, isPending: isLoading } = useSession();
 
+  // Use dev session when bypass auth is enabled
+  const effectiveSession = BYPASS_AUTH ? DEV_SESSION : session;
+  const effectiveLoading = BYPASS_AUTH ? false : isLoading;
+
   return (
-    <SessionContext.Provider value={{ session, isLoading }}>
+    <SessionContext.Provider value={{ session: effectiveSession, isLoading: effectiveLoading }}>
       {children}
     </SessionContext.Provider>
   );

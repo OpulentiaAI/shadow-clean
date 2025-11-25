@@ -9,6 +9,10 @@ import { generateTaskTitleAndBranch } from "./generate-title-branch";
 import { generateTaskId, MAX_TASKS_PER_USER_PRODUCTION, isLocalPath, getLocalRepoFullName } from "@repo/types";
 import { makeBackendRequest } from "../make-backend-request";
 
+// Dev user ID for local development without auth
+const DEV_USER_ID = "dev-local-user";
+const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
+
 /**
  * Validate that a string is either a GitHub URL or a local filesystem path
  */
@@ -38,11 +42,32 @@ const createTaskSchema = z.object({
 });
 
 export async function createTask(formData: FormData) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user?.id) {
-    throw new Error("Unauthorized");
+  let userId: string;
+
+  if (BYPASS_AUTH) {
+    // Use dev user for local development
+    userId = DEV_USER_ID;
+    // Ensure dev user exists in database
+    await prisma.user.upsert({
+      where: { id: DEV_USER_ID },
+      update: {},
+      create: {
+        id: DEV_USER_ID,
+        name: "Local Dev User",
+        email: "dev@localhost",
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+  } else {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+    userId = session.user.id;
   }
 
   const rawData = {
@@ -72,7 +97,7 @@ export async function createTask(formData: FormData) {
   if (process.env.NODE_ENV === "production") {
     const activeTaskCount = await prisma.task.count({
       where: {
-        userId: session.user.id,
+        userId: userId,
         status: {
           notIn: ["COMPLETED", "FAILED", "ARCHIVED"]
         }
@@ -107,7 +132,7 @@ export async function createTask(formData: FormData) {
         status: "INITIALIZING",
         user: {
           connect: {
-            id: session.user.id,
+            id: userId,
           },
         },
         messages: {
@@ -140,7 +165,7 @@ export async function createTask(formData: FormData) {
             body: JSON.stringify({
               message,
               model,
-              userId: session.user.id,
+              userId: userId,
             }),
           }
         );

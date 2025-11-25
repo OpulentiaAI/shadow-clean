@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/auth";
+import { getUser } from "@/lib/auth/get-user";
 import {
   updateUserSettings,
   getOrCreateUserSettings,
 } from "@/lib/db-operations/user-settings";
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: req.headers,
-    });
+    const user = await getUser();
 
-    if (!session?.user?.id) {
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const settings = await getOrCreateUserSettings(session.user.id);
+    const settings = await getOrCreateUserSettings(user.id);
 
     return NextResponse.json({ success: true, settings });
   } catch (error) {
@@ -29,11 +27,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    });
+    const user = await getUser();
 
-    if (!session?.user?.id) {
+    if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -122,7 +118,7 @@ export async function POST(request: NextRequest) {
     if (rules !== undefined)
       updateData.rules = rules || null;
 
-    const settings = await updateUserSettings(session.user.id, updateData);
+    const settings = await updateUserSettings(user.id, updateData);
 
     return NextResponse.json({ success: true, settings });
   } catch (error) {

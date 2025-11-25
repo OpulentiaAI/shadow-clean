@@ -30,6 +30,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { GithubConnection } from "./github";
+import { LocalRepoConnection } from "./local-repo";
 import { RepoIssues } from "../home/repo-issues";
 import type { GitHubIssue } from "@repo/types";
 import type { FilteredRepository as Repository } from "@/lib/github/types";
@@ -117,6 +118,7 @@ export function PromptForm({
 
   const [isMessageOptionsOpen, setIsMessageOptionsOpen] = useState(false);
   const [isGithubConnectionOpen, setIsGithubConnectionOpen] = useState(false);
+  const [isLocalRepoOpen, setIsLocalRepoOpen] = useState(false);
 
   const messageOptions = useMemo(() => {
     const queueAction = () => {
@@ -260,12 +262,18 @@ export function PromptForm({
         return;
       }
 
-      const completeRepoUrl = `https://github.com/${repo.full_name}`;
+      // Check if this is a local repo (path starts with / or ~, or owner type is "local")
+      const isLocalRepo = repo.full_name.startsWith("/") || 
+                          repo.full_name.startsWith("~") ||
+                          repo.owner?.type === "local";
+      
+      // For local repos, use the full_name as the path; for GitHub, construct the URL
+      const repoUrl = isLocalRepo ? repo.full_name : `https://github.com/${repo.full_name}`;
 
       const formData = new FormData();
       formData.append("message", message);
       formData.append("model", selectedModel);
-      formData.append("repoUrl", completeRepoUrl);
+      formData.append("repoUrl", repoUrl);
       formData.append("repoFullName", repo.full_name);
       formData.append("baseBranch", branch.name);
       formData.append("baseCommitSha", branch.commitSha);
@@ -605,14 +613,24 @@ export function PromptForm({
 
               <div className="flex items-center gap-2 overflow-hidden">
                 {isHome && (
-                  <GithubConnection
-                    isOpen={isGithubConnectionOpen}
-                    setIsOpen={setIsGithubConnectionOpen}
-                    selectedRepo={repo}
-                    selectedBranch={branch}
-                    setSelectedRepo={setRepo}
-                    setSelectedBranch={setBranch}
-                  />
+                  <>
+                    <LocalRepoConnection
+                      isOpen={isLocalRepoOpen}
+                      setIsOpen={setIsLocalRepoOpen}
+                      selectedRepo={repo}
+                      selectedBranch={branch}
+                      setSelectedRepo={setRepo}
+                      setSelectedBranch={setBranch}
+                    />
+                    <GithubConnection
+                      isOpen={isGithubConnectionOpen}
+                      setIsOpen={setIsGithubConnectionOpen}
+                      selectedRepo={repo}
+                      selectedBranch={branch}
+                      setSelectedRepo={setRepo}
+                      setSelectedBranch={setBranch}
+                    />
+                  </>
                 )}
                 <div className="flex items-center gap-2">
                   <Button
