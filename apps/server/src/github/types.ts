@@ -5,6 +5,8 @@ export interface CloneResult {
   commitSha?: string;
   error?: string;
   clonedAt: Date;
+  /** True if this was a local repository (not cloned from GitHub) */
+  isLocal?: boolean;
 }
 
 export interface RepoInfo {

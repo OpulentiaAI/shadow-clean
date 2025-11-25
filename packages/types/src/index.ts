@@ -30,6 +30,7 @@ export * from "./init/task-id";
 
 // === Utilities ===
 export * from "./utils/title-generation";
+export * from "./utils/repo-path";
 
 // === Task Status Types ===
 export * from "./tasks";

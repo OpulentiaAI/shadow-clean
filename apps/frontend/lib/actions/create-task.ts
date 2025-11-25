@@ -6,8 +6,19 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { z, ZodIssue } from "zod";
 import { generateTaskTitleAndBranch } from "./generate-title-branch";
-import { generateTaskId, MAX_TASKS_PER_USER_PRODUCTION } from "@repo/types";
+import { generateTaskId, MAX_TASKS_PER_USER_PRODUCTION, isLocalPath, getLocalRepoFullName } from "@repo/types";
 import { makeBackendRequest } from "../make-backend-request";
+
+/**
+ * Validate that a string is either a GitHub URL or a local filesystem path
+ */
+function isValidRepoUrl(url: string): boolean {
+  // GitHub URL
+  if (url.includes("github.com")) return true;
+  // Local path
+  if (isLocalPath(url)) return true;
+  return false;
+}
 
 const createTaskSchema = z.object({
   message: z
@@ -18,10 +29,10 @@ const createTaskSchema = z.object({
   repoFullName: z.string().min(1, "Repository name is required"),
   repoUrl: z
     .string()
-    .url("Invalid repository URL")
+    .min(1, "Repository URL or path is required")
     .refine(
-      (url) => url.includes("github.com"),
-      "Only GitHub repositories are supported"
+      isValidRepoUrl,
+      "Must be a GitHub URL or local filesystem path"
     ),
   baseBranch: z.string().min(1, "Base branch is required").default("main"),
 });
@@ -49,7 +60,13 @@ export async function createTask(formData: FormData) {
     throw new Error(`Validation failed: ${errorMessage}`);
   }
 
-  const { message, model, repoUrl, baseBranch, repoFullName } = validation.data;
+  const { message, model, repoUrl, baseBranch } = validation.data;
+  
+  // For local paths, generate a proper repoFullName (local/<repo-name>)
+  // For GitHub repos, use the provided repoFullName
+  const repoFullName = isLocalPath(repoUrl) 
+    ? getLocalRepoFullName(repoUrl)
+    : validation.data.repoFullName;
 
   // Check task limit in production only
   if (process.env.NODE_ENV === "production") {

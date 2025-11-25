@@ -154,24 +154,31 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
+    // Check if this is a local repository (doesn't require GitHub auth)
+    const isLocalRepo = task.repoFullName.startsWith("local/") || 
+      (task.repoUrl && (task.repoUrl.startsWith("/") || task.repoUrl.startsWith("~")));
+
     console.log(
-      `[TASK_INITIATE] Starting task ${taskId}: ${task.repoUrl}:${task.baseBranch || "unknown"}`
+      `[TASK_INITIATE] Starting task ${taskId}: ${task.repoUrl}:${task.baseBranch || "unknown"} (local: ${isLocalRepo})`
     );
 
     try {
-      const githubAccessToken = await getGitHubAccessToken(userId);
+      // Only require GitHub auth for non-local repositories
+      if (!isLocalRepo) {
+        const githubAccessToken = await getGitHubAccessToken(userId);
 
-      if (!githubAccessToken) {
-        console.error(
-          `[TASK_INITIATE] No GitHub access token found for user ${userId}`
-        );
+        if (!githubAccessToken) {
+          console.error(
+            `[TASK_INITIATE] No GitHub access token found for user ${userId}`
+          );
 
-        await updateTaskStatus(taskId, "FAILED", "INIT");
+          await updateTaskStatus(taskId, "FAILED", "INIT");
 
-        return res.status(400).json({
-          error: "GitHub access token required",
-          details: "Please connect your GitHub account to clone repositories",
-        });
+          return res.status(400).json({
+            error: "GitHub access token required",
+            details: "Please connect your GitHub account to clone repositories",
+          });
+        }
       }
 
       const initContext = await modelContextService.createContext(

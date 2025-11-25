@@ -81,6 +81,7 @@ export class LocalWorkspaceManager implements WorkspaceManager {
     const {
       id: taskId,
       repoFullName,
+      repoUrl,
       baseBranch,
       shadowBranch,
       userId,
@@ -95,12 +96,13 @@ export class LocalWorkspaceManager implements WorkspaceManager {
       // Ensure workspace directory exists and is clean
       await this.ensureWorkspaceExists(workspacePath);
 
-      // Clone the repository
+      // Clone the repository (supports both GitHub and local paths)
       const cloneResult = await this.repositoryService.cloneRepository(
         repoFullName,
         baseBranch,
         workspacePath,
-        userId
+        userId,
+        repoUrl // Pass repoUrl for local path detection
       );
 
       if (!cloneResult.success) {

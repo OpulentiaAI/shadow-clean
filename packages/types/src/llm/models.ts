@@ -24,6 +24,7 @@ export const AvailableModels = {
   CLAUDE_3_5_HAIKU: "claude-3-5-haiku-20241022",
 
   // OpenRouter models
+  CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5", // Default model via OpenRouter
   XAI_GROK_3: "x-ai/grok-3",
   MOONSHOT_KIMI_K2: "moonshotai/kimi-k2",
   MISTRAL_CODESTRAL_2508: "mistralai/codestral-2508",
@@ -93,6 +94,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   },
 
   // OpenRouter models
+  [AvailableModels.CLAUDE_OPUS_4_5]: {
+    id: AvailableModels.CLAUDE_OPUS_4_5,
+    name: "Claude Opus 4.5",
+    provider: "openrouter",
+  },
   [AvailableModels.XAI_GROK_3]: {
     id: AvailableModels.XAI_GROK_3,
     name: "Grok 3",
@@ -147,7 +153,7 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
     case "openai":
       return AvailableModels.GPT_5;
     case "openrouter":
-      return AvailableModels.XAI_GROK_3;
+      return AvailableModels.CLAUDE_OPUS_4_5; // Claude Opus 4.5 as default
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -176,6 +182,7 @@ export async function getAllPossibleModels(
 
   if (userApiKeys.openrouter) {
     models.push(
+      AvailableModels.CLAUDE_OPUS_4_5, // Default - Claude Opus 4.5 via OpenRouter
       AvailableModels.XAI_GROK_3,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MISTRAL_CODESTRAL_2508,
@@ -232,8 +239,9 @@ export async function getDefaultSelectedModels(
   }
 
   if (userApiKeys.openrouter) {
-    // All OpenRouter models default
+    // All OpenRouter models default - Claude Opus 4.5 first as primary
     defaultModels.push(
+      AvailableModels.CLAUDE_OPUS_4_5, // Default model
       AvailableModels.XAI_GROK_3,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MISTRAL_CODESTRAL_2508,

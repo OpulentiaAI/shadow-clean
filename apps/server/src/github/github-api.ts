@@ -1,6 +1,7 @@
 import { Octokit } from "@octokit/rest";
 import type { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods";
 import type { GitHubIssue } from "@repo/types";
+import { isLocalRepoFullName } from "@repo/types";
 import { githubTokenManager } from "./auth/token-manager";
 import type { RepoInfo } from "./types";
 
@@ -110,12 +111,19 @@ export class GitHubApiClient {
 
   /**
    * Validate that a branch exists in the repository
+   * For local repositories, always returns true (branch validation happens during clone)
    */
   async validateBranch(
     repoFullName: string,
     branch: string,
     userId: string
   ): Promise<boolean> {
+    // Skip GitHub API validation for local repositories
+    if (isLocalRepoFullName(repoFullName)) {
+      console.log(`[GITHUB_API_CLIENT] Skipping branch validation for local repo: ${repoFullName}`);
+      return true;
+    }
+
     return this.executeWithRetry(userId, async (accessToken) => {
       const [owner, repo] = repoFullName.split("/");
       const octokit = this.createOctokit(accessToken);

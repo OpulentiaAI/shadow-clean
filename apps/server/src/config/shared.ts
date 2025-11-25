@@ -61,6 +61,9 @@ export const sharedConfigSchema = z.object({
   ENABLE_BRAINTRUST: z
     .union([z.boolean(), z.string().transform((val) => val === "true")])
     .default(false),
+
+  // Morph SDK (optional - enables model routing, semantic search, fast apply)
+  MORPH_API_KEY: z.string().optional(),
 });
 
 /**
@@ -102,6 +105,9 @@ export const createSharedConfig = (
   braintrustApiKey: data.BRAINTRUST_API_KEY,
   braintrustProjectId: data.BRAINTRUST_PROJECT_ID,
   enableBraintrust: data.ENABLE_BRAINTRUST,
+
+  // Morph SDK
+  morphApiKey: data.MORPH_API_KEY,
 });
 
 export type SharedConfig = ReturnType<typeof createSharedConfig>;
