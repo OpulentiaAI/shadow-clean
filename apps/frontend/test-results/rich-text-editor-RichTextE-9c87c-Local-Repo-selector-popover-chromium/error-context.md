@@ -1,0 +1,119 @@
+# Page snapshot
+
+```yaml
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - generic:
+          - link:
+            - /url: /
+            - img
+          - generic:
+            - link:
+              - /url: /
+              - img
+            - button:
+              - img
+        - generic:
+          - button:
+            - link:
+              - /url: https://github.com/ishaan1013/shadow
+              - img
+          - button:
+            - img
+          - button:
+            - generic:
+              - img
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: Tasks
+              - button:
+                - img
+                - generic: Toggle Sidebar
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - img
+                    - textbox:
+                      - /placeholder: Search tasks...
+                  - button:
+                    - img
+              - generic:
+                - generic:
+                  - button [expanded]:
+                    - img
+                    - text: local/shadow-clean
+                    - img
+                  - generic:
+                    - listitem:
+                      - button:
+                        - img
+                        - generic: 1 Hidden Task
+    - generic:
+      - generic:
+        - button:
+          - img
+          - generic: Toggle Sidebar
+      - generic:
+        - generic:
+          - img
+          - generic: Opulent Code
+        - generic:
+          - generic:
+            - group:
+              - button [disabled]
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - textbox:
+                        - generic: Build features, fix bugs, and understand codebases...
+                - generic:
+                  - generic:
+                    - button [disabled]:
+                      - generic: No Model Selected
+                    - button [disabled]:
+                      - img
+                      - generic: Local Repo
+                    - button [disabled]: Connect GitHub
+                  - generic:
+                    - button [disabled]:
+                      - img
+                    - button [disabled]:
+                      - img
+                    - button [disabled]:
+                      - img
+    - region "Notifications alt+T"
+  - alert
+  - button [ref=e6] [cursor=pointer]:
+    - img [ref=e7]
+  - dialog "Welcome to Opulent OS" [ref=e11]:
+    - generic [ref=e12]:
+      - img [ref=e15]
+      - heading "Welcome to Opulent OS" [level=2] [ref=e259]
+    - generic [ref=e260]:
+      - paragraph [ref=e261]: Welcome to Opulent OS! Complete the following steps to get started. This configuration can always be changed later in Settings.
+      - generic [ref=e262]:
+        - generic [ref=e263]: "1"
+        - generic [ref=e264]:
+          - paragraph [ref=e266]: Connect the Opulent OS GitHub App
+          - paragraph [ref=e267]: Gives Opulent OS access to work on your existing repositories.
+          - button "Connect GitHub" [active] [ref=e268] [cursor=pointer]
+      - generic [ref=e269]:
+        - generic [ref=e270]: "2"
+        - generic [ref=e271]:
+          - paragraph [ref=e273]: Add your model API keys
+          - paragraph [ref=e274]: Opulent OS is BYOK; enter your own API keys to use the models.
+          - button "Setup API Keys" [ref=e275] [cursor=pointer]
+      - paragraph [ref=e279]:
+        - strong [ref=e280]: "Important:"
+        - text: While your data is stored securely, we recommend not working on codebases requiring enterprise-grade security with Opulent OS. Your API keys are never permanently stored remotely.
+        - link "Privacy Policy" [ref=e281] [cursor=pointer]:
+          - /url: https://docs.google.com/document/d/1_xpk3NP_HCgMvpwMo9W93RFD_PsiXhwrLGNtZnJesnA
+      - button "Start Building" [ref=e283] [cursor=pointer]
+```

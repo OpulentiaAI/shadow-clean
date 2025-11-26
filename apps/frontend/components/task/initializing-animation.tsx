@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import { getStepsForMode, getStepDisplayName } from "@repo/types";
 import { Check } from "lucide-react";
-import { LogoHover } from "../graphics/logo/logo-hover";
+import { OpulentLogo } from "../graphics/logo/opulent-logo";
 import { useEffect, useMemo, useState } from "react";
 import { useTaskStatus } from "@/hooks/tasks/use-task-status";
 import { useUserSettings } from "@/hooks/use-user-settings";
@@ -96,9 +96,9 @@ export default function InitializingAnimation({
                   <Check className="size-4" />
                 </div>
               ) : (
-                <LogoHover
-                  forceAnimate={index === currentStepIndex}
+                <OpulentLogo
                   size="sm"
+                  className={index === currentStepIndex ? "animate-pulse" : ""}
                 />
               )}
               {getStepDisplayName(step, userSettings)}

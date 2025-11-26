@@ -51,8 +51,17 @@ export class GitManager {
     shadowBranch: string
   ): Promise<string> {
     try {
-      // Ensure we're on the base branch first
-      await this.execGit(`checkout ${baseBranch}`);
+      // Try to checkout the base branch, fall back to current branch if it doesn't exist
+      try {
+        await this.execGit(`checkout ${baseBranch}`);
+      } catch (_checkoutError) {
+        // Base branch doesn't exist, use current branch instead
+        const currentBranch = await this.getCurrentBranch();
+        console.log(
+          `[GIT_MANAGER] Base branch '${baseBranch}' not found, using current branch '${currentBranch}'`
+        );
+        // Stay on current branch
+      }
 
       // Get the base commit SHA before creating the branch
       const baseCommitSha = await this.getCurrentCommitSha();

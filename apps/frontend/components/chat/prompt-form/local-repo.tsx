@@ -86,6 +86,7 @@ export function LocalRepoConnection({
       // Set the default branch - in a real implementation, we'd detect this from git
       const defaultBranch = { name: "main", commitSha: "local" };
 
+      console.log("Setting local repo:", { localRepo, defaultBranch });
       setSelectedRepo(localRepo);
       setSelectedBranch(defaultBranch);
       setIsOpen(false);
@@ -96,6 +97,7 @@ export function LocalRepoConnection({
           repo: localRepo,
           branch: defaultBranch,
         });
+        console.log("Saved to cookie successfully");
       } catch (error) {
         console.error("Failed to save git selector state:", error);
       }

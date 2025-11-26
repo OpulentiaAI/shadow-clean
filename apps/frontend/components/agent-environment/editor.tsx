@@ -5,7 +5,7 @@ import { AlertTriangle, ChevronRight, Info } from "lucide-react";
 import dynamic from "next/dynamic";
 import { Fragment, useEffect, useState, memo, useMemo } from "react";
 import { getLanguageFromPath } from "@repo/types";
-import { LogoHover } from "../graphics/logo/logo-hover";
+import { OpulentLogo } from "../graphics/logo/opulent-logo";
 import { SHADOW_WIKI_PATH } from "@/lib/constants";
 import { ShadowWikiContent } from "../shadow-wiki/shadow-wiki";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -93,7 +93,7 @@ function EditorComponent({
           <div className="bg-background text-muted-foreground absolute inset-0 z-10 flex select-none items-center justify-center gap-2 text-sm">
             {isLoadingContent ? (
               <div className="flex items-center gap-2">
-                <LogoHover size="sm" forceAnimate className="opacity-60" />
+                <OpulentLogo size="sm" className="animate-pulse opacity-60" />
                 Loading file content
               </div>
             ) : contentError ? (

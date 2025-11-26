@@ -9,7 +9,7 @@ import { useSidebar } from "../ui/sidebar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { statusColorsConfig } from "./status";
 import { useMemo } from "react";
-import { LogoBurst } from "../graphics/logo/logo-burst";
+import { OpulentLogo } from "../graphics/logo/opulent-logo";
 import { TaskStatus } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
 import { GithubLogo } from "../graphics/github/github-logo";
@@ -93,13 +93,7 @@ export function SidebarNavigation({
           className="flex size-7 items-center justify-center"
           aria-label="Home"
         >
-          <LogoBurst
-            className={cn(
-              process.env.NEXT_PUBLIC_VERCEL_ENV === "preview"
-                ? "text-destructive"
-                : ""
-            )}
-          />
+          <OpulentLogo size="md" />
         </Link>
         <div className="flex flex-col gap-3">
           <Tooltip>

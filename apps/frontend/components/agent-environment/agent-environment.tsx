@@ -15,7 +15,7 @@ import { AlertTriangle, TerminalSquare, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { useFileTree } from "@/hooks/agent-environment/use-file-tree";
 import { useAgentEnvironment } from "./agent-environment-context";
-import { LogoHover } from "../graphics/logo/logo-hover";
+import { OpulentLogo } from "../graphics/logo/opulent-logo";
 import { LeftPanelIcon } from "../graphics/icons/left-panel-icon";
 import { LeftPanelOpenIcon } from "../graphics/icons/left-panel-open-icon";
 import { BottomPanelOpenIcon } from "../graphics/icons/bottom-panel-open-icon";
@@ -66,7 +66,7 @@ function AgentEnvironment({
     return (
       <EmptyStateWrapper onClose={handleClose} isSheetOverlay={isSheetOverlay}>
         <div className="font-departureMono flex items-center gap-4 text-xl font-medium tracking-tighter">
-          <LogoHover forceAnimate />
+          <OpulentLogo size="md" className="animate-pulse" />
           Initializing Opulent OS Realm...
         </div>
       </EmptyStateWrapper>
@@ -77,7 +77,7 @@ function AgentEnvironment({
     return (
       <EmptyStateWrapper onClose={handleClose} isSheetOverlay={isSheetOverlay}>
         <div className="font-departureMono flex items-center gap-4 text-xl font-medium tracking-tighter">
-          <LogoHover />
+          <OpulentLogo size="md" />
           Workspace Inactive.
         </div>
       </EmptyStateWrapper>

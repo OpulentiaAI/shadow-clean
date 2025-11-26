@@ -8,7 +8,7 @@ import { CodebaseSummary } from "@repo/types";
 import { Separator } from "../ui/separator";
 import { useParams } from "next/navigation";
 import { useModal } from "../layout/modal-context";
-import { LogoHover } from "../graphics/logo/logo-hover";
+import { OpulentLogo } from "../graphics/logo/opulent-logo";
 import { MemoizedMarkdown } from "../chat/markdown/memoized-markdown";
 import { Card } from "../ui/card";
 
@@ -41,7 +41,7 @@ export function ShadowWikiContent() {
   if (isLoading)
     return (
       <div className="break-works flex size-full items-center justify-center gap-2 overflow-y-auto p-4">
-        <LogoHover size="sm" forceAnimate className="opacity-60" />
+        <OpulentLogo size="sm" className="opacity-60 animate-pulse" />
         <span className="font-departureMono">Loading Opulent OS Wiki</span>
       </div>
     );

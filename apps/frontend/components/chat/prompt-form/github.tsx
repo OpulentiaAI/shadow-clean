@@ -64,9 +64,15 @@ export function GithubConnection({
     error: statusError,
   } = useGitHubStatus();
 
-  // Delete git cookie if GitHub app is not installed
+  // Delete git cookie if GitHub app is not installed (but only for GitHub repos, not local repos)
   useEffect(() => {
-    if (githubStatus && selectedRepo && !githubStatus.isAppInstalled) {
+    // Check if the selected repo is a local repo
+    const isLocalRepo = selectedRepo?.full_name?.startsWith("/") || 
+                        selectedRepo?.full_name?.startsWith("~") ||
+                        selectedRepo?.owner?.type === "local";
+    
+    // Only clear GitHub repos when GitHub app is not installed, keep local repos
+    if (githubStatus && selectedRepo && !githubStatus.isAppInstalled && !isLocalRepo) {
       deleteGitSelectorCookie().catch((error) => {
         console.error("Failed to delete git selector cookie:", error);
       });

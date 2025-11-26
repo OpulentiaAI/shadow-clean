@@ -3,6 +3,7 @@
 import "../messages/messages.css";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ModelSelector } from "./model-selector";
 
 import { createTask } from "@/lib/actions/create-task";
 import { saveModelSelectorCookie } from "@/lib/actions/model-selector-cookie";
@@ -36,7 +37,6 @@ import type { GitHubIssue } from "@repo/types";
 import type { FilteredRepository as Repository } from "@/lib/github/types";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 import { QueuedAction } from "../messages/queued-message";
-import { ModelSelector } from "./model-selector";
 import { generateIssuePrompt } from "@/lib/github/issue-prompt";
 import { useSelectedModel } from "@/hooks/chat/use-selected-model";
 

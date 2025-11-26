@@ -1,11 +1,17 @@
 import { ApiKeys } from "@repo/types";
 
+// Environment variable fallbacks for local development
+const ENV_OPENAI_KEY = process.env.OPENAI_API_KEY;
+const ENV_ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+const ENV_OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+
 export function parseApiKeysFromCookies(cookieHeader?: string): ApiKeys {
   if (!cookieHeader) {
+    // Return env fallbacks if no cookies
     return {
-      openai: undefined,
-      anthropic: undefined,
-      openrouter: undefined,
+      openai: ENV_OPENAI_KEY || undefined,
+      anthropic: ENV_ANTHROPIC_KEY || undefined,
+      openrouter: ENV_OPENROUTER_KEY || undefined,
       // groq: undefined,
       // ollama: undefined,
     };
@@ -28,10 +34,11 @@ export function parseApiKeysFromCookies(cookieHeader?: string): ApiKeys {
       return acc;
     }, {});
 
+  // Use cookie values first, then fallback to environment variables
   return {
-    openai: cookies["openai-key"] || undefined,
-    anthropic: cookies["anthropic-key"] || undefined,
-    openrouter: cookies["openrouter-key"] || undefined,
+    openai: cookies["openai-key"] || ENV_OPENAI_KEY || undefined,
+    anthropic: cookies["anthropic-key"] || ENV_ANTHROPIC_KEY || undefined,
+    openrouter: cookies["openrouter-key"] || ENV_OPENROUTER_KEY || undefined,
     // groq: cookies["groq-key"] || undefined,
     // ollama: cookies["ollama-key"] || undefined,
   };

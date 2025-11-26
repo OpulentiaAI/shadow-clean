@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SidebarViews } from "@/components/sidebar";
 import { getUser } from "@/lib/auth/get-user";
 import { getTasks } from "@/lib/db-operations/get-tasks";
-import { LogoHover } from "@/components/graphics/logo/logo-hover";
+import { OpulentLogo } from "@/components/graphics/logo/opulent-logo";
 import { Button } from "@/components/ui/button";
 
 export default async function NotFound() {
@@ -16,7 +16,7 @@ export default async function NotFound() {
       {/* Fallback content */}
       <div className="flex grow flex-col items-center justify-center gap-6 p-6">
         <div className="font-departureMono flex items-center gap-4 text-3xl font-medium tracking-tighter">
-          <LogoHover size="lg" />
+          <OpulentLogo size="lg" />
           Page Not Found
         </div>
         <Button variant="secondary" size="lg" asChild>
