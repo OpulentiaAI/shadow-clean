@@ -116,6 +116,27 @@ export default function TaskPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleToggleRightPanel]);
 
+  // Auto-open agent environment when task is running (not archived or initializing)
+  const hasAutoOpened = useRef(false);
+  useEffect(() => {
+    if (
+      taskStatus === "RUNNING" && 
+      !hasAutoOpened.current && 
+      !isAgentEnvironmentOpen
+    ) {
+      hasAutoOpened.current = true;
+      // Small delay to ensure panel is ready
+      setTimeout(() => {
+        if (shouldUseSheet) {
+          setIsSheetOpen(true);
+        } else if (rightPanelRef.current) {
+          rightPanelRef.current.expand();
+          rightPanelRef.current.resize(50); // 50% width for split view
+        }
+      }, 100);
+    }
+  }, [taskStatus, shouldUseSheet, setIsSheetOpen, rightPanelRef, isAgentEnvironmentOpen]);
+
   const titleRef = useRef<HTMLDivElement>(null);
 
   const handleTitleClick = useCallback(() => {
