@@ -501,9 +501,17 @@ export function PromptForm({
         {/* Outer div acts as a border, with a border-radius 1px larger than the inner div and 1px padding */}
         <div
           className={cn(
-            "shadow-highlight/10 relative z-0 rounded-[calc(var(--radius)+1px)] p-px shadow-lg transition-all",
-            "focus-within:ring-ring/5 focus-within:border-sidebar-border focus-within:ring-4",
-            "user-message-border hover:shadow-highlight/20 focus-within:shadow-highlight/20",
+            "relative z-0 transition-all",
+            isHome
+              ? cn(
+                  "shadow-highlight/10 rounded-[calc(var(--radius)+1px)] p-px shadow-lg",
+                  "focus-within:ring-ring/5 focus-within:border-sidebar-border focus-within:ring-4",
+                  "user-message-border hover:shadow-highlight/20 focus-within:shadow-highlight/20"
+                )
+              : cn(
+                  "border-border/40 bg-card rounded-2xl border-[1.5px] shadow-[0_0_1px_0_rgba(0,0,0,0.05),0_0_2px_0_rgba(0,0,0,0.10)]",
+                  "focus-within:shadow-[0_0_0_3px_hsl(var(--chocolate-400)/0.3)]"
+                ),
             isPending && "opacity-50"
           )}
         >
@@ -579,8 +587,17 @@ export function PromptForm({
             </>
           )}
 
-          <div className="from-card/10 to-card relative flex min-h-24 flex-col rounded-lg bg-gradient-to-t">
-            <div className="bg-background absolute inset-0 -z-20 rounded-[calc(var(--radius)+1px)]" />
+          <div
+            className={cn(
+              "relative flex flex-col",
+              isHome
+                ? "from-card/10 to-card min-h-24 rounded-lg bg-gradient-to-t"
+                : "min-h-[100px]"
+            )}
+          >
+            {isHome && (
+              <div className="bg-background absolute inset-0 -z-20 rounded-[calc(var(--radius)+1px)]" />
+            )}
             <Textarea
               ref={textareaRef}
               autoFocus
@@ -598,20 +615,25 @@ export function PromptForm({
                   ? "Build features, fix bugs, and understand codebases..."
                   : "Follow-up message..."
               }
-              className="placeholder:text-muted-foreground/50 bg-transparent! max-h-48 flex-1 resize-none border-0 shadow-none focus-visible:ring-0"
+              className={cn(
+                "placeholder:text-muted-foreground/50 max-h-48 flex-1 resize-none border-0 shadow-none focus-visible:ring-0",
+                isHome ? "bg-transparent!" : "bg-transparent p-3.5 text-base"
+              )}
             />
 
             {/* Buttons inside the container */}
             <div
-              className="flex items-center justify-between gap-2 p-2"
+              className={cn(
+                "flex items-center justify-between gap-2",
+                isHome ? "p-2" : "px-3 pb-3"
+              )}
               onClick={() => textareaRef.current?.focus()}
             >
-              <ModelSelector
-                selectedModel={selectedModel}
-                handleSelectModel={handleSelectModel}
-              />
-
-              <div className="flex items-center gap-2 overflow-hidden">
+              <div className="flex min-w-0 flex-wrap items-center gap-1">
+                <ModelSelector
+                  selectedModel={selectedModel}
+                  handleSelectModel={handleSelectModel}
+                />
                 {isHome && (
                   <>
                     <LocalRepoConnection
@@ -632,7 +654,10 @@ export function PromptForm({
                     />
                   </>
                 )}
-                <div className="flex items-center gap-2">
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                {isHome ? (
                   <Button
                     type="submit"
                     size="iconSm"
@@ -641,15 +666,27 @@ export function PromptForm({
                   >
                     {isPending ? (
                       <Loader2 className="size-4 animate-spin" />
-                    ) : isStreaming && !message.trim() ? (
-                      <div className="p-0.5">
-                        <Square className="fill-primary-foreground size-3" />
-                      </div>
                     ) : (
                       <ArrowUp className="size-4" />
                     )}
                   </Button>
-                </div>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={isSubmitButtonDisabled}
+                    title="Submit"
+                    aria-label="Submit"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 disabled:bg-muted disabled:text-muted-foreground inline-flex h-7 w-9 items-center justify-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-1 text-sm font-medium shadow-sm focus:outline-none focus-visible:shadow-[0_0_0_3px_hsl(var(--chocolate-400)/0.5)] disabled:shadow-none"
+                  >
+                    {isPending ? (
+                      <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                    ) : isStreaming && !message.trim() ? (
+                      <Square className="h-4 w-4 shrink-0 fill-current" />
+                    ) : (
+                      <ArrowUp className="h-5 w-5 shrink-0" />
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
