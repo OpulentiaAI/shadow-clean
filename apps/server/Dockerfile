@@ -17,46 +17,26 @@ RUN turbo prune server --docker
 
 # Installer stage - installs dependencies from pruned workspace
 FROM base AS installer  
-RUN apk update && apk add --no-cache libc6-compat python3 make g++
+RUN apk update && apk add --no-cache libc6-compat python3 make g++ bash
 WORKDIR /app
+
+# Copy source files first (needed for Prisma schema during postinstall)
+COPY --from=builder /app/out/full/ .
+
+# Ensure scripts directory has execute permissions
+RUN chmod +x apps/server/scripts/*.sh
 
 # Copy lockfile/package manifests plus shared turbo config
 COPY --from=builder /app/out/json/ .
 COPY --from=builder /app/turbo.json ./
 RUN npm install
 
-# Copy source files and build
-COPY --from=builder /app/out/full/ .
-
 RUN rm -rf packages/db/generated/ packages/db/dist/
 RUN npm run generate --filter=@repo/db
 RUN npx turbo build --filter=@repo/db
 
-# Build the server with inline commands (replicating build script logic)
-WORKDIR /app/apps/server
-RUN rm -rf dist && \
-  echo "📦 Compiling TypeScript..." && \
-  npx tsc && \
-  echo "🔗 Flattening build structure..." && \
-  if [ -d "dist/apps/server/src" ]; then \
-  mkdir -p dist_temp && \
-  mv dist/apps/server/src/* dist_temp/ && \
-  rm -rf dist/apps && \
-  mv dist_temp/* dist/ && \
-  rm -rf dist_temp; \
-  fi && \
-  echo "🔗 Resolving path aliases..." && \
-  npx tsc-alias && \
-  echo "📄 Copying tool instruction files..." && \
-  mkdir -p dist/agent/tools/prompts && \
-  for tool_dir in src/agent/tools/prompts/*/; do \
-  if [ -d "$tool_dir" ]; then \
-  tool_name=$(basename "$tool_dir") && \
-  mkdir -p "dist/agent/tools/prompts/$tool_name" && \
-  cp "$tool_dir"*.md "dist/agent/tools/prompts/$tool_name/" 2>/dev/null || true; \
-  fi; \
-  done && \
-  echo "✅ Server build complete!"
+# Build the server using turbo (handles workspace dependencies)
+RUN npx turbo build --filter=server
 
 # Runtime stage - minimal production image
 FROM base AS runner
@@ -78,6 +58,7 @@ RUN addgroup -g 1001 server && \
 COPY --from=installer --chown=server:server /app/apps/server/dist ./apps/server/dist
 COPY --from=installer --chown=server:server /app/apps/server/package.json ./apps/server/package.json
 COPY --from=installer --chown=server:server /app/apps/server/node_modules ./apps/server/node_modules
+COPY --from=installer --chown=server:server /app/apps/server/scripts ./apps/server/scripts
 COPY --from=installer --chown=server:server /app/node_modules ./node_modules
 COPY --from=installer --chown=server:server /app/packages ./packages
 
