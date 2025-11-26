@@ -141,8 +141,8 @@ export function RichTextEditor({
         <div
           role="presentation"
           className={cn(
-            "relative cursor-text rounded-2xl border-[1.5px] border-black/[4%] bg-white shadow-[0_0_1px_0_rgba(0,0,0,0.05),0_0_2px_0_rgba(0,0,0,0.10)] transition-colors dark:border-white/10 dark:bg-zinc-900",
-            isFocused && "shadow-[0_0_0_3px_rgba(59,130,246,0.5)]"
+            "border-border/40 bg-card relative cursor-text rounded-2xl border-[1.5px] shadow-[0_0_1px_0_hsl(var(--chocolate-600)/0.1),0_0_8px_0_hsl(var(--chocolate-600)/0.08)] transition-all",
+            isFocused && "border-border shadow-[0_0_0_3px_hsl(var(--chocolate-400)/0.4)]"
           )}
         >
           <input
@@ -162,7 +162,7 @@ export function RichTextEditor({
                 <div className="relative flex h-full max-h-[400px] min-h-[120px] w-full flex-col overflow-y-auto overflow-x-hidden border-none bg-transparent p-3.5 text-base shadow-none focus:outline-none focus:ring-0">
                   {/* Placeholder - positioned as sibling to avoid contentEditable DOM conflicts */}
                   {isEmpty && (
-                    <span className="pointer-events-none absolute left-3.5 top-3.5 font-medium text-black/40 dark:text-white/40">
+                    <span className="text-muted-foreground/60 pointer-events-none absolute left-3.5 top-3.5 font-medium">
                       {placeholder}
                     </span>
                   )}
@@ -221,7 +221,7 @@ export function RichTextEditor({
                   onClick={handleCodeClick}
                   title="Code formatting"
                   aria-label="Code formatting"
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium text-black/40 hover:bg-black/[4%] focus:outline-none focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.5)] active:bg-black/[8%] disabled:bg-black/[2%] disabled:text-black/20 disabled:shadow-none dark:text-white/40 dark:hover:bg-white/10"
+                  className="text-muted-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/80 disabled:bg-muted/50 disabled:text-muted-foreground/50 inline-flex h-7 w-7 shrink-0 items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:shadow-[0_0_0_3px_hsl(var(--chocolate-400)/0.4)] disabled:shadow-none"
                 >
                   <Code2 className="h-5 w-5 shrink-0" />
                 </button>
@@ -230,7 +230,7 @@ export function RichTextEditor({
                   onClick={handleAttachClick}
                   title="Attach files"
                   aria-label="Attach files"
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium text-black/40 hover:bg-black/[4%] focus:outline-none focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.5)] active:bg-black/[8%] disabled:bg-black/[2%] disabled:text-black/20 disabled:shadow-none dark:text-white/40 dark:hover:bg-white/10"
+                  className="text-muted-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent/80 disabled:bg-muted/50 disabled:text-muted-foreground/50 inline-flex h-7 w-7 shrink-0 items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors focus:outline-none focus-visible:shadow-[0_0_0_3px_hsl(var(--chocolate-400)/0.4)] disabled:shadow-none"
                 >
                   <Paperclip className="h-5 w-5 shrink-0" />
                 </button>
@@ -239,12 +239,12 @@ export function RichTextEditor({
                   disabled={isEmpty || isDisabled}
                   title="Submit"
                   aria-label="Submit"
-                  className="inline-flex h-7 w-9 items-center justify-center gap-0.5 whitespace-nowrap rounded-full bg-[#0F0F0F] px-1.5 py-1 text-sm font-medium text-white/[92%] shadow-[0_0_0_1px_rgba(0,0,0,0.82),_0_-1px_2px_0_rgba(255,255,255,0.12)_inset,_0_1px_2px_0_rgba(255,255,255,0.16)_inset] hover:bg-[#292929] focus:outline-none focus-visible:shadow-[0_0_0_3px_rgba(59,130,246,0.5)] active:bg-[#525252] disabled:bg-[#F0F0F0] disabled:text-black/20 disabled:shadow-none"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 disabled:bg-muted disabled:text-muted-foreground inline-flex h-7 w-9 items-center justify-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-1 text-sm font-medium shadow-sm transition-colors focus:outline-none focus-visible:shadow-[0_0_0_3px_hsl(var(--chocolate-400)/0.5)] disabled:shadow-none"
                 >
                   {isPending ? (
-                    <Loader2 className="h-5 w-5 shrink-0 animate-spin text-white/80" />
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
                   ) : (
-                    <ArrowRight className="h-5 w-5 shrink-0 text-white/80" />
+                    <ArrowRight className="h-5 w-5 shrink-0" />
                   )}
                 </button>
               </div>
