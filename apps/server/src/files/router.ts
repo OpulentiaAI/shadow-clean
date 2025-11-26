@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "@repo/db";
-import { FILE_SIZE_LIMITS } from "@repo/types";
+import { FILE_SIZE_LIMITS, isLocalRepoFullName } from "@repo/types";
 import { createWorkspaceManager, createGitService } from "../execution";
 import { getGitHubFileChanges } from "../utils/github-file-changes";
 import { buildFileTree } from "./build-tree";
@@ -190,13 +190,23 @@ router.get("/:taskId/file-changes", async (req, res) => {
       });
     }
 
-    // If task workspace is INACTIVE (cleaned up), use GitHub API
+    // If task workspace is INACTIVE (cleaned up), use GitHub API (only for non-local repos)
     if (task.initStatus === "INACTIVE") {
       if (!task.repoFullName || !task.shadowBranch) {
         return res.json({
           success: true,
           fileChanges: [],
           diffStats: { additions: 0, deletions: 0, totalFiles: 0 },
+        });
+      }
+
+      // Skip GitHub API for local repos - they can't be accessed once workspace is inactive
+      if (isLocalRepoFullName(task.repoFullName)) {
+        return res.json({
+          success: true,
+          fileChanges: [],
+          diffStats: { additions: 0, deletions: 0, totalFiles: 0 },
+          message: "Local repo file changes unavailable for inactive tasks",
         });
       }
 
