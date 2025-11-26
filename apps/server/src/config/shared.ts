@@ -17,7 +17,9 @@ const USING_PAT =
 
 export const sharedConfigSchema = z.object({
   // Server configuration
-  API_PORT: z.coerce.number().default(4000),
+  // Railway provides PORT, fallback to API_PORT or 4000
+  PORT: z.coerce.number().optional(),
+  API_PORT: z.coerce.number().optional(),
   API_URL: z.string().default("http://localhost:4000"),
 
   // Environment
@@ -74,7 +76,8 @@ export const createSharedConfig = (
   data: z.infer<typeof sharedConfigSchema>
 ) => ({
   // Server
-  apiPort: data.API_PORT,
+  // Railway provides PORT, fallback to API_PORT, then 4000
+  apiPort: data.PORT || data.API_PORT || 4000,
   apiUrl: data.API_URL,
   nodeEnv: data.NODE_ENV,
   debug: data.DEBUG,
