@@ -20,8 +20,9 @@ FROM base AS installer
 RUN apk update && apk add --no-cache libc6-compat python3 make g++
 WORKDIR /app
 
-# Copy lockfile and package.json files from pruned workspace
+# Copy lockfile/package manifests plus shared turbo config
 COPY --from=builder /app/out/json/ .
+COPY --from=builder /app/turbo.json ./
 RUN npm install
 
 # Copy source files and build
