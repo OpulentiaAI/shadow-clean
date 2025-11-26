@@ -45,8 +45,9 @@ export const sharedConfigSchema = z.object({
 
   // Vector database (optional for all environments)
   PINECONE_API_KEY: z.string().optional(),
-  PINECONE_INDEX_NAME: z.string().default("shadow"),
-  EMBEDDING_MODEL: z.string().default("llama-text-embed-v2"),
+  PINECONE_INDEX_NAME: z.string().default("opulentcode"),
+  PINECONE_HOST: z.string().optional(),
+  EMBEDDING_MODEL: z.string().default("text-embedding-3-large"),
   // ShadowWiki model and concurrency settings
   CONCURRENCY: z.coerce.number().default(4),
   MODEL: z.string().default("gpt-4o"),
@@ -94,6 +95,7 @@ export const createSharedConfig = (
   // Vector DB
   pineconeApiKey: data.PINECONE_API_KEY,
   pineconeIndexName: data.PINECONE_INDEX_NAME,
+  pineconeHost: data.PINECONE_HOST,
   embeddingModel: data.EMBEDDING_MODEL,
   // ShadowWiki settings
   concurrency: data.CONCURRENCY,

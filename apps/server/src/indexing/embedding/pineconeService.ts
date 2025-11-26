@@ -17,12 +17,15 @@ class PineconeHandler {
   private indexName: string;
   private isDisabled: boolean;
 
-  // Hardcoded to shadow index for now
+  // Connect to the configured Pinecone index
   constructor(indexName: string = config.pineconeIndexName) {
     this.pc = new Pinecone({ apiKey: config.pineconeApiKey || "" }); // If no api_key, we can early return
     this.isDisabled = !config.pineconeApiKey; // If no api_key then we can early return
     this.indexName = indexName; // Constant
-    this.client = this.pc.Index(this.indexName); // Client attached to the index
+    // Use host from config if available for serverless indexes
+    this.client = config.pineconeHost 
+      ? this.pc.Index(this.indexName, config.pineconeHost)
+      : this.pc.Index(this.indexName);
     this.embeddingModel = config.embeddingModel; // Constant
   }
 
