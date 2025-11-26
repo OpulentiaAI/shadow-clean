@@ -159,7 +159,7 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
     case "openai":
       return AvailableModels.GPT_5;
     case "openrouter":
-      return AvailableModels.CLAUDE_OPUS_4_5; // Claude Opus 4.5 as default
+      return AvailableModels.XAI_GROK_4_1_FAST_FREE; // Grok 4.1 Fast (Free) with reasoning
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -188,9 +188,9 @@ export async function getAllPossibleModels(
 
   if (userApiKeys.openrouter) {
     models.push(
-      AvailableModels.CLAUDE_OPUS_4_5, // Default - Claude Opus 4.5 via OpenRouter
+      AvailableModels.XAI_GROK_4_1_FAST_FREE, // Default - Free with reasoning
       AvailableModels.XAI_GROK_3,
-      AvailableModels.XAI_GROK_4_1_FAST_FREE,
+      AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
@@ -246,11 +246,11 @@ export async function getDefaultSelectedModels(
   }
 
   if (userApiKeys.openrouter) {
-    // All OpenRouter models default - Claude Opus 4.5 first as primary
+    // All OpenRouter models default - Grok 4.1 Fast (Free) first as primary
     defaultModels.push(
-      AvailableModels.CLAUDE_OPUS_4_5, // Default model
+      AvailableModels.XAI_GROK_4_1_FAST_FREE, // Default - Free with reasoning
       AvailableModels.XAI_GROK_3,
-      AvailableModels.XAI_GROK_4_1_FAST_FREE,
+      AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,

@@ -58,10 +58,15 @@ export default async function Home() {
       if (isValidModel) {
         // Check if the model's provider has a valid API key
         const provider = getModelProvider(savedModel);
-        const hasValidKey =
-          provider === "openai"
-            ? !!apiKeys.openai && apiKeys.openai.length > 0
-            : !!apiKeys.anthropic && apiKeys.anthropic.length > 0;
+        let hasValidKey = false;
+        
+        if (provider === "openai") {
+          hasValidKey = !!apiKeys.openai && apiKeys.openai.length > 0;
+        } else if (provider === "anthropic") {
+          hasValidKey = !!apiKeys.anthropic && apiKeys.anthropic.length > 0;
+        } else if (provider === "openrouter") {
+          hasValidKey = !!apiKeys.openrouter && apiKeys.openrouter.length > 0;
+        }
 
         if (!hasValidKey) {
           initialSelectedModel = null;
