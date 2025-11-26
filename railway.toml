@@ -1,16 +1,10 @@
 [build]
 builder = "dockerfile"
-buildCommand = ""
+dockerfilePath = "apps/server/Dockerfile"
 
 [deploy]
-startCommand = "npm run start:production"
+startCommand = "node apps/server/dist/server.js"
 healthcheckPath = "/health"
-healthcheckTimeout = 30
-
-[[services]]
-name = "shadow-backend"
-root = "/"
-
-  [services.env]
-  NODE_ENV = "production"
-  AGENT_MODE = "local"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
