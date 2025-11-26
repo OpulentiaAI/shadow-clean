@@ -107,17 +107,23 @@ function AgentEnvironment({
   // Ready state - normal UI
   return (
     <div className="flex size-full h-svh flex-col overflow-hidden">
-      <div className="border-border bg-card h-13 flex shrink-0 items-center justify-between border-b px-2">
+      <div className="border-border bg-card/80 h-13 flex shrink-0 items-center justify-between border-b px-3 backdrop-blur-sm">
         {shouldUseSheet ? (
-          <SheetTitle className="font-departureMono font-normal tracking-tight">
-            Opulent OS Realm
+          <SheetTitle className="font-departureMono flex items-center gap-2 font-normal tracking-tight">
+            <OpulentLogo size="sm" />
+            <span className="from-foreground to-muted-foreground bg-gradient-to-r bg-clip-text">
+              Opulent OS Realm
+            </span>
           </SheetTitle>
         ) : (
-          <div className="font-departureMono font-normal tracking-tight">
-            Opulent OS Realm
+          <div className="font-departureMono flex items-center gap-2 font-normal tracking-tight">
+            <OpulentLogo size="sm" />
+            <span className="from-foreground to-muted-foreground bg-gradient-to-r bg-clip-text">
+              Opulent OS Realm
+            </span>
           </div>
         )}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -213,10 +219,10 @@ function AgentEnvironment({
               <button
                 type="button"
                 onClick={() => setIsTerminalCollapsed(false)}
-                className="text-muted-foreground hover:text-foreground hover:bg-card hover:border-t-sidebar-border flex h-9 w-full cursor-n-resize items-center justify-start gap-2 border-t px-2 text-sm transition-all"
+                className="text-muted-foreground hover:text-foreground hover:bg-accent/50 border-border flex h-9 w-full cursor-n-resize items-center justify-start gap-2 border-t px-3 text-sm font-medium transition-all"
               >
-                <TerminalSquare className="size-4 opacity-70" />
-                Terminal
+                <TerminalSquare className="size-4" />
+                <span>Terminal</span>
               </button>
             ) : (
               <>

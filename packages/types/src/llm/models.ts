@@ -26,6 +26,7 @@ export const AvailableModels = {
   // OpenRouter models
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5", // Default model via OpenRouter
   XAI_GROK_3: "x-ai/grok-3",
+  XAI_GROK_4_1_FAST_FREE: "x-ai/grok-4.1-fast:free", // Free tier with reasoning
   MOONSHOT_KIMI_K2: "moonshotai/kimi-k2",
   MISTRAL_CODESTRAL_2508: "mistralai/codestral-2508",
   DEEPSEEK_R1_0528: "deepseek/deepseek-r1-0528",
@@ -102,6 +103,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.XAI_GROK_3]: {
     id: AvailableModels.XAI_GROK_3,
     name: "Grok 3",
+    provider: "openrouter",
+  },
+  [AvailableModels.XAI_GROK_4_1_FAST_FREE]: {
+    id: AvailableModels.XAI_GROK_4_1_FAST_FREE,
+    name: "Grok 4.1 Fast (Free)",
     provider: "openrouter",
   },
   [AvailableModels.MOONSHOT_KIMI_K2]: {
@@ -184,6 +190,7 @@ export async function getAllPossibleModels(
     models.push(
       AvailableModels.CLAUDE_OPUS_4_5, // Default - Claude Opus 4.5 via OpenRouter
       AvailableModels.XAI_GROK_3,
+      AvailableModels.XAI_GROK_4_1_FAST_FREE,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
@@ -243,6 +250,7 @@ export async function getDefaultSelectedModels(
     defaultModels.push(
       AvailableModels.CLAUDE_OPUS_4_5, // Default model
       AvailableModels.XAI_GROK_3,
+      AvailableModels.XAI_GROK_4_1_FAST_FREE,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
