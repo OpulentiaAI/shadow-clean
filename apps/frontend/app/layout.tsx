@@ -5,20 +5,53 @@ import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { SettingsModal } from "@/components/auth/settings-modal";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const monumentGrotesk = localFont({
+  variable: "--font-monument-sans",
+  display: "swap",
+  src: [
+    {
+      path: "./fonts/ABCMonumentGrotesk-Regular-Trial.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/ABCMonumentGrotesk-Medium-Trial.otf",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "./fonts/ABCMonumentGrotesk-Bold-Trial.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const monumentGroteskMono = localFont({
+  variable: "--font-monument-mono",
+  display: "swap",
+  src: [
+    {
+      path: "./fonts/ABCMonumentGroteskMono-Regular-Trial.otf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "./fonts/ABCMonumentGroteskMono-Medium-Trial.otf",
+      weight: "500",
+      style: "normal",
+    },
+    {
+      path: "./fonts/ABCMonumentGroteskMono-Bold-Trial.otf",
+      weight: "700",
+      style: "normal",
+    },
+  ],
 });
 
 const departureMono = localFont({
@@ -55,7 +88,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${departureMono.variable} overscroll-none antialiased`}
+        className={`${monumentGrotesk.variable} ${monumentGroteskMono.variable} ${departureMono.variable} overscroll-none antialiased`}
       >
         <QueryClientProvider>
           <ThemeProvider

@@ -1,10 +1,10 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "apps/server/Dockerfile"
+dockerfilePath = "Dockerfile.frontend"
 
 [deploy]
-startCommand = "node apps/server/dist/server.js"
-healthcheckPath = "/health"
+startCommand = "node apps/frontend/server.js"
+healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
