@@ -7,18 +7,14 @@ FROM base AS installer
 RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files and source (needed for workspace resolution)
 COPY package*.json ./
 COPY turbo.json ./
-COPY apps/frontend/package*.json ./apps/frontend/
-COPY packages/*/package*.json ./packages/*/
+COPY apps/frontend/ ./apps/frontend/
+COPY packages/ ./packages/
 
 # Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY apps ./apps
-COPY packages ./packages
+RUN npm install --frozen-lockfile || npm install
 
 # Generate Prisma client (needed by frontend for BetterAuth)
 RUN npm run generate --filter=@repo/db
