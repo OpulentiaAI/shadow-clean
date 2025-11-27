@@ -1,6 +1,6 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "apps/frontend/Dockerfile"
+dockerfilePath = "Dockerfile.frontend"
 
 [deploy]
 startCommand = "node apps/frontend/server.js"
