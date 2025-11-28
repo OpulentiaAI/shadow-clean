@@ -13,15 +13,23 @@ export async function GET(
     if (error) return error;
 
     // Proxy request to backend server
+    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:4000";
+    console.log(`[FILE_TREE] Proxying to backend: ${backendUrl}/api/tasks/${taskId}/files/tree`);
+    
     const response = await makeBackendRequest(
       `/api/tasks/${taskId}/files/tree`
     );
 
     if (!response.ok) {
+      const errorBody = await response.text().catch(() => "no body");
       console.error(
         "[BACKEND_FILE_TREE_ERROR]",
         response.status,
-        response.statusText
+        response.statusText,
+        "Backend URL:",
+        backendUrl,
+        "Body:",
+        errorBody
       );
       return NextResponse.json(
         {
