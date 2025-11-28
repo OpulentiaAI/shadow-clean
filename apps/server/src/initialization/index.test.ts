@@ -106,6 +106,7 @@ describe('TaskInitializationEngine-unit-test', () => {
       shadowBranch: 'shadow/task-123',
       workspacePath: null,
       userId: 'user-123',
+      isScratchpad: false,
     } as any);
 
     vi.mocked(prisma.task.update).mockResolvedValue({} as any);
@@ -124,6 +125,7 @@ describe('TaskInitializationEngine-unit-test', () => {
       baseBranch: 'main',
       shadowBranch: 'shadow/task-123',
       userId: 'user-123',
+      isScratchpad: false,
     });
     expect(taskStatusUtils.setInitStatus).toHaveBeenCalledWith('task-123', 'ACTIVE');
     expect(taskStatusUtils.setTaskInitialized).toHaveBeenCalledWith('task-123');
@@ -139,6 +141,7 @@ describe('TaskInitializationEngine-unit-test', () => {
       shadowBranch: 'shadow/task-456',
       workspacePath: null,
       userId: 'user-456',
+      isScratchpad: false,
     } as any);
 
     // Mock prepareWorkspace to fail
