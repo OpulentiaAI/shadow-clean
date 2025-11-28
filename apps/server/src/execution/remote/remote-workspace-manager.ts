@@ -42,7 +42,8 @@ export class RemoteWorkspaceManager implements WorkspaceManager {
 
       let githubToken: string | undefined;
       if (!taskConfig.isScratchpad) {
-        githubToken = await getGitHubAccessToken(taskConfig.userId);
+        const token = await getGitHubAccessToken(taskConfig.userId);
+        githubToken = token ?? undefined;
         if (!githubToken) {
           throw new Error(
             `No GitHub access token found for user ${taskConfig.userId}`
