@@ -7,6 +7,10 @@ FROM base AS installer
 RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
+# Build-time arguments for NEXT_PUBLIC_* variables
+ARG NEXT_PUBLIC_SERVER_URL
+ENV NEXT_PUBLIC_SERVER_URL=$NEXT_PUBLIC_SERVER_URL
+
 # Copy package files and source (needed for workspace resolution)
 COPY package*.json ./
 COPY turbo.json ./
@@ -19,7 +23,7 @@ RUN npm install --frozen-lockfile || npm install
 # Generate Prisma client (needed by frontend for BetterAuth)
 RUN npm run generate --filter=@repo/db
 
-# Build the frontend
+# Build the frontend (NEXT_PUBLIC_* vars are baked in at build time)
 RUN npm run build --filter=frontend
 
 # Runtime stage - minimal production image
