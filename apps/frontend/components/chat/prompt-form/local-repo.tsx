@@ -37,6 +37,7 @@ export function LocalRepoConnection({
   selectedBranch,
   setSelectedRepo,
   setSelectedBranch,
+  disabled = false,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
@@ -46,6 +47,7 @@ export function LocalRepoConnection({
   setSelectedBranch: (
     branch: { name: string; commitSha: string } | null
   ) => void;
+  disabled?: boolean;
 }) {
   const [localPath, setLocalPath] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -149,7 +151,7 @@ export function LocalRepoConnection({
   };
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={disabled ? false : isOpen} onOpenChange={disabled ? undefined : setIsOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
@@ -160,6 +162,7 @@ export function LocalRepoConnection({
                 "text-muted-foreground hover:bg-accent shrink overflow-hidden font-normal",
                 isLocalRepo && selectedRepo && "text-foreground"
               )}
+              disabled={disabled}
             >
               {getButtonText()}
             </Button>

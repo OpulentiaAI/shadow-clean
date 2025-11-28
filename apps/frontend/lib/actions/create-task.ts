@@ -6,7 +6,15 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { z, ZodIssue } from "zod";
 import { generateTaskTitleAndBranch } from "./generate-title-branch";
-import { generateTaskId, MAX_TASKS_PER_USER_PRODUCTION, isLocalPath, getLocalRepoFullName } from "@repo/types";
+import {
+  generateTaskId,
+  MAX_TASKS_PER_USER_PRODUCTION,
+  isLocalPath,
+  getLocalRepoFullName,
+  SCRATCHPAD_BASE_BRANCH,
+  buildScratchpadRepoFullName,
+  buildScratchpadRepoUrl,
+} from "@repo/types";
 import { makeBackendRequest } from "../make-backend-request";
 
 // Dev user ID for local development without auth
@@ -24,22 +32,54 @@ function isValidRepoUrl(url: string): boolean {
   return false;
 }
 
-const createTaskSchema = z.object({
-  message: z
-    .string()
-    .min(1, "Message is required")
-    .max(100000, "Message too long"),
-  model: z.string().min(1, "Model is required"),
-  repoFullName: z.string().min(1, "Repository name is required"),
-  repoUrl: z
-    .string()
-    .min(1, "Repository URL or path is required")
-    .refine(
-      isValidRepoUrl,
-      "Must be a GitHub URL or local filesystem path"
-    ),
-  baseBranch: z.string().min(1, "Base branch is required").default("main"),
-});
+const createTaskSchema = z
+  .object({
+    message: z
+      .string()
+      .min(1, "Message is required")
+      .max(100000, "Message too long"),
+    model: z.string().min(1, "Model is required"),
+    repoFullName: z.string().min(1, "Repository name is required").optional(),
+    repoUrl: z
+      .string()
+      .min(1, "Repository URL or path is required")
+      .refine(
+        (value) => !value || isValidRepoUrl(value),
+        "Must be a GitHub URL or local filesystem path"
+      )
+      .optional(),
+    baseBranch: z.string().min(1, "Base branch is required").optional(),
+    isScratchpad: z.boolean().optional().default(false),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isScratchpad) {
+      return;
+    }
+
+    if (!data.repoFullName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Repository name is required",
+        path: ["repoFullName"],
+      });
+    }
+
+    if (!data.repoUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Repository URL or path is required",
+        path: ["repoUrl"],
+      });
+    }
+
+    if (!data.baseBranch) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Base branch is required",
+        path: ["baseBranch"],
+      });
+    }
+  });
 
 export async function createTask(formData: FormData) {
   let userId: string;
@@ -71,11 +111,12 @@ export async function createTask(formData: FormData) {
   }
 
   const rawData = {
-    message: formData.get("message") as string,
-    model: formData.get("model") as string,
-    repoFullName: formData.get("repoFullName") as string,
-    repoUrl: formData.get("repoUrl") as string,
-    baseBranch: (formData.get("baseBranch") as string) || "main",
+    message: formData.get("message"),
+    model: formData.get("model"),
+    repoFullName: formData.get("repoFullName") ?? undefined,
+    repoUrl: formData.get("repoUrl") ?? undefined,
+    baseBranch: formData.get("baseBranch") ?? undefined,
+    isScratchpad: formData.get("isScratchpad") === "true",
   };
   const validation = createTaskSchema.safeParse(rawData);
   if (!validation.success) {
@@ -85,13 +126,28 @@ export async function createTask(formData: FormData) {
     throw new Error(`Validation failed: ${errorMessage}`);
   }
 
-  const { message, model, repoUrl, baseBranch } = validation.data;
-  
-  // For local paths, generate a proper repoFullName (local/<repo-name>)
-  // For GitHub repos, use the provided repoFullName
-  const repoFullName = isLocalPath(repoUrl) 
-    ? getLocalRepoFullName(repoUrl)
-    : validation.data.repoFullName;
+  const { message, model, isScratchpad } = validation.data;
+
+  const taskId = generateTaskId();
+
+  let repoUrl: string;
+  let repoFullName: string;
+  let baseBranch = validation.data.baseBranch || "main";
+
+  if (isScratchpad) {
+    repoUrl = buildScratchpadRepoUrl(taskId);
+    repoFullName = buildScratchpadRepoFullName(taskId);
+    baseBranch = SCRATCHPAD_BASE_BRANCH;
+  } else {
+    if (!validation.data.repoUrl || !validation.data.repoFullName) {
+      throw new Error("Repository information is required");
+    }
+
+    repoUrl = validation.data.repoUrl;
+    repoFullName = isLocalPath(repoUrl)
+      ? getLocalRepoFullName(repoUrl)
+      : validation.data.repoFullName;
+  }
 
   // Check task limit in production only
   if (process.env.NODE_ENV === "production") {
@@ -109,7 +165,6 @@ export async function createTask(formData: FormData) {
     }
   }
 
-  const taskId = generateTaskId();
   let task: Task;
 
   try {
@@ -130,6 +185,7 @@ export async function createTask(formData: FormData) {
         shadowBranch,
         baseCommitSha: "pending",
         status: "INITIALIZING",
+        isScratchpad,
         user: {
           connect: {
             id: userId,

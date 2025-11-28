@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "@repo/db";
-import { FILE_SIZE_LIMITS, isLocalRepoFullName } from "@repo/types";
+import { FILE_SIZE_LIMITS, isLocalRepoFullName, isScratchpadRepoFullName } from "@repo/types";
 import { createWorkspaceManager, createGitService } from "../execution";
 import { getGitHubFileChanges } from "../utils/github-file-changes";
 import { buildFileTree } from "./build-tree";
@@ -201,7 +201,10 @@ router.get("/:taskId/file-changes", async (req, res) => {
       }
 
       // Skip GitHub API for local repos - they can't be accessed once workspace is inactive
-      if (isLocalRepoFullName(task.repoFullName)) {
+      if (
+        isLocalRepoFullName(task.repoFullName) ||
+        isScratchpadRepoFullName(task.repoFullName)
+      ) {
         return res.json({
           success: true,
           fileChanges: [],

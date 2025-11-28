@@ -8,6 +8,8 @@ import type { FilteredRepository as Repository } from "@/lib/github/types";
 import { GithubConnection } from "./github";
 import { LocalRepoConnection } from "./local-repo";
 import { ModelSelector } from "./model-selector";
+import { ScratchpadToggle } from "./scratchpad-toggle";
+import { Badge } from "@/components/ui/badge";
 
 type RichTextEditorProps = {
   placeholder?: string;
@@ -20,6 +22,8 @@ type RichTextEditorProps = {
   setSelectedRepo: (repo: Repository | null) => void;
   selectedBranch: { name: string; commitSha: string } | null;
   setSelectedBranch: (branch: { name: string; commitSha: string } | null) => void;
+  isScratchpadMode: boolean;
+  onToggleScratchpad: (next: boolean) => void;
   isDisabled?: boolean;
   isPending?: boolean;
   isHome?: boolean;
@@ -36,6 +40,8 @@ export function RichTextEditor({
   setSelectedRepo,
   selectedBranch,
   setSelectedBranch,
+  isScratchpadMode,
+  onToggleScratchpad,
   isDisabled = false,
   isPending = false,
   isHome = false,
@@ -187,13 +193,10 @@ export function RichTextEditor({
             {/* Bottom toolbar */}
             <div className="flex min-w-0 flex-row items-center justify-between gap-2 px-3 pb-3">
               <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {/* Model Selector */}
                 <ModelSelector
                   selectedModel={selectedModel}
                   handleSelectModel={onSelectModel}
                 />
-                
-                {/* Local Repo Selector */}
                 <LocalRepoConnection
                   isOpen={isLocalRepoOpen}
                   setIsOpen={setIsLocalRepoOpen}
@@ -201,9 +204,8 @@ export function RichTextEditor({
                   selectedBranch={selectedBranch}
                   setSelectedRepo={setSelectedRepo}
                   setSelectedBranch={setSelectedBranch}
+                  disabled={isScratchpadMode}
                 />
-                
-                {/* GitHub Repo Selector */}
                 <GithubConnection
                   isOpen={isGithubOpen}
                   setIsOpen={setIsGithubOpen}
@@ -211,7 +213,17 @@ export function RichTextEditor({
                   selectedBranch={selectedBranch}
                   setSelectedRepo={setSelectedRepo}
                   setSelectedBranch={setSelectedBranch}
+                  disabled={isScratchpadMode}
                 />
+                <ScratchpadToggle
+                  active={isScratchpadMode}
+                  onToggle={onToggleScratchpad}
+                />
+                {isScratchpadMode && (
+                  <Badge variant="secondary" className="border px-2 py-0 text-xs">
+                    Scratchpad active
+                  </Badge>
+                )}
               </div>
 
               {/* Right side buttons */}

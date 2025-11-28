@@ -83,6 +83,8 @@ model Task {
   // Repo URL "https://github.com/owner/repo"
   repoUrl      String
 
+  isScratchpad Boolean   @default(false)
+
   // User's selected LLM model for this task - updated on each user message
   // Used for context-aware operations (commits, PR generation, etc.)
   mainModel                   String?

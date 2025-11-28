@@ -40,15 +40,16 @@ export class RemoteWorkspaceManager implements WorkspaceManager {
         `[REMOTE_WM] Preparing remote VM workspace for task ${taskConfig.id}`
       );
 
-      // Get GitHub access token for the user
-      const githubToken = await getGitHubAccessToken(taskConfig.userId);
-      if (!githubToken) {
-        throw new Error(
-          `No GitHub access token found for user ${taskConfig.userId}`
-        );
+      let githubToken: string | undefined;
+      if (!taskConfig.isScratchpad) {
+        githubToken = await getGitHubAccessToken(taskConfig.userId);
+        if (!githubToken) {
+          throw new Error(
+            `No GitHub access token found for user ${taskConfig.userId}`
+          );
+        }
       }
 
-      // Create the remote VM pod using the VM runner
       const createdPod = await this.vmRunner.createVMPod(
         taskConfig,
         githubToken

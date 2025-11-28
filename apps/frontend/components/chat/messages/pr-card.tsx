@@ -26,7 +26,17 @@ export function PRCard({
 }) {
   const { task } = useTask(taskId);
 
-  const prUrl = `${task?.repoUrl}/pull/${task?.pullRequestNumber}`;
+  if (
+    !task ||
+    task.isScratchpad ||
+    !task.pullRequestNumber ||
+    !task.repoUrl ||
+    !task.repoUrl.startsWith("http")
+  ) {
+    return null;
+  }
+
+  const prUrl = `${task.repoUrl}/pull/${task.pullRequestNumber}`;
 
   return (
     <>

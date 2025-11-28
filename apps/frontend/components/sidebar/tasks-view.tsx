@@ -5,7 +5,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { Task, TaskStatus } from "@repo/types";
+import {
+  type Task,
+  type TaskStatus,
+  getStatusText,
+  SCRATCHPAD_DISPLAY_NAME,
+} from "@repo/types";
 import {
   ChevronDown,
   Folder,
@@ -18,6 +23,7 @@ import {
   ListFilter,
   Copy,
   Trash,
+  Sparkles,
 } from "lucide-react";
 import {
   Popover,
@@ -36,7 +42,6 @@ import {
   ContextMenuTrigger,
 } from "../ui/context-menu";
 import { statusColorsConfig, statusOrder, getDisplayStatus } from "./status";
-import { getStatusText } from "@repo/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useRef, useState } from "react";
@@ -45,6 +50,7 @@ import { useArchiveTask } from "@/hooks/tasks/use-archive-task";
 import { useDeleteTask } from "@/hooks/tasks/use-delete-task";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { Badge } from "../ui/badge";
 import { GithubLogo } from "@/components/graphics/github/github-logo";
 import { toast } from "sonner";
 import {
@@ -58,6 +64,7 @@ import {
 type TaskGroup = {
   repoName: string;
   tasks: Task[];
+  isScratchpad: boolean;
 };
 
 type GroupedTasks = {
@@ -136,9 +143,13 @@ export function SidebarTasksView({
       if (!searchQuery.trim()) return true;
 
       const query = searchQuery.toLowerCase().trim();
+      const repoName = task.isScratchpad
+        ? SCRATCHPAD_DISPLAY_NAME.toLowerCase()
+        : task.repoFullName.toLowerCase();
+
       return (
         task.title.toLowerCase().includes(query) ||
-        task.repoFullName.toLowerCase().includes(query) ||
+        repoName.includes(query) ||
         (task.shadowBranch &&
           task.shadowBranch.toLowerCase().includes(query)) ||
         task.status.toLowerCase().includes(query)
@@ -154,15 +165,19 @@ export function SidebarTasksView({
   const groupedByStatus: GroupedByStatus = {};
 
   if (groupBy === "repo") {
-    // Group by repository
+    // Group by repository (scratchpads share a virtual group)
     tasks.forEach((task) => {
-      if (!groupedTasks[task.repoUrl]) {
-        groupedTasks[task.repoUrl] = {
-          repoName: task.repoFullName,
+      const groupKey = task.isScratchpad ? "scratchpad" : task.repoUrl;
+      if (!groupedTasks[groupKey]) {
+        groupedTasks[groupKey] = {
+          repoName: task.isScratchpad
+            ? SCRATCHPAD_DISPLAY_NAME
+            : task.repoFullName,
           tasks: [],
+          isScratchpad: task.isScratchpad,
         };
       }
-      groupedTasks[task.repoUrl]?.tasks.push(task);
+      groupedTasks[groupKey]?.tasks.push(task);
     });
 
     // Sort tasks within each repo group by status priority, then by updated date
@@ -200,7 +215,16 @@ export function SidebarTasksView({
   // Helper function to render task item
   const renderTaskItem = (task: Task) => {
     const displayStatus = getDisplayStatus(task);
-    const StatusIcon = statusColorsConfig[displayStatus as keyof typeof statusColorsConfig].icon;
+    const StatusIcon =
+      statusColorsConfig[displayStatus as keyof typeof statusColorsConfig].icon;
+    const repoDisplayName = task.isScratchpad
+      ? SCRATCHPAD_DISPLAY_NAME
+      : task.repoFullName;
+    const truncatedRepoName =
+      repoDisplayName && repoDisplayName.length > 20
+        ? `${repoDisplayName.slice(0, 20)}...`
+        : repoDisplayName;
+
     return (
       <SidebarMenuItem key={task.id}>
         <ContextMenu>
@@ -227,14 +251,16 @@ export function SidebarTasksView({
                     </>
                   ) : (
                     <>
-                      <Folder className="size-3 shrink-0" />
+                      {task.isScratchpad ? (
+                        <Sparkles className="size-3 shrink-0" />
+                      ) : (
+                        <Folder className="size-3 shrink-0" />
+                      )}
                       <span
                         className="mr-0.5 whitespace-nowrap"
-                        title={task.repoFullName}
+                        title={repoDisplayName}
                       >
-                        {task.repoFullName && task.repoFullName.length > 20
-                          ? `${task.repoFullName.slice(0, 20)}...`
-                          : task.repoFullName}
+                        {truncatedRepoName}
                       </span>
                     </>
                   )}
@@ -242,18 +268,25 @@ export function SidebarTasksView({
                   <span className="truncate" title={task.shadowBranch}>
                     {task.shadowBranch}
                   </span>
+                  {task.isScratchpad && (
+                    <Badge className="bg-sidebar-accent border-sidebar-border text-[10px] uppercase tracking-tight">
+                      Scratchpad
+                    </Badge>
+                  )}
                 </div>
               </a>
             </SidebarMenuButton>
           </ContextMenuTrigger>
           <ContextMenuContent className="bg-sidebar-accent border-sidebar-border">
-            <ContextMenuItem
-              onClick={() => handleOpenInGithub(task.repoUrl)}
-              className="text-muted-foreground hover:text-foreground hover:bg-sidebar-border! h-7"
-            >
-              <GithubLogo className="size-3.5 text-inherit" />
-              <span className="text-[13px]">Open in GitHub</span>
-            </ContextMenuItem>
+            {!task.isScratchpad && (
+              <ContextMenuItem
+                onClick={() => handleOpenInGithub(task.repoUrl)}
+                className="text-muted-foreground hover:text-foreground hover:bg-sidebar-border! h-7"
+              >
+                <GithubLogo className="size-3.5 text-inherit" />
+                <span className="text-[13px]">Open in GitHub</span>
+              </ContextMenuItem>
+            )}
             <ContextMenuItem
               onClick={() => handleCopyBranchName(task.shadowBranch)}
               className="text-muted-foreground hover:text-foreground hover:bg-sidebar-border! h-7"
@@ -530,8 +563,17 @@ function RepoGroup({
       <SidebarGroup>
         <SidebarGroupLabel asChild>
           <CollapsibleTrigger>
-            <Folder className="mr-1.5 !size-3.5" />
-            {group.repoName}
+            {group.isScratchpad ? (
+              <Sparkles className="mr-1.5 !size-3.5" />
+            ) : (
+              <Folder className="mr-1.5 !size-3.5" />
+            )}
+            <span className="truncate">{group.repoName}</span>
+            {group.isScratchpad && (
+              <Badge className="bg-sidebar-accent border-sidebar-border text-[10px] uppercase tracking-tight">
+                Scratchpad
+              </Badge>
+            )}
             <ChevronDown className="ml-auto -rotate-90 opacity-70 transition-transform group-data-[state=open]/collapsible:rotate-0" />
           </CollapsibleTrigger>
         </SidebarGroupLabel>

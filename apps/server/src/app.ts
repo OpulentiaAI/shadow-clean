@@ -149,18 +149,31 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
 
     const task = await prisma.task.findUnique({
       where: { id: taskId },
+      select: {
+        id: true,
+        repoFullName: true,
+        repoUrl: true,
+        baseBranch: true,
+        shadowBranch: true,
+        isScratchpad: true,
+      },
     });
 
     if (!task) {
       return res.status(404).json({ error: "Task not found" });
     }
 
+    const isScratchpad = task.isScratchpad;
+
     // Check if this is a local repository (doesn't require GitHub auth)
-    const isLocalRepo = task.repoFullName.startsWith("local/") || 
-      (task.repoUrl && (task.repoUrl.startsWith("/") || task.repoUrl.startsWith("~")));
+    const isLocalRepo =
+      isScratchpad ||
+      task.repoFullName.startsWith("local/") ||
+      (task.repoUrl &&
+        (task.repoUrl.startsWith("/") || task.repoUrl.startsWith("~")));
 
     console.log(
-      `[TASK_INITIATE] Starting task ${taskId}: ${task.repoUrl}:${task.baseBranch || "unknown"} (local: ${isLocalRepo})`
+      `[TASK_INITIATE] Starting task ${taskId}: ${task.repoUrl}:${task.baseBranch || "unknown"} (local: ${isLocalRepo}, scratchpad: ${isScratchpad})`
     );
 
     try {
@@ -394,6 +407,7 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
         repoUrl: true,
         pullRequestNumber: true,
         workspacePath: true,
+        isScratchpad: true,
       },
     });
 
@@ -410,6 +424,13 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
       return res.status(403).json({
         success: false,
         error: "Unauthorized",
+      });
+    }
+
+    if (task.isScratchpad) {
+      return res.status(400).json({
+        success: false,
+        error: "Scratchpad workspaces cannot create pull requests",
       });
     }
 

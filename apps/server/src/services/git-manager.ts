@@ -48,7 +48,8 @@ export class GitManager {
    */
   async createShadowBranch(
     baseBranch: string,
-    shadowBranch: string
+    shadowBranch: string,
+    options?: { skipPush?: boolean }
   ): Promise<string> {
     try {
       // Try to checkout the base branch, fall back to current branch if it doesn't exist
@@ -69,18 +70,18 @@ export class GitManager {
       // Create and checkout the shadow branch
       await this.execGit(`checkout -b ${shadowBranch}`);
 
-      // Immediately publish the branch to remote so it's available for collaboration
-      try {
-        await this.pushBranch(shadowBranch, true);
-        console.log(
-          `[GIT_MANAGER] Published shadow branch to remote: ${shadowBranch}`
-        );
-      } catch (pushError) {
-        console.warn(
-          `[GIT_MANAGER] Failed to publish shadow branch (continuing locally):`,
-          pushError
-        );
-        // Don't fail the entire operation if push fails - branch still works locally
+      if (!options?.skipPush) {
+        try {
+          await this.pushBranch(shadowBranch, true);
+          console.log(
+            `[GIT_MANAGER] Published shadow branch to remote: ${shadowBranch}`
+          );
+        } catch (pushError) {
+          console.warn(
+            `[GIT_MANAGER] Failed to publish shadow branch (continuing locally):`,
+            pushError
+          );
+        }
       }
 
       console.log(

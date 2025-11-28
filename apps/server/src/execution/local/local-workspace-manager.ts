@@ -15,6 +15,7 @@ import { LocalToolExecutor } from "./local-tool-executor";
 import { GitManager } from "../../services/git-manager";
 import { prisma } from "@repo/db";
 import logger from "@/indexing/logger";
+import { SCRATCHPAD_DISPLAY_NAME } from "@repo/types";
 
 /**
  * LocalWorkspaceManager implements workspace management for local filesystem execution
@@ -77,6 +78,33 @@ export class LocalWorkspaceManager implements WorkspaceManager {
     }
   }
 
+  private async prepareScratchpadWorkspace(
+    workspacePath: string,
+    taskConfig: TaskConfig
+  ): Promise<string | null> {
+    const readmePath = path.join(workspacePath, "README.md");
+    const content = `# ${SCRATCHPAD_DISPLAY_NAME}\n\nThis workspace starts empty so you can experiment without cloning a repository.\n\nTask: ${taskConfig.id}`;
+    await fs.writeFile(readmePath, content, "utf8");
+    const gitManager = new GitManager(workspacePath);
+    await gitManager.initializeGitRepo();
+    await gitManager.configureGitUser({
+      name: "Shadow",
+      email: "noreply@shadowrealm.ai",
+    });
+    const targetBranch = taskConfig.baseBranch || "main";
+    await gitManager.execGit(`checkout -B ${targetBranch}`);
+    await gitManager.execGit("add .");
+    await gitManager.execGit(
+      'commit -m "Initialize scratchpad workspace" --allow-empty'
+    );
+    try {
+      const commitSha = await gitManager.getCurrentCommitSha();
+      return commitSha;
+    } catch (_error) {
+      return null;
+    }
+  }
+
   async prepareWorkspace(taskConfig: TaskConfig): Promise<WorkspaceInfo> {
     const {
       id: taskId,
@@ -93,28 +121,41 @@ export class LocalWorkspaceManager implements WorkspaceManager {
         `[LOCAL_WORKSPACE] Preparing workspace for task ${taskId} at ${workspacePath}`
       );
 
-      // Ensure workspace directory exists and is clean
       await this.ensureWorkspaceExists(workspacePath);
 
-      // Clone the repository (supports both GitHub and local paths)
-      const cloneResult = await this.repositoryService.cloneRepository(
-        repoFullName,
-        baseBranch,
-        workspacePath,
-        userId,
-        repoUrl // Pass repoUrl for local path detection
-      );
+      let cloneResult;
 
-      if (!cloneResult.success) {
-        return {
-          success: false,
+      if (taskConfig.isScratchpad) {
+        const commitSha = await this.prepareScratchpadWorkspace(
           workspacePath,
-          cloneResult,
-          error: cloneResult.error,
+          taskConfig
+        );
+        cloneResult = {
+          success: true,
+          workspacePath,
+          commitSha: commitSha || undefined,
+          clonedAt: new Date(),
+          isLocal: true,
         };
+      } else {
+        cloneResult = await this.repositoryService.cloneRepository(
+          repoFullName,
+          baseBranch,
+          workspacePath,
+          userId,
+          repoUrl
+        );
+
+        if (!cloneResult.success) {
+          return {
+            success: false,
+            workspacePath,
+            cloneResult,
+            error: cloneResult.error,
+          };
+        }
       }
 
-      // Verify the clone was successful by checking for .git directory
       try {
         const gitDir = path.join(workspacePath, ".git");
         await fs.access(gitDir);
@@ -127,14 +168,14 @@ export class LocalWorkspaceManager implements WorkspaceManager {
         };
       }
 
-      // Set up git configuration and create shadow branch
       try {
         await this.setupGitForTask(
           taskId,
           workspacePath,
           baseBranch,
           shadowBranch,
-          userId
+          userId,
+          taskConfig.isScratchpad || false
         );
       } catch (error) {
         console.error(
@@ -181,7 +222,8 @@ export class LocalWorkspaceManager implements WorkspaceManager {
     workspacePath: string,
     baseBranch: string,
     shadowBranch: string,
-    userId: string
+    userId: string,
+    skipPush: boolean
   ): Promise<void> {
     const gitManager = new GitManager(workspacePath);
 
@@ -205,7 +247,8 @@ export class LocalWorkspaceManager implements WorkspaceManager {
       // Create and checkout shadow branch, get the base commit SHA
       const baseCommitSha = await gitManager.createShadowBranch(
         baseBranch,
-        shadowBranch
+        shadowBranch,
+        { skipPush }
       );
 
       // Update task in database with base commit SHA
