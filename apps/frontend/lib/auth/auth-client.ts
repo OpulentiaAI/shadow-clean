@@ -2,7 +2,9 @@ import { createAuthClient } from "better-auth/react";
 
 const baseURL = process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`
-  : "http://localhost:3000";
+  : process.env.NEXT_PUBLIC_RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.NEXT_PUBLIC_RAILWAY_PUBLIC_DOMAIN}`
+    : "http://localhost:3000";
 
 export const authClient: ReturnType<typeof createAuthClient> = createAuthClient({
   baseURL,
