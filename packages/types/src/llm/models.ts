@@ -28,6 +28,7 @@ export const AvailableModels = {
   XAI_GROK_3: "x-ai/grok-3",
   XAI_GROK_4_1_FAST_FREE: "x-ai/grok-4.1-fast:free", // Free tier with reasoning
   MOONSHOT_KIMI_K2: "moonshotai/kimi-k2",
+  MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_CODESTRAL_2508: "mistralai/codestral-2508",
   DEEPSEEK_R1_0528: "deepseek/deepseek-r1-0528",
   DEEPSEEK_CHAT_V3_0324: "deepseek/deepseek-chat-v3-0324",
@@ -115,6 +116,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "Kimi K2",
     provider: "openrouter",
   },
+  [AvailableModels.MOONSHOT_KIMI_K2_THINKING]: {
+    id: AvailableModels.MOONSHOT_KIMI_K2_THINKING,
+    name: "Kimi K2 Thinking",
+    provider: "openrouter",
+  },
   [AvailableModels.MISTRAL_CODESTRAL_2508]: {
     id: AvailableModels.MISTRAL_CODESTRAL_2508,
     name: "Codestral 2508",
@@ -192,6 +198,7 @@ export async function getAllPossibleModels(
       AvailableModels.XAI_GROK_3,
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
+      AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
@@ -252,6 +259,7 @@ export async function getDefaultSelectedModels(
       AvailableModels.XAI_GROK_3,
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
+      AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
