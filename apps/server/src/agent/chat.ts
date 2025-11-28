@@ -249,6 +249,11 @@ export class ChatService {
         return false;
       }
 
+      if (task.isScratchpad) {
+        console.log(`[CHAT] Task ${taskId} is a scratchpad workspace, skipping git commit`);
+        return false;
+      }
+
       if (!task.shadowBranch) {
         console.warn(
           `[CHAT] No shadow branch configured for task ${taskId}, skipping git commit`
@@ -385,6 +390,11 @@ export class ChatService {
 
       if (!task) {
         console.warn(`[CHAT] Task not found for PR creation: ${taskId}`);
+        return;
+      }
+
+      if (task.isScratchpad) {
+        console.log(`[CHAT] Task ${taskId} is a scratchpad workspace, skipping PR creation`);
         return;
       }
 

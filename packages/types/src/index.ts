@@ -34,6 +34,7 @@ export * from "./utils/repo-path";
 
 // === Task Status Types ===
 export * from "./tasks";
+export * from "./tasks/scratchpad";
 
 // === Codebase Understanding Types ===
 export * from "./codebase-understanding/summaries";

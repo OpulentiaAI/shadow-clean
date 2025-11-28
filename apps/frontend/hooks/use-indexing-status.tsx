@@ -12,10 +12,13 @@ export interface IndexingStatusResponse {
   lastCommitSha?: string | null;
 }
 
-export function useIndexingStatus(repoFullName: string) {
+export function useIndexingStatus(repoFullName?: string | null) {
   return useQuery<IndexingStatusResponse>({
     queryKey: ["indexing-status", repoFullName],
     queryFn: async () => {
+      if (!repoFullName) {
+        throw new Error("Repository not provided");
+      }
       const response = await fetch(
         `/api/indexing-status/${encodeURIComponent(repoFullName)}`
       );
@@ -26,6 +29,7 @@ export function useIndexingStatus(repoFullName: string) {
 
       return response.json();
     },
+    enabled: !!repoFullName,
     refetchInterval: (query) => {
       // Poll every 2 seconds while indexing, stop when completed/failed
       return query.state.data?.status === "indexing" ? 2000 : false;

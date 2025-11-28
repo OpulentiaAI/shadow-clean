@@ -19,6 +19,7 @@ export interface TaskConfig {
   baseBranch: string;
   shadowBranch: string;
   userId: string;
+  isScratchpad?: boolean;
 }
 
 export interface WorkspaceInfo {

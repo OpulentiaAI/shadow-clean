@@ -48,6 +48,7 @@ export function HomePageContent({
     name: string;
     commitSha: string;
   } | null>(initialGitCookieState?.branch || null);
+  const [isScratchpadMode, setIsScratchpadMode] = useState(false);
   
   // Use refs to always have latest values in callbacks (avoids stale closure)
   const repoRef = useRef<FilteredRepository | null>(repo);
@@ -140,35 +141,47 @@ export function HomePageContent({
       toast.error("Please select a model first");
       return;
     }
-    if (!currentRepo || !currentBranch) {
-      console.log("Missing repo or branch:", { 
-        repo: currentRepo ? { name: currentRepo.name, full_name: currentRepo.full_name } : null, 
-        branch: currentBranch ? { name: currentBranch.name } : null 
-      });
-      toast.error("Please select a repository first");
-      return;
-    }
     if (!messageToSubmit.trim()) {
       toast.error("Please enter a message");
       return;
     }
 
-    // Check if this is a local repo
-    const isLocalRepo = currentRepo.full_name.startsWith("/") || 
-                        currentRepo.full_name.startsWith("~") ||
-                        currentRepo.owner?.type === "local";
-    
-    const repoUrl = isLocalRepo ? currentRepo.full_name : `https://github.com/${currentRepo.full_name}`;
-    
-    console.log("Submitting task with:", { repoUrl, repoFullName: currentRepo.full_name, baseBranch: currentBranch.name });
-
     const formData = new FormData();
     formData.append("message", messageToSubmit);
     formData.append("model", selectedModel);
-    formData.append("repoUrl", repoUrl);
-    formData.append("repoFullName", currentRepo.full_name);
-    formData.append("baseBranch", currentBranch.name);
-    formData.append("baseCommitSha", currentBranch.commitSha);
+
+    if (isScratchpadMode) {
+      formData.append("isScratchpad", "true");
+    } else {
+      if (!currentRepo || !currentBranch) {
+        console.log("Missing repo or branch:", {
+          repo: currentRepo ? { name: currentRepo.name, full_name: currentRepo.full_name } : null,
+          branch: currentBranch ? { name: currentBranch.name } : null,
+        });
+        toast.error("Please select a repository first");
+        return;
+      }
+
+      const isLocalRepo =
+        currentRepo.full_name.startsWith("/") ||
+        currentRepo.full_name.startsWith("~") ||
+        currentRepo.owner?.type === "local";
+
+      const repoUrl = isLocalRepo
+        ? currentRepo.full_name
+        : `https://github.com/${currentRepo.full_name}`;
+
+      console.log("Submitting task with:", {
+        repoUrl,
+        repoFullName: currentRepo.full_name,
+        baseBranch: currentBranch.name,
+      });
+
+      formData.append("repoUrl", repoUrl);
+      formData.append("repoFullName", currentRepo.full_name);
+      formData.append("baseBranch", currentBranch.name);
+      formData.append("baseCommitSha", currentBranch.commitSha);
+    }
 
     startTransition(async () => {
       let taskId: string | null = null;
@@ -250,13 +263,15 @@ export function HomePageContent({
         setSelectedRepo={setRepo}
         selectedBranch={branch}
         setSelectedBranch={setBranch}
+        isScratchpadMode={isScratchpadMode}
+        onToggleScratchpad={setIsScratchpadMode}
         isDisabled={false}
         isPending={isPending}
         isHome
       />
 
       {/* GitHub issues - only show for GitHub repos, not local repos */}
-      {repo && branch && !repo.full_name.startsWith("/") && !repo.full_name.startsWith("~") && repo.owner?.type !== "local" && (
+      {repo && branch && !isScratchpadMode && !repo.full_name.startsWith("/") && !repo.full_name.startsWith("~") && repo.owner?.type !== "local" && (
         <div className="mt-6 w-full max-w-[805px] px-4">
           <RepoIssues
             repository={repo}

@@ -180,6 +180,7 @@ export class TaskInitializationEngine {
         repoUrl: true,
         baseBranch: true,
         shadowBranch: true,
+        isScratchpad: true,
       },
     });
 
@@ -196,6 +197,7 @@ export class TaskInitializationEngine {
         baseBranch: task.baseBranch || "main",
         shadowBranch: task.shadowBranch || `shadow/task-${taskId}`,
         userId,
+        isScratchpad: task.isScratchpad || false,
       });
 
     if (!workspaceResult.success) {
@@ -232,6 +234,7 @@ export class TaskInitializationEngine {
           repoUrl: true,
           baseBranch: true,
           shadowBranch: true,
+          isScratchpad: true,
         },
       });
 
@@ -247,6 +250,7 @@ export class TaskInitializationEngine {
           baseBranch: task.baseBranch || "main",
           shadowBranch: task.shadowBranch || `shadow/task-${taskId}`,
           userId,
+          isScratchpad: task.isScratchpad || false,
         });
 
       if (!workspaceInfo.success) {
@@ -485,10 +489,23 @@ export class TaskInitializationEngine {
   ): Promise<void> {
     try {
       // Get user settings to determine which services to start
-      const userSettings = await prisma.userSettings.findUnique({
-        where: { userId },
-        select: { enableShadowWiki: true, enableIndexing: true },
-      });
+      const [userSettings, task] = await Promise.all([
+        prisma.userSettings.findUnique({
+          where: { userId },
+          select: { enableShadowWiki: true, enableIndexing: true },
+        }),
+        prisma.task.findUnique({
+          where: { id: taskId },
+          select: { isScratchpad: true },
+        }),
+      ]);
+
+      if (task?.isScratchpad) {
+        console.log(
+          `[TASK_INIT] ${taskId}: Skipping background services for scratchpad workspace`
+        );
+        return;
+      }
 
       const enableShadowWiki = userSettings?.enableShadowWiki ?? true;
       const enableIndexing = userSettings?.enableIndexing ?? false;

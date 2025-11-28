@@ -92,7 +92,7 @@ export class RemoteVMRunner {
    */
   createRemoteVMPodSpec(
     taskConfig: TaskConfig,
-    githubToken: string
+    githubToken?: string
   ): k8s.V1Pod {
     // Use GitHub Container Registry sidecar image built by CI
     const sidecarImage = config.vmImageRegistry
@@ -156,21 +156,33 @@ export class RemoteVMRunner {
                 value: taskConfig.baseBranch,
               },
               {
+                name: "IS_SCRATCHPAD",
+                value: taskConfig.isScratchpad ? "true" : "false",
+              },
+              {
                 name: "GITHUB_TOKEN",
-                value: githubToken,
+                value: githubToken || "",
               },
             ],
             command: ["/bin/sh", "-c"],
             args: [
               `
-              echo "Cloning repository \${REPO_URL} (branch: \${BASE_BRANCH})"
-              
-              # Clone repository to workspace
-              cd /workspace
-              git clone --depth 1 --branch "\${BASE_BRANCH}" "https://\${GITHUB_TOKEN}@\${REPO_URL#https://}" .
-              
-              echo "Repository cloned successfully"
-              ls -la /workspace
+              if [ "\${IS_SCRATCHPAD}" = "true" ]; then
+                cd /workspace
+                git init
+                git checkout -B "\${BASE_BRANCH}"
+                git config user.name "Shadow"
+                git config user.email "noreply@shadowrealm.ai"
+                echo "# Scratchpad" > README.md
+                git add .
+                git commit -m "Initialize scratchpad workspace" --allow-empty
+              else
+                echo "Cloning repository \${REPO_URL} (branch: \${BASE_BRANCH})"
+                cd /workspace
+                git clone --depth 1 --branch "\${BASE_BRANCH}" "https://\${GITHUB_TOKEN}@\${REPO_URL#https://}" .
+                echo "Repository cloned successfully"
+                ls -la /workspace
+              fi
               `,
             ],
             volumeMounts: [
@@ -210,8 +222,12 @@ export class RemoteVMRunner {
                 value: taskConfig.shadowBranch,
               },
               {
+                name: "IS_SCRATCHPAD",
+                value: taskConfig.isScratchpad ? "true" : "false",
+              },
+              {
                 name: "GITHUB_TOKEN",
-                value: githubToken,
+                value: githubToken || "",
               },
               {
                 name: "USER_ID",
@@ -288,7 +304,7 @@ export class RemoteVMRunner {
 
   async createVMPod(
     taskConfig: TaskConfig,
-    githubToken: string
+    githubToken?: string
   ): Promise<k8s.V1Pod> {
     const podSpec = this.createRemoteVMPodSpec(taskConfig, githubToken);
 

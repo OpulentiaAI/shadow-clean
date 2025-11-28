@@ -43,6 +43,7 @@ export function GithubConnection({
   selectedBranch,
   setSelectedRepo,
   setSelectedBranch,
+  disabled = false,
 }: {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
@@ -52,6 +53,7 @@ export function GithubConnection({
   setSelectedBranch: (
     branch: { name: string; commitSha: string } | null
   ) => void;
+  disabled?: boolean;
 }) {
   const [repoSearch, setRepoSearch] = useState("");
   const [branchSearch, setBranchSearch] = useState("");
@@ -411,7 +413,7 @@ export function GithubConnection({
   );
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={disabled ? false : isOpen} onOpenChange={disabled ? undefined : setIsOpen}>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
@@ -419,6 +421,7 @@ export function GithubConnection({
               size="sm"
               variant="ghost"
               className="text-muted-foreground hover:bg-accent shrink overflow-hidden font-normal"
+              disabled={disabled}
             >
               {getButtonText()}
             </Button>

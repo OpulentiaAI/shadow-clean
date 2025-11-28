@@ -16,6 +16,7 @@ import {
   BookOpen,
   ListTodo,
   RefreshCcw,
+  Sparkles,
   Square,
   SquareCheck,
   SquareX,
@@ -23,7 +24,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import { statusColorsConfig } from "./status";
 import { FileExplorer } from "@/components/agent-environment/file-explorer";
-import { FileNode } from "@repo/types";
+import { FileNode, SCRATCHPAD_DISPLAY_NAME } from "@repo/types";
 import { useAgentEnvironment } from "@/components/agent-environment/agent-environment-context";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -121,8 +122,15 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
   const createPRMutation = useCreatePR();
   const queryClient = useQueryClient();
 
+  const isScratchpad = !!task?.isScratchpad;
+  const repoDisplayName = isScratchpad
+    ? SCRATCHPAD_DISPLAY_NAME
+    : task?.repoFullName || "";
+  const indexingRepoFullName =
+    task && !isScratchpad ? task.repoFullName : null;
+
   // Use indexing status hook for unified status tracking
-  const { data: indexingStatus } = useIndexingStatus(task?.repoFullName || "");
+  const { data: indexingStatus } = useIndexingStatus(indexingRepoFullName);
   const { data: userSettings } = useUserSettings();
 
   // Copy to clipboard functionality
@@ -165,7 +173,7 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
   }, [task?.id, createPRMutation]);
 
   const handleIndexRepo = useCallback(async () => {
-    if (!task?.repoFullName || !task?.id) return;
+    if (!task?.repoFullName || !task?.id || task.isScratchpad) return;
 
     // Optimistic update - immediately show "indexing" state
     queryClient.setQueryData(["indexing-status", task.repoFullName], {
@@ -191,7 +199,7 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
       });
       console.error("Failed to start indexing:", error);
     }
-  }, [task?.repoFullName, task?.id, queryClient]);
+  }, [task?.repoFullName, task?.id, task?.isScratchpad, queryClient]);
 
   // Handler for copying branch name
   const handleCopyBranchName = async (shadowBranch: string) => {
@@ -204,7 +212,8 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
   };
 
   // Determine if we should show create PR button
-  const showCreatePR = !task?.pullRequestNumber && fileChanges.length > 0;
+  const showCreatePR =
+    !isScratchpad && !task?.pullRequestNumber && fileChanges.length > 0;
   const isAutoPRInProgress = autoPRStatus?.status === "in-progress";
   const isCreatePRDisabled =
     isStreaming || createPRMutation.isPending || isAutoPRInProgress;
@@ -215,15 +224,17 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
 
   const getIndexingButtonText = () => {
     if (isIndexing) return "Indexing...";
-    if (indexingStatus?.status === "completed") return "Re-Index Repo";
-    if (indexingStatus?.status === "failed") return "Retry Indexing";
+    if (!indexingStatus) return "Index Repo";
+    if (indexingStatus.status === "completed") return "Re-Index Repo";
+    if (indexingStatus.status === "failed") return "Retry Indexing";
     return "Index Repo";
   };
 
   return (
     <>
       {/* PR buttons - show create or view based on state */}
-      {(task.pullRequestNumber || showCreatePR) &&
+      {!isScratchpad &&
+        (task.pullRequestNumber || showCreatePR) &&
         task.status !== "ARCHIVED" && (
           <SidebarGroup>
             <SidebarGroupContent className="flex flex-col gap-0.5">
@@ -282,26 +293,41 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="hover:bg-sidebar-accent px-2! w-full justify-start font-normal"
+                  className="hover:bg-sidebar-accent px-2! w-full justify-start gap-2 font-normal"
                 >
                   <Folder className="size-4 shrink-0" />
-                  <span className="truncate">{task.repoFullName}</span>
+                  <span className="truncate">{repoDisplayName}</span>
+                  {isScratchpad && (
+                    <Badge className="bg-sidebar border-sidebar-border text-[11px] uppercase tracking-tight">
+                      Scratchpad
+                    </Badge>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
                 className="bg-sidebar-accent border-sidebar-border w-[var(--radix-dropdown-menu-trigger-width)]"
               >
-                <DropdownMenuItem asChild>
-                  <Link
-                    href={`${task.repoUrl}`}
-                    target="_blank"
-                    className="hover:bg-sidebar-border!"
+                {isScratchpad ? (
+                  <DropdownMenuItem
+                    disabled
+                    className="text-muted-foreground cursor-default select-none opacity-100"
                   >
-                    <GithubLogo className="text-foreground size-4 shrink-0" />
-                    <span>Open in GitHub</span>
-                  </Link>
-                </DropdownMenuItem>
+                    <Sparkles className="size-4 shrink-0" />
+                    <span>Scratchpad workspace</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={`${task.repoUrl}`}
+                      target="_blank"
+                      className="hover:bg-sidebar-border!"
+                    >
+                      <GithubLogo className="text-foreground size-4 shrink-0" />
+                      <span>Open in GitHub</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 {task.codebaseUnderstandingId && (
                   <DropdownMenuItem
                     className="hover:bg-sidebar-border!"
@@ -311,7 +337,7 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
                     <span>Opulent OS Wiki</span>
                   </DropdownMenuItem>
                 )}
-                {userSettings?.enableIndexing && (
+                {userSettings?.enableIndexing && !isScratchpad && (
                   <>
                     <DropdownMenuSeparator className="bg-sidebar-border" />
                     <DropdownMenuItem
@@ -333,19 +359,29 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
           <SidebarMenuItem>
             <ContextMenu>
               <ContextMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="hover:bg-sidebar-accent px-2! w-full justify-start font-normal"
-                  asChild
-                >
-                  <Link
-                    href={`${task.repoUrl}/tree/${task.shadowBranch}`}
-                    target="_blank"
+                {isScratchpad ? (
+                  <Button
+                    variant="ghost"
+                    className="hover:bg-sidebar-accent px-2! w-full justify-start font-normal"
                   >
                     <GitBranch className="size-4 shrink-0" />
                     <span className="truncate">{task.shadowBranch}</span>
-                  </Link>
-                </Button>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="hover:bg-sidebar-accent px-2! w-full justify-start font-normal"
+                    asChild
+                  >
+                    <Link
+                      href={`${task.repoUrl}/tree/${task.shadowBranch}`}
+                      target="_blank"
+                    >
+                      <GitBranch className="size-4 shrink-0" />
+                      <span className="truncate">{task.shadowBranch}</span>
+                    </Link>
+                  </Button>
+                )}
               </ContextMenuTrigger>
               <ContextMenuContent className="bg-sidebar-accent border-sidebar-border">
                 <ContextMenuItem
@@ -358,6 +394,17 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
               </ContextMenuContent>
             </ContextMenu>
           </SidebarMenuItem>
+          {isScratchpad && (
+            <SidebarMenuItem>
+              <div className="bg-sidebar-accent/70 border-sidebar-border text-muted-foreground flex flex-col gap-1 rounded-xl border px-3 py-2 text-xs">
+                <div className="text-foreground flex items-center gap-2 text-sm font-medium">
+                  <Sparkles className="size-4 shrink-0" />
+                  Scratchpad workspace
+                </div>
+                <p>Experiment freely without cloning or pushing to GitHub.</p>
+              </div>
+            </SidebarMenuItem>
+          )}
         </SidebarGroupContent>
       </SidebarGroup>
 

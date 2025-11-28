@@ -25,6 +25,7 @@ import { Button } from "../../ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../../ui/tooltip";
 import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
 import { useTaskSocketContext } from "@/contexts/task-socket-context";
+import { useTask } from "@/hooks/tasks/use-task";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -80,6 +81,8 @@ export function AssistantMessage({
   } = useCopyToClipboard();
   const { copyToClipboard: copyMessageId } = useCopyToClipboard();
   const { autoPRStatus } = useTaskSocketContext();
+  const { task } = useTask(taskId);
+  const isScratchpadTask = !!task?.isScratchpad;
 
   const toolResultsMap = useMemo(() => {
     const map = new Map<string, { result: unknown; toolName: string }>();
@@ -334,7 +337,7 @@ export function AssistantMessage({
       )}
 
       {/* Show PR card if this assistant message has a PR snapshot */}
-      {message.pullRequestSnapshot && (
+      {!isScratchpadTask && message.pullRequestSnapshot && (
         <PRCard
           taskId={taskId}
           snapshot={message.pullRequestSnapshot}
@@ -343,7 +346,8 @@ export function AssistantMessage({
       )}
 
       {/* Show loading PR card during auto-PR creation */}
-      {!message.pullRequestSnapshot &&
+      {!isScratchpadTask &&
+        !message.pullRequestSnapshot &&
         autoPRStatus?.messageId === message.id &&
         (autoPRStatus.status === "in-progress" ||
           (autoPRStatus.status === "completed" && autoPRStatus.snapshot)) &&
