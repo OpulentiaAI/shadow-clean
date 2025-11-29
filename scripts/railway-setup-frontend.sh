@@ -39,7 +39,11 @@ railway variables \
   --set "NEXT_PUBLIC_API_URL=https://shadow-clean-production.up.railway.app" \
   --set "DATABASE_URL=\${{Postgres.DATABASE_URL}}" \
   --set "DIRECT_URL=\${{Postgres.DATABASE_URL}}" \
-  --set "NODE_ENV=production"
+  --set "NODE_ENV=production" \
+  --set "AGENT_MODE=local" \
+  --set "VM_IMAGE_REGISTRY=placeholder-registry" \
+  --set "K8S_SERVICE_ACCOUNT_TOKEN=placeholder-token" \
+  --set "WORKSPACE_DIR=/app/workspace"
 
 if [ $? -eq 0 ]; then
     echo ""

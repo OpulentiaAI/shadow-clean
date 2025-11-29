@@ -6,12 +6,12 @@ echo "Starting Shadow development environment..."
 
 # Start the server in the background
 echo "Starting server on port 4000..."
-cd apps/server && npm run dev > server.log 2>&1 &
+(cd apps/server && npm run dev > ../../server.log 2>&1) &
 SERVER_PID=$!
 
 # Start the frontend in the background
 echo "Starting frontend on port 3000..."
-cd ../frontend && npm run dev > frontend.log 2>&1 &
+(cd apps/frontend && npm run dev > ../../frontend.log 2>&1) &
 FRONTEND_PID=$!
 
 echo "Server PID: $SERVER_PID"

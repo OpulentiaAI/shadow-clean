@@ -2,6 +2,10 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile.frontend"
 
+# Pass NEXT_PUBLIC_SERVER_URL through at build time so Next.js bakes the correct backend URL
+[build.args]
+NEXT_PUBLIC_SERVER_URL = "${NEXT_PUBLIC_SERVER_URL}"
+
 [deploy]
 startCommand = "node apps/frontend/server.js"
 healthcheckPath = "/"
