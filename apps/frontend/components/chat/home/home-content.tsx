@@ -246,9 +246,9 @@ export function HomePageContent({
   return (
     <div className="mx-auto flex w-full flex-col items-center overflow-hidden">
       {/* Header */}
-      <div className="mb-6 mt-20 flex select-none items-center gap-4 text-3xl font-medium tracking-tighter">
+      <div className="mb-6 mt-20 flex select-none items-center gap-6 font-medium tracking-tighter">
         <OpulentLogo size="lg" className={isPending ? "animate-pulse" : ""} />
-        <span className="font-cybertruck">Opulent Code</span>
+        <span className="font-cybertruck text-7xl">Opulent Code</span>
       </div>
 
       {/* Rich Text Editor with integrated selectors */}
