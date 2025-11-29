@@ -9,10 +9,15 @@ import { taskCleanupService } from "./services/task-cleanup";
 
 // Use single server for both HTTP and WebSocket
 // Railway provides PORT env var, fallback to config.apiPort
-const port = process.env.PORT || config.apiPort;
+const railwayPort = process.env.PORT;
+const configPort = config.apiPort;
+const port = railwayPort || configPort;
+console.log(`[DEBUG] Raw process.env.PORT: ${JSON.stringify(railwayPort)}`);
+console.log(`[DEBUG] config.apiPort: ${configPort}`);
+console.log(`[DEBUG] Final port to use: ${port}`);
 const server = socketIOServer.listen(port, () => {
   console.log(`Server (HTTP + WebSocket) running on port ${port}`);
-  console.log(`[CONFIG] Using Railway PORT: ${process.env.PORT}, config.apiPort: ${config.apiPort}`);
+  console.log(`[CONFIG] Using Railway PORT: ${railwayPort}, config.apiPort: ${configPort}`);
 
   // Start background cleanup service
   taskCleanupService.start();
