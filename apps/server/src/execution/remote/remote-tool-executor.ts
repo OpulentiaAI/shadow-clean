@@ -13,6 +13,7 @@ import {
   WriteResult,
   SearchReplaceResult,
   SemanticSearchToolResult,
+  WarpGrepResult,
   GitStatusResponse,
   GitDiffResponse,
   GitCommitResponse,
@@ -387,6 +388,32 @@ export class RemoteToolExecutor implements ToolExecutor {
         query: query,
         searchTerms: query.split(/\s+/).filter((term) => term.length > 0),
         message: `Semantic search failed for "${query}"`,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  /**
+   * Warp Grep semantic search via sidecar
+   */
+  async warpGrep(query: string): Promise<WarpGrepResult> {
+    try {
+      const response = await this.makeSidecarRequest<WarpGrepResult>(
+        `/api/search/warp-grep`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            query,
+          }),
+        }
+      );
+
+      return response;
+    } catch (error) {
+      return {
+        success: false,
+        query,
+        message: `Warp grep search failed for "${query}"`,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }

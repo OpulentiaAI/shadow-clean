@@ -12,6 +12,7 @@ import {
   WriteResult,
   SearchReplaceResult,
   SemanticSearchToolResult,
+  WarpGrepResult,
   GitStatusResponse,
   GitDiffResponse,
   GitCommitResponse,
@@ -65,6 +66,8 @@ export interface ToolExecutor {
     repo: string,
     options?: SearchOptions
   ): Promise<SemanticSearchToolResult>;
+
+  warpGrep(query: string): Promise<WarpGrepResult>;
 
   // Command execution
   executeCommand(

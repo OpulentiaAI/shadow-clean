@@ -61,12 +61,67 @@ Implement your plan systematically:
 
 const TOOL_USAGE_STRATEGY = `<tool_usage>
 TOOL SELECTION HIERARCHY:
-DISCOVERY: list_dir → semantic_search → read_file → grep_search (EXPLORE BEFORE PLANNING)
-UNDERSTANDING: semantic_search → targeted reading → pattern analysis
-PLANNING: comprehensive file analysis → dependency mapping → test identification  
-EXECUTION: edit_file → run_terminal_cmd (test) → verify changes
+DISCOVERY: list_dir → warp_grep/semantic_search → read_file → grep_search (EXPLORE BEFORE PLANNING)
+UNDERSTANDING: warp_grep → semantic_search → targeted reading → pattern analysis
+PLANNING: comprehensive file analysis → dependency mapping → test identification
+EXECUTION: edit_file (Morph-powered) → run_terminal_cmd (test) → verify changes
 VERIFICATION: lint → unit tests → integration tests → manual verification
 </tool_usage>`;
+
+const MORPH_SDK_TOOLS = `<morph_sdk_tools>
+MORPH FAST APPLY - Integrated with edit_file:
+The edit_file tool automatically uses Morph SDK for ultra-fast code editing at 10,500 tokens/sec with 98% accuracy.
+
+WHEN MORPH ACTIVATES:
+- File already exists (not a new file)
+- Instructions provided
+- Content contains update markers: // ... existing code ... OR # ... existing code ... OR <!-- ... existing code ... -->
+- MORPH_API_KEY environment variable is set
+
+CODE EDITING PATTERN (use with edit_file):
+// ... existing code ...
+function keepThis() {
+  return "stay";
+}
+
+YOUR_CHANGES_HERE
+
+function alsoKeepThis() {
+  return "also stay";
+}
+// ... existing code ...
+
+KEY RULES FOR MORPH EDITS:
+1. ALWAYS use // ... existing code ... markers for unchanged sections
+2. Provide 3-5 lines of context around each edit
+3. Write first-person instructions (e.g., "I am adding error handling to divide function")
+4. Batch related edits in single operation when possible
+5. NEVER skip the existing code marker (causes deletions)
+
+WARP GREP - Semantic Code Search (20x faster):
+Use warp_grep for natural language code searches instead of regex patterns.
+
+ADVANTAGES:
+- Semantic understanding of code intent (not just text matching)
+- 20x faster performance than grep_search
+- Returns relevant snippets with AI-generated summaries
+- Works across multiple programming languages
+
+WHEN TO USE:
+✅ warp_grep: "Find authentication middleware" (semantic understanding)
+✅ warp_grep: "Locate database connection setup" (intent-based)
+✅ warp_grep: "Show me error handling patterns" (conceptual)
+❌ grep_search: "\\bfunction\\s+\\w+" (exact regex needed)
+
+EXAMPLE QUERIES:
+- "Find where user authentication is handled"
+- "Locate database migration files"
+- "Show me React components that use hooks"
+- "Find API endpoints for user management"
+
+FALLBACK BEHAVIOR:
+Both tools gracefully fallback to traditional approaches if Morph SDK is unavailable, ensuring reliability.
+</morph_sdk_tools>`;
 
 const PARALLEL_TOOL_EXECUTION = `<parallel_execution>
 PARALLEL TOOL EXECUTION:
@@ -295,6 +350,8 @@ ${OPERATION_MODES}
 
 ${TOOL_USAGE_STRATEGY}
 
+${MORPH_SDK_TOOLS}
+
 ${PARALLEL_TOOL_EXECUTION}
 
 ${toolGuidance}
@@ -330,6 +387,8 @@ ${ENVIRONMENT_CONTEXT}
 ${OPERATION_MODES}
 
 ${TOOL_USAGE_STRATEGY}
+
+${MORPH_SDK_TOOLS}
 
 ${PARALLEL_TOOL_EXECUTION}
 

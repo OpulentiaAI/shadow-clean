@@ -138,6 +138,16 @@ export const SemanticSearchParamsSchema = z
   })
   .merge(ExplanationSchema);
 
+export const WarpGrepParamsSchema = z
+  .object({
+    query: z
+      .string()
+      .describe(
+        "Natural language search query to find relevant code (e.g., 'Find authentication middleware')"
+      ),
+  })
+  .merge(ExplanationSchema);
+
 export const WebSearchParamsSchema = z
   .object({
     query: z.string().describe("The search query"),
@@ -302,6 +312,19 @@ export const SemanticSearchResultSchema = BaseResultSchema.extend({
   searchTerms: z.array(z.string()),
 });
 
+export const WarpGrepResultSchema = BaseResultSchema.extend({
+  contexts: z
+    .array(
+      z.object({
+        file: z.string(),
+        content: z.string(),
+      })
+    )
+    .optional(),
+  summary: z.string().optional(),
+  query: z.string(),
+});
+
 export const WebSearchResultSchema = BaseResultSchema.extend({
   results: z.array(
     z.object({
@@ -383,6 +406,7 @@ export type GrepSearchParams = z.infer<typeof GrepSearchParamsSchema>;
 export type FileSearchParams = z.infer<typeof FileSearchParamsSchema>;
 export type DeleteFileParams = z.infer<typeof DeleteFileParamsSchema>;
 export type SemanticSearchParams = z.infer<typeof SemanticSearchParamsSchema>;
+export type WarpGrepParams = z.infer<typeof WarpGrepParamsSchema>;
 export type WebSearchParams = z.infer<typeof WebSearchParamsSchema>;
 export type AddMemoryParams = z.infer<typeof AddMemoryParamsSchema>;
 export type ListMemoriesParams = z.infer<typeof ListMemoriesParamsSchema>;
@@ -406,6 +430,7 @@ export type GrepResult = z.infer<typeof GrepResultSchema>;
 export type SemanticSearchToolResult = z.infer<
   typeof SemanticSearchResultSchema
 >;
+export type WarpGrepResult = z.infer<typeof WarpGrepResultSchema>;
 export type WebSearchResult = z.infer<typeof WebSearchResultSchema>;
 export type CommandResult = z.infer<typeof CommandResultSchema>;
 export type FileStatsResult = z.infer<typeof FileStatsResultSchema>;
@@ -424,6 +449,7 @@ export const ToolResultSchemas = {
   grep_search: GrepResultSchema,
   file_search: FileSearchResultSchema,
   semantic_search: SemanticSearchResultSchema,
+  warp_grep: WarpGrepResultSchema,
   web_search: WebSearchResultSchema,
   delete_file: DeleteResultSchema,
   add_memory: AddMemoryResultSchema,
@@ -444,6 +470,7 @@ export type ToolResultTypes =
   | { toolName: "grep_search"; result: GrepResult }
   | { toolName: "file_search"; result: FileSearchResult }
   | { toolName: "semantic_search"; result: SemanticSearchToolResult }
+  | { toolName: "warp_grep"; result: WarpGrepResult }
   | { toolName: "web_search"; result: WebSearchResult }
   | { toolName: "delete_file"; result: DeleteResult }
   | { toolName: "add_memory"; result: AddMemoryResult }
@@ -460,6 +487,7 @@ export enum ToolTypes {
   READ_FILE = "read_file",
   SEARCH_REPLACE = "search_replace",
   SEMANTIC_SEARCH = "semantic_search",
+  WARP_GREP = "warp_grep",
   GREP_SEARCH = "grep_search",
   FILE_SEARCH = "file_search",
   LIST_DIR = "list_dir",
@@ -481,6 +509,7 @@ export const TOOL_PREFIXES: Record<ToolTypes, string> = {
   [ToolTypes.READ_FILE]: "Read",
   [ToolTypes.SEARCH_REPLACE]: "Replace in",
   [ToolTypes.SEMANTIC_SEARCH]: "Semantic search",
+  [ToolTypes.WARP_GREP]: "Warp grep",
   [ToolTypes.GREP_SEARCH]: "Grep",
   [ToolTypes.FILE_SEARCH]: "Search files",
   [ToolTypes.LIST_DIR]: "List",

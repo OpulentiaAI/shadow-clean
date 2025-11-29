@@ -25,6 +25,7 @@ import {
   WriteResult,
   SearchReplaceResult,
   SemanticSearchToolResult,
+  WarpGrepResult,
   SearchOptions,
   GitStatusResponse,
   GitDiffResponse,
@@ -38,6 +39,7 @@ import {
 } from "@repo/types";
 import { CommandResult } from "../interfaces/types";
 import { performSemanticSearch } from "@/utils/semantic-search";
+import { morphService } from "@/services/morph-client";
 
 /**
  * LocalToolExecutor implements tool operations for local filesystem execution
@@ -170,7 +172,7 @@ export class LocalToolExecutor implements ToolExecutor {
   async writeFile(
     targetFile: string,
     content: string,
-    _instructions: string,
+    instructions: string,
     providedIsNewFile?: boolean
   ): Promise<WriteResult> {
     try {
@@ -202,23 +204,68 @@ export class LocalToolExecutor implements ToolExecutor {
         }
       }
 
+      // Detect if content contains Morph update markers
+      const hasMorphMarkers =
+        content.includes("// ... existing code ...") ||
+        content.includes("# ... existing code ...") ||
+        content.includes("<!-- ... existing code ... -->");
+
+      // Use Morph SDK for fast edits when:
+      // 1. Instructions are provided
+      // 2. File already exists (not a new file)
+      // 3. Content contains Morph markers
+      // 4. Morph SDK is available
+      let finalContent = content;
+      let usedMorph = false;
+
+      if (
+        instructions &&
+        !isNewFile &&
+        hasMorphMarkers &&
+        morphService.isAvailable()
+      ) {
+        console.log(`[MORPH_EDIT] Using Morph Fast Apply for ${targetFile}`);
+
+        const morphResult = await morphService.editFile(
+          filePath,
+          existingContent,
+          content,
+          instructions,
+          "morph-v3-large" // Use large model for highest accuracy
+        );
+
+        if (morphResult.success && morphResult.content) {
+          finalContent = morphResult.content;
+          usedMorph = true;
+          console.log(
+            `[MORPH_EDIT] ✅ Successfully applied edits with Morph SDK`
+          );
+        } else {
+          console.warn(
+            `[MORPH_EDIT] ⚠️ Morph SDK failed, falling back to direct write:`,
+            morphResult.error
+          );
+          // Fallback to direct write with original content
+        }
+      }
+
       // Write the new content
-      await fs.writeFile(filePath, content);
+      await fs.writeFile(filePath, finalContent);
 
       if (isNewFile) {
         return {
           success: true,
           isNewFile: true,
           message: `Created new file: ${targetFile}`,
-          linesAdded: content.split("\n").length,
+          linesAdded: finalContent.split("\n").length,
         };
       } else {
-        const diffStats = this.calculateDiffStats(existingContent, content);
+        const diffStats = this.calculateDiffStats(existingContent, finalContent);
 
         return {
           success: true,
           isNewFile: false,
-          message: `Modified file: ${targetFile}`,
+          message: `${usedMorph ? "Modified file with Morph SDK" : "Modified file"}: ${targetFile}`,
           linesAdded: diffStats.linesAdded,
           linesRemoved: diffStats.linesRemoved,
         };
@@ -654,6 +701,63 @@ export class LocalToolExecutor implements ToolExecutor {
         query: query,
         searchTerms: query.split(/\s+/).filter((term) => term.length > 0),
         message: `Semantic search failed for "${query}"`,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  async warpGrep(query: string): Promise<WarpGrepResult> {
+    try {
+      if (!morphService.isAvailable()) {
+        console.warn(
+          "[WARP_GREP] Morph SDK not available, falling back to grep_search"
+        );
+
+        // Fallback to traditional grep search
+        const grepResult = await this.grepSearch(query);
+
+        // Convert grep results to warp grep format
+        const contexts =
+          grepResult.detailedMatches?.map((match) => ({
+            file: match.file,
+            content: match.content,
+          })) || [];
+
+        return {
+          success: grepResult.success,
+          contexts,
+          summary: `Found ${grepResult.matchCount} matches (fallback to grep)`,
+          query,
+          message: grepResult.message,
+          error: grepResult.error,
+        };
+      }
+
+      const result = await morphService.warpGrep(query, this.workspacePath);
+
+      if (!result.success) {
+        console.error("[WARP_GREP_ERROR]", result.error);
+        return {
+          success: false,
+          query,
+          message: `Warp grep search failed for "${query}"`,
+          error: result.error,
+        };
+      }
+
+      return {
+        success: true,
+        contexts: result.contexts || [],
+        summary: result.summary || `Found ${result.contexts?.length || 0} relevant code sections`,
+        query,
+        message: `Successfully searched codebase for "${query}"`,
+      };
+    } catch (error) {
+      console.error("[WARP_GREP_ERROR]", error);
+      return {
+        success: false,
+        query,
+        message: `Warp grep search failed for "${query}"`,
         error: error instanceof Error ? error.message : "Unknown error",
       };
     }

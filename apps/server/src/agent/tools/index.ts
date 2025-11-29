@@ -14,6 +14,7 @@ import {
   FileSearchParamsSchema,
   DeleteFileParamsSchema,
   SemanticSearchParamsSchema,
+  WarpGrepParamsSchema,
 } from "@repo/types";
 import { createToolExecutor, isLocalMode } from "../../execution";
 import { LocalFileSystemWatcher } from "../../services/local-filesystem-watcher";
@@ -717,6 +718,16 @@ export async function createTools(taskId: string, workspacePath?: string) {
             message: "Failed to remove memory",
           };
         }
+      },
+    }),
+
+    warp_grep: tool({
+      description: readDescription("warp_grep"),
+      parameters: WarpGrepParamsSchema,
+      execute: async ({ query, explanation }) => {
+        console.log(`[WARP_GREP] ${explanation}`);
+        const result = await executor.warpGrep(query);
+        return result;
       },
     }),
   };
