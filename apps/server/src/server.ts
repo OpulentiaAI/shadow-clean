@@ -15,7 +15,7 @@ const port = railwayPort || configPort;
 console.log(`[DEBUG] Raw process.env.PORT: ${JSON.stringify(railwayPort)}`);
 console.log(`[DEBUG] config.apiPort: ${configPort}`);
 console.log(`[DEBUG] Final port to use: ${port}`);
-const server = socketIOServer.listen(port, '0.0.0.0', () => {
+const server = socketIOServer.listen(port, () => {
   console.log(`Server (HTTP + WebSocket) running on port ${port}`);
   console.log(`[CONFIG] Using Railway PORT: ${railwayPort}, config.apiPort: ${configPort}`);
 
