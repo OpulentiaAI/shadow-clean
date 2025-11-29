@@ -52,7 +52,7 @@ export * from "./mcp/utils";
 export * from "./mcp/types";
 
 // === Task Limits ===
-export const MAX_TASKS_PER_USER_PRODUCTION = 5;
+export const MAX_TASKS_PER_USER_PRODUCTION = 999; // Increased for testing
 
 // Re-export Prisma types
 export type { Task, TodoStatus } from "@repo/db";
