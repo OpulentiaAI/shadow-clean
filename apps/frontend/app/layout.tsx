@@ -59,6 +59,11 @@ const departureMono = localFont({
   variable: "--font-departure-mono",
 });
 
+const cybertruckFont = localFont({
+  src: "./fonts/Cybertruck-Font.ttf",
+  variable: "--font-cybertruck",
+});
+
 export const metadata: Metadata = {
   title: "Opulent OS",
   description:
@@ -88,7 +93,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${monumentGrotesk.variable} ${monumentGroteskMono.variable} ${departureMono.variable} overscroll-none antialiased`}
+        className={`${monumentGrotesk.variable} ${monumentGroteskMono.variable} ${departureMono.variable} ${cybertruckFont.variable} overscroll-none antialiased`}
       >
         <QueryClientProvider>
           <ThemeProvider
