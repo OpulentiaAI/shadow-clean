@@ -572,7 +572,20 @@ export class TaskInitializationEngine {
    * Get default initialization steps based on agent mode
    * Background services are now handled separately and run in parallel
    */
-  async getDefaultStepsForTask(): Promise<InitStatus[]> {
+  async getDefaultStepsForTask(taskId?: string): Promise<InitStatus[]> {
+    // Check if this is a scratchpad task - skip initialization
+    if (taskId) {
+      const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { isScratchpad: true },
+      });
+      
+      if (task?.isScratchpad) {
+        console.log(`[TASK_INIT] ${taskId}: Scratchpad task - skipping initialization steps`);
+        return []; // No steps needed for scratchpad
+      }
+    }
+
     const agentMode = getAgentMode();
     return getStepsForMode(agentMode);
   }

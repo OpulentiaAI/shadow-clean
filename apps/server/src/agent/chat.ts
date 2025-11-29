@@ -588,7 +588,7 @@ export class ChatService {
         await updateTaskStatus(taskId, "INITIALIZING", "CHAT");
 
         const initializationEngine = new TaskInitializationEngine();
-        const initSteps = await initializationEngine.getDefaultStepsForTask();
+        const initSteps = await initializationEngine.getDefaultStepsForTask(taskId);
         await initializationEngine.initializeTask(
           taskId,
           initSteps,

@@ -223,7 +223,7 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
         `⏳ [TASK_INITIATE] Task ${taskId} status set to INITIALIZING - starting initialization...`
       );
 
-      const initSteps = await initializationEngine.getDefaultStepsForTask();
+      const initSteps = await initializationEngine.getDefaultStepsForTask(taskId);
       await initializationEngine.initializeTask(
         taskId,
         initSteps,

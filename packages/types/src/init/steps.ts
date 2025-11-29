@@ -55,3 +55,12 @@ export function getStepsForMode(mode: "local" | "remote"): InitStatus[] {
 
   return steps;
 }
+
+/**
+ * Get minimal initialization steps for scratchpad mode
+ * Scratchpad doesn't need workspace prep, background services, or dependencies
+ */
+export function getScratchpadSteps(): InitStatus[] {
+  // Scratchpad just needs to go straight to ACTIVE
+  return [];
+}
