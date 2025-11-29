@@ -74,10 +74,17 @@ export const sharedConfigSchema = z.object({
  */
 export const createSharedConfig = (
   data: z.infer<typeof sharedConfigSchema>
-) => ({
-  // Server
-  // Railway provides PORT, fallback to API_PORT, then 4000
-  apiPort: data.PORT || data.API_PORT || 4000,
+) => {
+  // Debug logging
+  console.log(`[CONFIG] PORT from env: ${process.env.PORT}`);
+  console.log(`[CONFIG] API_PORT from env: ${process.env.API_PORT}`);
+  console.log(`[CONFIG] parsed.PORT: ${data.PORT}`);
+  console.log(`[CONFIG] parsed.API_PORT: ${data.API_PORT}`);
+  
+  return {
+    // Server
+    // Railway provides PORT, fallback to API_PORT, then 4000
+    apiPort: data.PORT || data.API_PORT || 4000,
   apiUrl: data.API_URL,
   nodeEnv: data.NODE_ENV,
   debug: data.DEBUG,
@@ -113,7 +120,8 @@ export const createSharedConfig = (
 
   // Morph SDK
   morphApiKey: data.MORPH_API_KEY,
-});
+  };
+};
 
 export type SharedConfig = ReturnType<typeof createSharedConfig>;
 
