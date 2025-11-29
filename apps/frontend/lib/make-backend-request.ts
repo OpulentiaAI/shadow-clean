@@ -21,7 +21,11 @@ export async function makeBackendRequest(
     ...(options.headers as Record<string, string>),
   };
 
-  if (process.env.VERCEL_ENV === "production") {
+  // Add API key in production (Vercel or Railway)
+  const isProduction = process.env.VERCEL_ENV === "production" || 
+                       process.env.RAILWAY_ENVIRONMENT === "production" ||
+                       process.env.NODE_ENV === "production";
+  if (isProduction) {
     const apiKey = process.env.SHADOW_API_KEY;
     if (apiKey) {
       headers["Authorization"] = `Bearer ${apiKey}`;
