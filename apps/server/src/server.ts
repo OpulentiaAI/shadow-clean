@@ -8,8 +8,11 @@ import { stopAllFileSystemWatchers } from "./agent/tools";
 import { taskCleanupService } from "./services/task-cleanup";
 
 // Use single server for both HTTP and WebSocket
-const server = socketIOServer.listen(config.apiPort, () => {
-  console.log(`Server (HTTP + WebSocket) running on port ${config.apiPort}`);
+// Railway provides PORT env var, fallback to config.apiPort
+const port = process.env.PORT || config.apiPort;
+const server = socketIOServer.listen(port, () => {
+  console.log(`Server (HTTP + WebSocket) running on port ${port}`);
+  console.log(`[CONFIG] Using Railway PORT: ${process.env.PORT}, config.apiPort: ${config.apiPort}`);
 
   // Start background cleanup service
   taskCleanupService.start();
