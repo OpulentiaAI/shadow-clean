@@ -1,9 +1,13 @@
+/* biome-ignore lint/style/noInvalidAtRules: Tailwind v4 syntax - linter needs update */
 @import "tailwindcss";
 @import "tw-animate-css";
+/* biome-ignore lint/style/noInvalidAtRules: Tailwind v4 syntax - linter needs update */
 @plugin "@tailwindcss/typography";
 
+/* biome-ignore lint/style/noInvalidAtRules: Tailwind v4 syntax - linter needs update */
 @custom-variant dark (&:is(.dark *));
 
+/* biome-ignore lint/style/noInvalidAtRules: Tailwind v4 syntax - linter needs update */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -169,10 +173,12 @@
 
 @layer base {
   * {
+    /* biome-ignore lint/style/noInvalidAtRules: Tailwind v4 syntax - linter needs update */
     @apply border-border outline-ring/50;
   }
 
   body {
+    /* biome-ignore lint/style/noInvalidAtRules: Tailwind v4 syntax - linter needs update */
     @apply bg-background text-foreground;
   }
 }

@@ -205,7 +205,7 @@ export function HomePageContent({
         redirect(`/tasks/${taskId}`);
       }
     });
-  }, [message, selectedModel, isPending, queryClient]);
+  }, [message, selectedModel, isPending, queryClient, isScratchpadMode]);
 
   const handleCreateTaskForIssue = useCallback((issue: GitHubIssue) => {
     const currentRepo = repoRef.current;
