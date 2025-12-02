@@ -1,12 +1,18 @@
-# Shadow
+# Opulent Code
 
-![Shadow Screenshot](https://raw.githubusercontent.com/ishaan1013/shadow/refs/heads/main/apps/frontend/app/opengraph-image.png)
-
-An open-source background coding agent. Designed to understand, reason about, and contribute to existing codebases. Licensed for open-source use under MIT License
+An open-source background coding agent. Designed to understand, reason about, and contribute to existing codebases.
 
 Sets up isolated execution environments for AI agents to work on GitHub repositories with tools to understand code, edit files, and much more.
 
-### Agent Environment (The Shadow Realm)
+## Features
+
+### Authentication & GitHub Integration
+- GitHub OAuth sign-in via Better Auth
+- GitHub App integration for repository access and installations
+- Secure token management with automatic refresh
+- Support for both personal access tokens (dev) and GitHub App (production)
+
+### Agent Environment
 - GitHub repository integration with branch management
 - Pull request generation with AI-authored commits
 - Real-time task status tracking and progress updates
@@ -18,13 +24,13 @@ Sets up isolated execution environments for AI agents to work on GitHub reposito
 - Streaming chat interface with real-time responses
 - Tool execution with file operations, terminal commands, and code search
 - Memory system for repository-specific knowledge retention
-- Semantic code search, background processing
-- Lightweight Shadow Wiki generation for comprehensive codebase documentation
-- Custom rules for Shadow code generation
+- Semantic code search via Pinecone
+- Morph SDK integration for fast code editing
+- Custom rules for code generation
 
 ## Execution Modes
 
-Shadow supports two execution modes through an abstraction layer:
+Opulent Code supports two execution modes through an abstraction layer:
 
 ### Local Mode
 - Direct filesystem execution on the host machine
@@ -36,28 +42,33 @@ Shadow supports two execution modes through an abstraction layer:
 
 Mode selection is controlled by `NODE_ENV` and `AGENT_MODE` environment variables.
 
-## Quick Deployment
+## Deployment
 
-### Automated Deployment Script
+### Railway + Vercel Deployment
 
-Shadow includes a fully automated deployment script that handles both backend (Railway) and frontend (Vercel) deployment:
+Opulent Code is deployed with:
+- **Backend**: Railway (Node.js server + PostgreSQL)
+- **Frontend**: Railway or Vercel (Next.js)
 
+#### Production URLs
+- Frontend: `https://shadow-frontend-production-373f.up.railway.app`
+- Backend: `https://shadow-clean-production.up.railway.app`
+
+#### Quick Deploy
 ```bash
-# Run the automated deployment
+# Login to Railway
+railway login
+
+# Deploy backend
+railway up
+
+# Or use automated script
 ./auto-deploy.sh
 ```
 
-This script will:
-- ✅ Verify database migrations non-interactively
-- ✅ Deploy backend to Railway with PostgreSQL
-- ✅ Deploy frontend to Vercel
-- ✅ Set all environment variables
-- ✅ Run database migrations on production
-
-**Prerequisites for deployment:**
-- Railway CLI installed and authenticated (`railway login`)
-- Vercel CLI installed and authenticated (`vercel login`)
-- Local PostgreSQL database for migration verification
+**Prerequisites:**
+- Railway CLI: `npm install -g @railway/cli`
+- Vercel CLI: `npm install -g vercel`
 
 ## Development Setup
 
@@ -126,52 +137,58 @@ Set variables in the following files:
 - Server: `apps/server/.env`
 - Database: `packages/db/.env`
 
-#### Quick start (local, no GitHub App install)
-Use a personal GitHub token so the GitHub selector works instantly without installing our app.
+#### Environment Variables
 
-1) Create a GitHub Personal Access Token with scopes: `repo`, `read:org`.
-2) Add env vars:
-
-An easy way to do this is run the `./setup-script.sh` which will take in your input variables and autoset them in the right places for you! If you would like to do it manually, follow the instructions below
-
-`apps/server/.env`
+##### Frontend (`apps/frontend/.env.local`)
 ```bash
-# Required
-DATABASE_URL="postgres://postgres:@127.0.0.1:5432/shadow_dev"
-BETTER_AUTH_SECRET="dev-secret"
+NEXT_PUBLIC_SERVER_URL=http://localhost:4000
+NEXT_PUBLIC_BYPASS_AUTH=false
 
-GITHUB_PERSONAL_ACCESS_TOKEN=your_github_personal_access_token_here
+# Better Auth
+BETTER_AUTH_SECRET=<generate-with-openssl-rand-hex-32>
 
-# Local mode
+# GitHub OAuth App (create at github.com/settings/developers)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# GitHub App (for repo installations)
+GITHUB_APP_ID=
+GITHUB_PRIVATE_KEY=<base64-encoded-pem>
+GITHUB_APP_SLUG=opulent-code
+
+# Database
+DATABASE_URL=postgresql://...
+```
+
+##### Server (`apps/server/.env`)
+```bash
+DATABASE_URL=postgresql://...
 NODE_ENV=development
 AGENT_MODE=local
+API_PORT=4000
+WORKSPACE_DIR=/path/to/workspace
 
-# Optional: Pinecone for semantic search
-PINECONE_API_KEY="" # TODO: Set this to your Pinecone API key
-PINECONE_INDEX_NAME="shadow"
+# GitHub credentials (must match frontend)
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_APP_ID=
+GITHUB_PRIVATE_KEY=
+GITHUB_APP_SLUG=opulent-code
 
-# Workspace directory for local agent:
-WORKSPACE_DIR= # TODO: Set this to your local workspace directory
+# Optional integrations
+PINECONE_API_KEY=
+PINECONE_INDEX_NAME=opulentcode
+MORPH_API_KEY=
 ```
 
-`apps/frontend/.env.local`
+##### Database (`packages/db/.env`)
 ```bash
-# Point frontend to your server if needed
-NEXT_PUBLIC_SERVER_URL=http://localhost:4000
-
-# Marks environment; any value other than "production" enables local behavior
-NEXT_PUBLIC_VERCEL_ENV=development
-
-GITHUB_PERSONAL_ACCESS_TOKEN=your_github_personal_access_token_here
+DATABASE_URL=postgresql://...
+DIRECT_URL=postgresql://...
 ```
 
-`packages/db/.env`
-```bash
-DATABASE_URL="postgres://postgres:@127.0.0.1:5432/shadow_dev"
-DIRECT_URL="postgres://postgres:@127.0.0.1:5432/shadow_dev"
-```
-
-With `GITHUB_PERSONAL_ACCESS_TOKEN` set on the server and `NEXT_PUBLIC_VERCEL_ENV` not equal to `production`, the backend uses your PAT for repo/branch/issue queries. The frontend's GitHub selector works immediately.
+#### Development Mode (bypass auth)
+Set `NEXT_PUBLIC_BYPASS_AUTH=true` in frontend to skip GitHub OAuth during local development.
 
 ## Development Commands
 

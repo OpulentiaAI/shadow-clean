@@ -1,10 +1,17 @@
-# Shadow Development Guide for Claude Code
+# Opulent Code Development Guide
 
-This guide provides comprehensive information for Claude Code development on the Shadow platform - a remote, autonomous coding agent with hardware-isolated execution environments.
+This guide provides comprehensive information for AI agent development on the Opulent Code platform - a remote, autonomous coding agent with hardware-isolated execution environments.
 
 ## Platform Overview
 
-Shadow is an AI coding platform that enables autonomous agents to work on GitHub repositories through real-time collaboration, semantic code search, and long-horizon task management. The platform provides both local and remote execution modes with enterprise-grade security.
+Opulent Code is an AI coding platform that enables autonomous agents to work on GitHub repositories through real-time collaboration, semantic code search, and long-horizon task management. The platform provides both local and remote execution modes with enterprise-grade security.
+
+### Authentication System
+- **Better Auth**: Session-based authentication with GitHub OAuth provider
+- **GitHub OAuth App**: User sign-in and identity (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`)
+- **GitHub App**: Repository installations and access tokens (`GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, `GITHUB_APP_SLUG=opulent-code`)
+- **Token Manager**: Automatic refresh of GitHub access tokens via `apps/server/src/github/auth/token-manager.ts`
+- **Bypass Mode**: `NEXT_PUBLIC_BYPASS_AUTH=true` for local development without OAuth
 
 ### Core Architecture
 
@@ -228,4 +235,19 @@ npm run generate
 - Tool name transformation for AI SDK compatibility
 - Context7 integration with token limiting
 
-This guide covers the essential knowledge needed for effective Claude Code development on Shadow. For specific implementation details, refer to the source code and inline documentation.
+## Deployment
+
+### Production Environment
+- **Frontend**: `https://shadow-frontend-production-373f.up.railway.app`
+- **Backend**: `https://shadow-clean-production.up.railway.app`
+- **Database**: Railway PostgreSQL
+
+### Railway CLI
+```bash
+railway login
+railway status
+railway variables --kv
+railway up
+```
+
+This guide covers the essential knowledge needed for effective AI agent development on Opulent Code. For specific implementation details, refer to the source code and inline documentation.

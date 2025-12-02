@@ -34,6 +34,25 @@ export function createPersonalOctokit(): Octokit {
 }
 
 /**
+ * Decode the private key from base64 if needed
+ */
+function decodePrivateKey(key: string): string {
+  // If the key starts with the PEM header, it's already decoded
+  if (key.startsWith("-----BEGIN")) {
+    return key.replace(/\\n/g, "\n");
+  }
+  
+  // Otherwise, decode from base64
+  try {
+    const decoded = Buffer.from(key, "base64").toString("utf-8");
+    return decoded;
+  } catch {
+    // If base64 decoding fails, try treating it as escaped newlines
+    return key.replace(/\\n/g, "\n");
+  }
+}
+
+/**
  * Create an Octokit instance authenticated as a GitHub App installation
  */
 export async function createInstallationOctokit(
@@ -43,9 +62,11 @@ export async function createInstallationOctokit(
     throw new Error("GitHub App not configured");
   }
 
+  const privateKey = decodePrivateKey(GITHUB_PRIVATE_KEY);
+
   const auth = createAppAuth({
     appId: GITHUB_APP_ID,
-    privateKey: GITHUB_PRIVATE_KEY.replace(/\\n/g, "\n"), // Handle escaped newlines
+    privateKey,
     installationId,
   });
 
