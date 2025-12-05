@@ -1,5 +1,5 @@
 import { InitStatus, prisma } from "@repo/db";
-import { getStepsForMode, InitializationProgress } from "@repo/types";
+import { getStepsForMode, getScratchpadSteps, InitializationProgress } from "@repo/types";
 import { emitStreamChunk } from "../socket";
 import { createWorkspaceManager, getAgentMode } from "../execution";
 import type { WorkspaceManager as AbstractWorkspaceManager } from "../execution";
@@ -573,7 +573,7 @@ export class TaskInitializationEngine {
    * Background services are now handled separately and run in parallel
    */
   async getDefaultStepsForTask(taskId?: string): Promise<InitStatus[]> {
-    // Check if this is a scratchpad task - skip initialization
+    // Check if this is a scratchpad task - use minimal initialization
     if (taskId) {
       const task = await prisma.task.findUnique({
         where: { id: taskId },
@@ -581,8 +581,8 @@ export class TaskInitializationEngine {
       });
       
       if (task?.isScratchpad) {
-        console.log(`[TASK_INIT] ${taskId}: Scratchpad task - skipping initialization steps`);
-        return []; // No steps needed for scratchpad
+        console.log(`[TASK_INIT] ${taskId}: Scratchpad task - using minimal initialization`);
+        return getScratchpadSteps();
       }
     }
 

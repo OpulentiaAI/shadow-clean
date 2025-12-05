@@ -253,6 +253,10 @@ export function GithubConnection({
         <div className="text-destructive mb-4 text-sm">
           Unable to check GitHub connection. Try again or contact us to report.
         </div>
+      ) : githubStatus?.message && githubStatus.message.includes("removed") ? (
+        <div className="text-destructive mb-4 text-sm">
+          {githubStatus.message}
+        </div>
       ) : (
         <div className="text-muted-foreground mb-4 text-sm">
           For full access, install Opulent OS into your organization. If you&apos;re
@@ -292,6 +296,13 @@ export function GithubConnection({
           <div className="text-muted-foreground mt-1 flex h-7 items-center justify-center gap-1.5">
             <Loader2 className="size-3.5 animate-spin" />
             <span className="text-[13px]">Loading repositories...</span>
+          </div>
+        ) : orderedGroups.length === 0 ? (
+          <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 px-4 py-8 text-center text-sm">
+            <span>No repositories found.</span>
+            <span className="text-xs">
+              Make sure the GitHub App has access to your repositories. You may need to update repository permissions in GitHub settings.
+            </span>
           </div>
         ) : (
           orderedGroups.map((group) => {
