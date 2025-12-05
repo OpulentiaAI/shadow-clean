@@ -338,7 +338,11 @@ export async function getGitHubRepositories(
   } catch (error) {
     console.error("Error getting GitHub repositories:", error);
 
-    await handleStaleInstallation(error, userId);
+    const wasCleared = await handleStaleInstallation(error, userId);
+    
+    if (wasCleared) {
+      console.log("Stale GitHub installation cleared, user should reconnect");
+    }
 
     return { groups: [] };
   }
