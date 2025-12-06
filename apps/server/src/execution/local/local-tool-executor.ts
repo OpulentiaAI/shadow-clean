@@ -49,9 +49,21 @@ export class LocalToolExecutor implements ToolExecutor {
   private workspacePath: string;
   private securityLogger: SecurityLogger;
 
+  /**
+   * Compute the task-specific workspace directory path
+   * Task workspaces are stored at: {workspaceDir}/tasks/{taskId}
+   */
+  private static getTaskWorkspaceDir(taskId: string): string {
+    let normalizedTaskId = taskId;
+    if (taskId.includes("/")) {
+      normalizedTaskId = taskId.split("/").pop()!;
+    }
+    return path.join(config.workspaceDir, "tasks", normalizedTaskId);
+  }
+
   constructor(taskId: string, workspacePath?: string) {
     this.taskId = taskId;
-    this.workspacePath = workspacePath || config.workspaceDir;
+    this.workspacePath = workspacePath || LocalToolExecutor.getTaskWorkspaceDir(taskId);
     // Console logger for local execution
     this.securityLogger = {
       warn: (message: string, details?: Record<string, unknown>) => {

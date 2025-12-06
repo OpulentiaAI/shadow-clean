@@ -41,7 +41,7 @@ export async function createToolExecutor(
     }
     
     if (!resolvedWorkspacePath) {
-      console.warn(`[CREATE_TOOL_EXECUTOR] No workspace path for task ${taskId}, using default`);
+      console.log(`[CREATE_TOOL_EXECUTOR] No workspace path in DB for task ${taskId}, using task-specific default`);
     }
     
     return new LocalToolExecutor(taskId, resolvedWorkspacePath);
