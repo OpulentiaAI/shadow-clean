@@ -30,7 +30,21 @@ export async function createToolExecutor(
   const agentMode = mode || config.agentMode;
 
   if (agentMode === "local") {
-    return new LocalToolExecutor(taskId, workspacePath);
+    // If workspacePath not provided, look it up from the task
+    let resolvedWorkspacePath = workspacePath;
+    if (!resolvedWorkspacePath) {
+      const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { workspacePath: true },
+      });
+      resolvedWorkspacePath = task?.workspacePath || undefined;
+    }
+    
+    if (!resolvedWorkspacePath) {
+      console.warn(`[CREATE_TOOL_EXECUTOR] No workspace path for task ${taskId}, using default`);
+    }
+    
+    return new LocalToolExecutor(taskId, resolvedWorkspacePath);
   }
 
   // For remote mode, use dynamic pod discovery to find the actual running VM
