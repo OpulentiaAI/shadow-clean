@@ -34,7 +34,6 @@ export const AvailableModels = {
   DEEPSEEK_CHAT_V3_0324: "deepseek/deepseek-chat-v3-0324",
   QWEN_3_CODER: "qwen/qwen3-coder",
   QWEN_3_235B_A22B_2507: "qwen/qwen3-235b-a22b-2507",
-  CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -97,11 +96,6 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   },
 
   // OpenRouter models
-  [AvailableModels.CLAUDE_OPUS_4_5]: {
-    id: AvailableModels.CLAUDE_OPUS_4_5,
-    name: "Claude Opus 4.5",
-    provider: "openrouter",
-  },
   [AvailableModels.XAI_GROK_3]: {
     id: AvailableModels.XAI_GROK_3,
     name: "Grok 3",
@@ -110,6 +104,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.XAI_GROK_4_1_FAST_FREE]: {
     id: AvailableModels.XAI_GROK_4_1_FAST_FREE,
     name: "Grok 4.1 Fast (Free)",
+    provider: "openrouter",
+  },
+  [AvailableModels.CLAUDE_OPUS_4_5]: {
+    id: AvailableModels.CLAUDE_OPUS_4_5,
+    name: "Claude Opus 4.5",
     provider: "openrouter",
   },
   [AvailableModels.MOONSHOT_KIMI_K2]: {
@@ -145,11 +144,6 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.QWEN_3_235B_A22B_2507]: {
     id: AvailableModels.QWEN_3_235B_A22B_2507,
     name: "Qwen 3 235B A22B 2507",
-    provider: "openrouter",
-  },
-  [AvailableModels.CLAUDE_OPUS_4_5]: {
-    id: AvailableModels.CLAUDE_OPUS_4_5,
-    name: "Claude Opus 4.5",
     provider: "openrouter",
   },
 };

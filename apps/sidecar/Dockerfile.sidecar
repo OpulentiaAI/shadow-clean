@@ -1,10 +1,41 @@
-FROM node:18-alpine
+FROM node:22-alpine AS base
+
+# Install system dependencies
+RUN apk update && apk add --no-cache libc6-compat python3 make g++ git openssh-client ripgrep findutils coreutils curl bash
+
+# Install Turbo
+RUN npm install -g turbo@^2
+
 WORKDIR /app
+
+# Copy package files
 COPY package*.json ./
-COPY apps/sidecar/package*.json apps/sidecar/
+COPY turbo.json ./
+COPY apps/sidecar/package*.json ./apps/sidecar/
+COPY packages/*/package*.json ./packages/
+
+# Install dependencies
 RUN npm ci
+
+# Copy source code
 COPY . .
+
+# Generate Prisma client
+RUN npm run generate --filter=@repo/db
+
+# Build dependencies
+RUN npx turbo build --filter=@repo/types --filter=@repo/command-security --filter=@repo/db
+
+# Build sidecar
 WORKDIR /app/apps/sidecar
 RUN npm run build
+
+# Create non-root user
+RUN addgroup -g 1001 sidecar && adduser -D -u 1001 -G sidecar sidecar
+RUN mkdir -p /workspace && chown -R sidecar:sidecar /workspace
+
+USER sidecar
+
 EXPOSE 8080
+
 CMD ["node", "dist/server.js"]
