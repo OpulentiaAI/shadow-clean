@@ -12,6 +12,10 @@ COPY apps/sidecar/ ./apps/sidecar/
 # Install dependencies (will resolve workspace packages)
 RUN npm install
 
+# Build the packages that sidecar depends on
+RUN npm run build -- packages/types
+RUN npm run build -- packages/command-security
+
 # Build the sidecar
 WORKDIR /app/apps/sidecar
 RUN npm run build
