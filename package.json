@@ -34,7 +34,9 @@
     "schema": "packages/db/prisma/schema.prisma"
   },
   "devDependencies": {
+    "@convex-dev/agent": "0.3.2",
     "@next/swc-wasm-nodejs": "^15.4.6",
+    "convex": "1.30.0",
     "prettier": "^3.6.2",
     "turbo": "^2.6.1",
     "typescript": "5.8.3"
