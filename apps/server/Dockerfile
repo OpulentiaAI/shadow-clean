@@ -54,6 +54,10 @@ RUN apk add --no-cache \
 RUN addgroup -g 1001 server && \
   adduser -D -u 1001 -G server server
 
+# Create workspace directory with proper permissions
+RUN mkdir -p /workspace && \
+  chown -R server:server /workspace
+
 # Copy built application and dependencies
 COPY --from=installer --chown=server:server /app/apps/server/dist ./apps/server/dist
 COPY --from=installer --chown=server:server /app/apps/server/package.json ./apps/server/package.json
