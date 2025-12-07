@@ -59,7 +59,7 @@ ENABLE_BRAINTRUST=true
 
 NODE_ENV=production
 AGENT_MODE=local
-WORKSPACE_DIR=/app/workspace
+WORKSPACE_DIR=/workspace
 ```
 
 **Or use variable reference for DATABASE_URL:**

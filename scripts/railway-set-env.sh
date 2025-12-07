@@ -38,7 +38,7 @@ railway variables \
   --set "ENABLE_BRAINTRUST=true" \
   --set "NODE_ENV=production" \
   --set "AGENT_MODE=local" \
-  --set "WORKSPACE_DIR=/app/workspace"
+  --set "WORKSPACE_DIR=/workspace"
 
 if [ $? -eq 0 ]; then
     echo ""

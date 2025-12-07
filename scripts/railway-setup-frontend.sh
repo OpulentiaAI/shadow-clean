@@ -43,7 +43,7 @@ railway variables \
   --set "AGENT_MODE=local" \
   --set "VM_IMAGE_REGISTRY=placeholder-registry" \
   --set "K8S_SERVICE_ACCOUNT_TOKEN=placeholder-token" \
-  --set "WORKSPACE_DIR=/app/workspace"
+  --set "WORKSPACE_DIR=/workspace"
 
 if [ $? -eq 0 ]; then
     echo ""
