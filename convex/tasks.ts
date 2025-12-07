@@ -286,11 +286,24 @@ export const getDetails = action({
 
     // Fetch file changes and diff stats from existing backend endpoint
     const baseUrl = getBackendBaseUrl();
-    const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/file-changes`);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch file changes: ${res.statusText}`);
+    let fileData: { fileChanges: unknown[]; diffStats: { additions: number; deletions: number; totalFiles: number } } = {
+      fileChanges: [],
+      diffStats: { additions: 0, deletions: 0, totalFiles: 0 },
+    };
+    try {
+      const authToken = process.env.CONVEX_TASK_AUTH_TOKEN;
+      const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/file-changes`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (res.ok) {
+        fileData = await res.json();
+      } else {
+        // Gracefully degrade if backend rejects (e.g., auth); keep rest of payload.
+        console.warn(`file-changes fetch failed (${res.status}): ${res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("file-changes fetch errored", err);
     }
-    const fileData = await res.json();
 
     return {
       task,

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { components, internal, api } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
+import OpenAI from "openai";
 
 const shadowAgent = new Agent(components.agent, {
   name: "ShadowAgent",
@@ -73,22 +74,22 @@ export const streamText = action({
     taskId: v.optional(v.id("tasks")),
   },
   handler: async (ctx, args) => {
-    let threadId = args.threadId;
-    if (!threadId) {
-      threadId = await shadowAgent.createThread(ctx, {
-        metadata: { taskId: args.taskId },
-      });
+    const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENROUTER_API_KEY or OPENAI_API_KEY is required for streaming");
     }
-    const agent = args.systemPrompt
-      ? new Agent(components.agent, {
-          name: "ShadowAgent",
-          chat: openai.chat((args.model as any) || "gpt-4o"),
-          instructions: args.systemPrompt,
-        })
-      : shadowAgent;
-    const { stream } = await agent.streamText(ctx, { threadId }, { prompt: args.prompt });
+    const client = new OpenAI({
+      apiKey,
+      baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        ...(process.env.OPENROUTER_REFERRER
+          ? { "HTTP-Referer": process.env.OPENROUTER_REFERRER }
+          : {}),
+        ...(process.env.OPENROUTER_TITLE ? { "X-Title": process.env.OPENROUTER_TITLE } : {}),
+      },
+    });
 
-    // Create a streaming assistant message
+    // Create streaming assistant message
     const start = await ctx.runMutation(api.messages.startStreaming, {
       taskId: args.taskId as any,
       llmModel: args.model,
@@ -96,50 +97,61 @@ export const streamText = action({
     const messageId = start.messageId;
 
     let fullText = "";
-    let usage: { promptTokens?: number; completionTokens?: number; totalTokens?: number } = {};
-    let finishReason: string | undefined = undefined;
+    let finishReason: string | undefined;
 
-    for await (const chunk of stream) {
-      if (chunk.type === "text-delta") {
-        fullText += chunk.textDelta;
-        await ctx.runMutation(api.messages.appendStreamDelta, {
-          messageId,
-          deltaText: chunk.textDelta,
-          parts: [{ type: "text", text: chunk.textDelta }],
-          isFinal: false,
-        });
-      } else if (chunk.type === "usage") {
-        usage = {
-          promptTokens: chunk.usage.promptTokens,
-          completionTokens: chunk.usage.completionTokens,
-          totalTokens: chunk.usage.totalTokens,
-        };
-      } else if (chunk.type === "finish") {
-        finishReason = chunk.finishReason;
-      } else {
-        // Capture non-text streaming parts (tool calls, results, etc.)
-        await ctx.runMutation(api.messages.appendStreamDelta, {
-          messageId,
-          deltaText: "",
-          parts: [{ type: chunk.type, data: chunk }],
-          isFinal: false,
-        });
+    try {
+      const stream = await client.chat.completions.create({
+        model: args.model,
+        messages: [{ role: "user", content: args.prompt }],
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const choice = chunk.choices?.[0];
+        const delta = choice?.delta?.content;
+        finishReason = choice?.finish_reason || finishReason;
+
+        const textDelta =
+          typeof delta === "string"
+            ? delta
+            : Array.isArray(delta)
+              ? delta.map((d) => (typeof d === "string" ? d : d?.text ?? "")).join("")
+              : "";
+
+        if (textDelta) {
+          fullText += textDelta;
+          await ctx.runMutation(api.messages.appendStreamDelta, {
+            messageId,
+            deltaText: textDelta,
+            parts: [{ type: "text", text: textDelta }],
+            isFinal: false,
+          });
+        }
       }
+    } catch (error) {
+      console.error("OpenAI streaming error", error);
+      await ctx.runMutation(api.messages.appendStreamDelta, {
+        messageId,
+        deltaText: `\n\n[Stream Error: ${error instanceof Error ? error.message : String(error)}]`,
+        parts: [{ type: "error", data: String(error) }],
+        isFinal: true,
+      });
+      throw error;
     }
 
-    // Finalize message with usage/finishReason
     await ctx.runMutation(api.messages.appendStreamDelta, {
       messageId,
       deltaText: "",
       parts: [],
-      usage,
+      usage: undefined,
       finishReason,
       isFinal: true,
     });
 
     return {
-      threadId,
+      threadId: args.threadId ?? null,
       text: fullText,
+      messageId,
     };
   },
 });
