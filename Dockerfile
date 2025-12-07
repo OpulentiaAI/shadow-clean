@@ -13,8 +13,8 @@ COPY apps/sidecar/ ./apps/sidecar/
 RUN npm install
 
 # Build the packages that sidecar depends on
-RUN npm run build -- packages/types
-RUN npm run build -- packages/command-security
+RUN npx turbo run build --filter @repo/types
+RUN npx turbo run build --filter @repo/command-security
 
 # Build the sidecar
 WORKDIR /app/apps/sidecar
