@@ -85,7 +85,7 @@ describe('SocketClient-unit-test', () => {
 
     const event: FileSystemEvent = {
       taskId: 'task-123',
-      type: 'change',
+      type: 'file-modified',
       path: '/test/file.txt',
       timestamp: Date.now(),
     };
@@ -102,7 +102,7 @@ describe('SocketClient-unit-test', () => {
 
     const event: FileSystemEvent = {
       taskId: 'task-123',
-      type: 'change',
+      type: 'file-modified',
       path: '/test/file.txt',
       timestamp: Date.now(),
     };
@@ -151,12 +151,10 @@ describe('SocketClient-unit-test', () => {
 });
 
 describe('SocketClient-integration-test', () => {
-  it.skipIf(!process.env.SOCKET_SERVER_URL)(
-    'connects to real socket server',
-    async () => {
-      // This test requires a real socket server running
-      const serverUrl = process.env.SOCKET_SERVER_URL || 'http://localhost:4000';
-      const socketClient = new SocketClient(serverUrl, 'integration-test-task');
+  it.skipIf(!process.env.SOCKET_SERVER_URL)('connects to real socket server', async () => {
+    // This test requires a real socket server running
+    const serverUrl = process.env.SOCKET_SERVER_URL || 'http://localhost:4000';
+    const socketClient = new SocketClient(serverUrl, 'integration-test-task');
 
       // Wait for connection
       await new Promise((resolve) => setTimeout(resolve, 2000));
