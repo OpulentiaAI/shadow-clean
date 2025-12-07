@@ -65,7 +65,10 @@ export function WelcomeModal({
 
   return (
     <Dialog open={open} onOpenChange={canGetStarted ? onOpenChange : undefined}>
-      <DialogContent showCloseButton={false}>
+      <DialogContent
+        showCloseButton={false}
+        description="Welcome steps to connect GitHub and add API keys."
+      >
         <DialogHeader className="items-center py-4">
           <LogoBurst size="lg" forceAnimate={canGetStarted} />
           <DialogTitle className="sr-only">Welcome to Opulent OS</DialogTitle>

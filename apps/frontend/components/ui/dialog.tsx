@@ -50,21 +50,33 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  description,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  description?: string;
 }) {
+  const generatedDescriptionId = React.useId();
+  const describedBy =
+    props["aria-describedby"] ?? (description ? generatedDescriptionId : undefined);
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
+        aria-describedby={describedBy}
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed left-[50%] top-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-4 shadow-lg duration-200 sm:max-w-lg",
           className
         )}
         {...props}
       >
+        {description && (
+          <span id={generatedDescriptionId} className="sr-only">
+            {description}
+          </span>
+        )}
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close

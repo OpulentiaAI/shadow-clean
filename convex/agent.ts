@@ -74,6 +74,16 @@ export const streamText = action({
     taskId: v.optional(v.id("tasks")),
   },
   handler: async (ctx, args) => {
+    // If no task context is provided, bail out early to avoid validation errors downstream.
+    if (!args.taskId) {
+      console.warn("[agent.streamText] missing taskId, skipping streaming");
+      return {
+        threadId: args.threadId ?? null,
+        text: "",
+        messageId: null,
+      };
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error("OPENROUTER_API_KEY or OPENAI_API_KEY is required for streaming");

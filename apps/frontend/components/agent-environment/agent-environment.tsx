@@ -207,7 +207,7 @@ function AgentEnvironment({
             className="h-full"
             onLayout={triggerTerminalResize}
           >
-            <ResizablePanel minSize={30} defaultSize={100}>
+            <ResizablePanel id="editor-panel" order={1} minSize={30} defaultSize={100}>
               <Editor
                 selectedFilePath={selectedFilePath}
                 selectedFileContent={selectedFileWithContent?.content || ""}
@@ -227,7 +227,7 @@ function AgentEnvironment({
             ) : (
               <>
                 <ResizableHandle className="bg-sidebar-border" />
-                <ResizablePanel minSize={20} defaultSize={0}>
+                <ResizablePanel id="terminal-panel" order={2} minSize={20} defaultSize={0}>
                   <div className="bg-background flex h-full flex-col">
                     <Terminal
                       handleCollapse={() => setIsTerminalCollapsed(true)}

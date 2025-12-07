@@ -187,7 +187,7 @@ export default function TaskPage() {
         className="min-h-svh"
         onLayout={handleLayout}
       >
-        <ResizablePanel minSize={30} defaultSize={100}>
+        <ResizablePanel id="chat-panel" order={1} minSize={30} defaultSize={100}>
           <StickToBottom
             className="relative flex size-full max-h-svh flex-col overflow-y-auto"
             resize="smooth"
@@ -272,6 +272,8 @@ export default function TaskPage() {
           <>
             <ResizableHandle />
             <ResizablePanel
+              id="agent-panel"
+              order={2}
               minSize={40}
               collapsible
               collapsedSize={0}

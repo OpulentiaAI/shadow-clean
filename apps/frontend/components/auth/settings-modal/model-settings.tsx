@@ -341,6 +341,7 @@ export function ModelSettings() {
 
   return (
     <div className="flex w-full flex-col gap-6">
+      <form id="api-keys-form" className="hidden" onSubmit={(e) => e.preventDefault()} />
       {providers.map((provider) => {
         const hasValidKey =
           apiKeys?.[provider.key as keyof typeof apiKeys] &&
@@ -361,6 +362,7 @@ export function ModelSettings() {
             <div className="flex gap-2">
               <Input
                 id={`${provider.key}-key`}
+                form="api-keys-form"
                 type={
                   apiKeyVisibility[provider.key as ApiKeyProvider]
                     ? "text"

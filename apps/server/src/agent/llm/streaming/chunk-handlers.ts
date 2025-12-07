@@ -30,35 +30,33 @@ export class ChunkHandlers {
     toolCallMap: Map<string, ToolName>
   ): StreamChunk[] {
     const chunks: StreamChunk[] = [];
+    const toolName = chunk.toolName.trim(); // normalize accidental whitespace from model
 
     // Emit the tool call
     chunks.push({
       type: "tool-call",
       toolCall: {
         id: chunk.toolCallId,
-        name: chunk.toolName,
+        name: toolName,
         args: chunk.args,
       },
     });
 
-    if (
-      chunk.toolName in ToolResultSchemas ||
-      isTransformedMCPTool(chunk.toolName)
-    ) {
+    if (toolName in ToolResultSchemas || isTransformedMCPTool(toolName)) {
       // Valid tool (native or MCP) - store in map for result processing
-      toolCallMap.set(chunk.toolCallId, chunk.toolName as ToolName);
-      if (isTransformedMCPTool(chunk.toolName)) {
+      toolCallMap.set(chunk.toolCallId, toolName as ToolName);
+      if (isTransformedMCPTool(toolName)) {
         console.log(
-          `✅ [MCP_STREAMING] Registered MCP tool call ID: ${chunk.toolCallId} for ${chunk.toolName}`
+          `✅ [MCP_STREAMING] Registered MCP tool call ID: ${chunk.toolCallId} for ${toolName}`
         );
       }
     } else {
       // Invalid tool - emit immediate error tool-result
       const availableTools = Object.keys(ToolResultSchemas).join(", ");
-      const errorMessage = `Unknown tool: ${chunk.toolName}. Available tools are: ${availableTools}`;
+      const errorMessage = `Unknown tool: ${toolName}. Available tools are: ${availableTools}`;
       const suggestedFix = `Please use one of the available tools: ${availableTools}`;
 
-      console.warn(`[LLM] Invalid tool call: ${chunk.toolName}`);
+      console.warn(`[LLM] Invalid tool call: ${toolName}`);
 
       const errorResult: ValidationErrorResult = {
         success: false,
@@ -67,7 +65,7 @@ export class ChunkHandlers {
         originalResult: undefined,
         validationDetails: {
           expectedType: "Known tool name",
-          receivedType: `Unknown tool: ${chunk.toolName}`,
+          receivedType: `Unknown tool: ${toolName}`,
           fieldPath: "toolName",
         },
       };
@@ -94,30 +92,26 @@ export class ChunkHandlers {
     toolCallMap: Map<string, ToolName>
   ): StreamChunk[] {
     const chunks: StreamChunk[] = [];
+    const toolName = chunk.toolName.trim(); // normalize accidental whitespace from model
 
     // Emit the tool call start
     chunks.push({
       type: "tool-call-start",
       toolCallStart: {
         id: chunk.toolCallId,
-        name: chunk.toolName,
+        name: toolName,
       },
     });
 
-    if (
-      chunk.toolName in ToolResultSchemas ||
-      isTransformedMCPTool(chunk.toolName)
-    ) {
-      toolCallMap.set(chunk.toolCallId, chunk.toolName as ToolName);
-      if (isTransformedMCPTool(chunk.toolName)) {
+    if (toolName in ToolResultSchemas || isTransformedMCPTool(toolName)) {
+      toolCallMap.set(chunk.toolCallId, toolName as ToolName);
+      if (isTransformedMCPTool(toolName)) {
         console.log(
-          `✅ [MCP_STREAMING_START] Registered MCP streaming tool ID: ${chunk.toolCallId} for ${chunk.toolName}`
+          `✅ [MCP_STREAMING_START] Registered MCP streaming tool ID: ${chunk.toolCallId} for ${toolName}`
         );
       }
     } else {
-      console.warn(
-        `[LLM] Invalid tool call streaming start: ${chunk.toolName}`
-      );
+      console.warn(`[LLM] Invalid tool call streaming start: ${toolName}`);
     }
 
     return chunks;
@@ -130,13 +124,14 @@ export class ChunkHandlers {
     chunk: AIStreamChunk & { type: "tool-call-delta" }
   ): StreamChunk[] {
     const chunks: StreamChunk[] = [];
+    const toolName = chunk.toolName.trim(); // normalize accidental whitespace from model
 
     // Emit the tool call delta
     chunks.push({
       type: "tool-call-delta",
       toolCallDelta: {
         id: chunk.toolCallId,
-        name: chunk.toolName,
+        name: toolName,
         argsTextDelta: chunk.argsTextDelta,
       },
     });
