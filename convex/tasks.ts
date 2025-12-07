@@ -1,6 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
 import { TaskStatus, InitStatus } from "./schema";
+import { api } from "./_generated/api";
 
 export const create = mutation({
   args: {
@@ -261,5 +262,60 @@ export const countActiveByUser = query({
     return tasks.filter(
       (t) => t.status !== "ARCHIVED" && t.status !== "COMPLETED" && t.status !== "FAILED"
     ).length;
+  },
+});
+
+// ----- Actions for rich task data and side-effectful operations -----
+
+const getBackendBaseUrl = () => {
+  const base = process.env.BACKEND_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (!base) {
+    throw new Error("BACKEND_BASE_URL or NEXT_PUBLIC_APP_URL must be set for file changes/PR actions.");
+  }
+  return base.replace(/\/$/, "");
+};
+
+export const getDetails = action({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const [task, todos, messages] = await Promise.all([
+      ctx.runQuery(api.tasks.get, { taskId: args.taskId }),
+      ctx.runQuery(api.todos.byTask, { taskId: args.taskId }),
+      ctx.runQuery(api.messages.byTask, { taskId: args.taskId }),
+    ]);
+
+    // Fetch file changes and diff stats from existing backend endpoint
+    const baseUrl = getBackendBaseUrl();
+    const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/file-changes`);
+    if (!res.ok) {
+      throw new Error(`Failed to fetch file changes: ${res.statusText}`);
+    }
+    const fileData = await res.json();
+
+    return {
+      task,
+      todos,
+      messages,
+      fileChanges: fileData.fileChanges ?? [],
+      diffStats: fileData.diffStats ?? { additions: 0, deletions: 0, totalFiles: 0 },
+    };
+  },
+});
+
+export const createPullRequest = action({
+  args: { taskId: v.id("tasks") },
+  handler: async (_ctx, args) => {
+    const baseUrl = getBackendBaseUrl();
+    const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/pull-request`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to create pull request (${res.status})`);
+    }
+    return res.json();
   },
 });

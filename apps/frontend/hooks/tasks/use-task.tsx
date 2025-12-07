@@ -1,28 +1,134 @@
-import type { TaskWithDetails } from "@/lib/db-operations/get-task-with-details";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import {
+  useConvexTask,
+  useConvexTodos,
+  useConvexMessages,
+  useTaskDetailsAction,
+} from "@/lib/convex/hooks";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Task, Todo } from "@repo/db";
+import type { Message } from "@repo/types";
+import type { FileChange, DiffStats } from "@/lib/db-operations/get-task-with-details";
+
+function mapTask(doc: any): Task {
+  return {
+    id: doc._id,
+    title: doc.title,
+    status: doc.status,
+    repoFullName: doc.repoFullName,
+    repoUrl: doc.repoUrl,
+    isScratchpad: doc.isScratchpad,
+    mainModel: doc.mainModel ?? null,
+    workspacePath: doc.workspacePath ?? null,
+    initStatus: doc.initStatus,
+    scheduledCleanupAt: doc.scheduledCleanupAt ?? null,
+    initializationError: doc.initializationError ?? null,
+    errorMessage: doc.errorMessage ?? null,
+    workspaceCleanedUp: doc.workspaceCleanedUp ?? false,
+    hasBeenInitialized: doc.hasBeenInitialized ?? false,
+    createdAt: new Date(doc.createdAt).toISOString(),
+    updatedAt: new Date(doc.updatedAt).toISOString(),
+    userId: doc.userId,
+    baseBranch: doc.baseBranch,
+    baseCommitSha: doc.baseCommitSha,
+    shadowBranch: doc.shadowBranch ?? null,
+    pullRequestNumber: doc.pullRequestNumber ?? null,
+    githubIssueId: doc.githubIssueId ?? null,
+  };
+}
+
+function mapTodo(doc: any): Todo {
+  return {
+    id: doc._id,
+    content: doc.content,
+    status: doc.status,
+    sequence: doc.sequence,
+    createdAt: new Date(doc.createdAt).toISOString(),
+    updatedAt: new Date(doc.updatedAt).toISOString(),
+    taskId: doc.taskId,
+  };
+}
+
+function mapMessage(doc: any): Message {
+  return {
+    id: doc._id,
+    role: doc.role.toLowerCase(),
+    content: doc.content,
+    llmModel: doc.llmModel ?? "",
+    createdAt: new Date(doc.createdAt).toISOString(),
+    metadata: doc.metadataJson ? JSON.parse(doc.metadataJson) : undefined,
+    pullRequestSnapshot: doc.pullRequestSnapshot ?? undefined,
+    stackedTaskId: doc.stackedTaskId ?? undefined,
+    stackedTask: doc.stackedTask
+      ? {
+          id: doc.stackedTask.id,
+          title: doc.stackedTask.title,
+          shadowBranch: doc.stackedTask.shadowBranch ?? undefined,
+          status: doc.stackedTask.status ?? undefined,
+        }
+      : undefined,
+  };
+}
 
 export function useTask(taskId: string) {
-  // Main task data query (includes fileChanges now)
-  const taskQuery = useQuery({
-    queryKey: ["task", taskId],
-    queryFn: async (): Promise<TaskWithDetails> => {
-      const res = await fetch(`/api/tasks/${taskId}`);
-      if (!res.ok) throw new Error("Failed to fetch task");
-      return await res.json();
-    },
-    enabled: !!taskId,
+  const id = taskId as Id<"tasks">;
+  const task = useConvexTask(id);
+  const todos = useConvexTodos(id);
+  const messages = useConvexMessages(id);
+  const getDetails = useTaskDetailsAction();
+
+  const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
+  const [diffStats, setDiffStats] = useState<DiffStats>({
+    additions: 0,
+    deletions: 0,
+    totalFiles: 0,
   });
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const mappedTask = useMemo(() => (task ? mapTask(task) : null), [task]);
+  const mappedTodos = useMemo(
+    () => (todos ? (todos as any[]).map(mapTodo) : []),
+    [todos]
+  );
+  const mappedMessages = useMemo(
+    () => (messages ? (messages as any[]).map(mapMessage) : []),
+    [messages]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (!taskId) return;
+      setLoadingFiles(true);
+      setError(null);
+      try {
+        const data = await getDetails({ taskId: id });
+        if (cancelled) return;
+        setFileChanges(data.fileChanges ?? []);
+        setDiffStats(
+          data.diffStats ?? { additions: 0, deletions: 0, totalFiles: 0 }
+        );
+      } catch (err) {
+        if (cancelled) return;
+        setError(err as Error);
+      } finally {
+        if (!cancelled) setLoadingFiles(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [getDetails, id, taskId]);
 
   return {
-    task: taskQuery.data?.task || null,
-    todos: taskQuery.data?.todos || [],
-    fileChanges: taskQuery.data?.fileChanges || [],
-    diffStats: taskQuery.data?.diffStats || {
-      additions: 0,
-      deletions: 0,
-      totalFiles: 0,
-    },
-    isLoading: taskQuery.isLoading,
-    error: taskQuery.error,
+    task: mappedTask,
+    todos: mappedTodos as Todo[],
+    messages: mappedMessages as Message[],
+    fileChanges,
+    diffStats,
+    isLoading: task === undefined || todos === undefined || messages === undefined || loadingFiles,
+    error,
   };
 }

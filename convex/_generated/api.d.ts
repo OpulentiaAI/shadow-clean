@@ -10,8 +10,15 @@
 
 import type * as agent from "../agent.js";
 import type * as auth from "../auth.js";
+import type * as codebaseUnderstanding from "../codebaseUnderstanding.js";
+import type * as memories from "../memories.js";
 import type * as messages from "../messages.js";
+import type * as pullRequestSnapshots from "../pullRequestSnapshots.js";
+import type * as repositoryIndex from "../repositoryIndex.js";
+import type * as taskSessions from "../taskSessions.js";
 import type * as tasks from "../tasks.js";
+import type * as todos from "../todos.js";
+import type * as userSettings from "../userSettings.js";
 
 import type {
   ApiFromModules,
@@ -22,8 +29,15 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   auth: typeof auth;
+  codebaseUnderstanding: typeof codebaseUnderstanding;
+  memories: typeof memories;
   messages: typeof messages;
+  pullRequestSnapshots: typeof pullRequestSnapshots;
+  repositoryIndex: typeof repositoryIndex;
+  taskSessions: typeof taskSessions;
   tasks: typeof tasks;
+  todos: typeof todos;
+  userSettings: typeof userSettings;
 }>;
 
 /**

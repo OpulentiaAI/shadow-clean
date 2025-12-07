@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCreatePullRequestAction } from "@/lib/convex/hooks";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface CreatePRResponse {
   success: boolean;
@@ -9,27 +10,9 @@ interface CreatePRResponse {
 }
 
 export function useCreatePR() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (taskId: string): Promise<CreatePRResponse> => {
-      const response = await fetch(`/api/tasks/${taskId}/pull-request`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to create pull request");
-      }
-
-      return await response.json();
-    },
-    onSuccess: (data, taskId) => {
-      queryClient.invalidateQueries({ queryKey: ["task", taskId] });
-      queryClient.invalidateQueries({ queryKey: ["task-messages", taskId] });
-    },
-  });
+  const mutate = useCreatePullRequestAction();
+  return {
+    mutate: (taskId: string): Promise<CreatePRResponse> =>
+      mutate({ taskId: taskId as Id<"tasks"> }) as Promise<CreatePRResponse>,
+  };
 }

@@ -56,6 +56,14 @@ export function useDeleteTask() {
   return useMutation(api.tasks.remove);
 }
 
+export function useTaskDetailsAction() {
+  return useAction(api.tasks.getDetails);
+}
+
+export function useCreatePullRequestAction() {
+  return useAction(api.tasks.createPullRequest);
+}
+
 export function useConvexMessages(taskId: Id<"tasks"> | undefined) {
   return useQuery(api.messages.byTask, taskId ? { taskId } : "skip");
 }
@@ -250,4 +258,16 @@ export function useCreateThread() {
 
 export function useContinueThread() {
   return useAction(api.agent.continueThread);
+}
+
+export function useStreamText() {
+  return useAction(api.agent.streamText);
+}
+
+export function useStartStreamingMessage() {
+  return useMutation(api.messages.startStreaming);
+}
+
+export function useAppendStreamDelta() {
+  return useMutation(api.messages.appendStreamDelta);
 }

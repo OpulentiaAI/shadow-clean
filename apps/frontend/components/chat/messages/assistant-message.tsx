@@ -33,16 +33,16 @@ import {
   DropdownMenuTrigger,
 } from "../../ui/dropdown-menu";
 
-function getMessageCopyContent(
-  groupedParts: Array<
-    | { type: "text"; text: string }
-    | { type: "tool-call"; part: unknown; index: number }
-    | { type: "tool-result"; part: unknown; index: number }
-    | { type: "error"; part: ErrorPart; index: number }
-    | { type: "reasoning"; part: ReasoningPart; index: number }
-    | { type: "redacted-reasoning"; part: RedactedReasoningPart; index: number }
-  >
-): string {
+type GroupedPart =
+  | { type: "text"; text: string }
+  | { type: "tool-call"; part: any; index: number }
+  | { type: "tool-result"; part: any; index: number }
+  | { type: "error"; part: ErrorPart; index: number }
+  | { type: "reasoning"; part: ReasoningPart; index: number }
+  | { type: "redacted-reasoning"; part: RedactedReasoningPart; index: number }
+  | { type: "unknown"; part: any; index: number };
+
+function getMessageCopyContent(groupedParts: GroupedPart[]): string {
   return groupedParts
     .map((part) => {
       if (part.type === "text") {
@@ -58,6 +58,8 @@ function getMessageCopyContent(
         return `Thinking: ${part.part.text}`;
       } else if (part.type === "redacted-reasoning") {
         return `Thinking: [redacted]`;
+      } else if (part.type === "unknown") {
+        return `Data: ${JSON.stringify(part.part)}`;
       }
       return "";
     })
@@ -101,33 +103,23 @@ export function AssistantMessage({
 
   // Group consecutive text parts together for better rendering
   const groupedParts = useMemo(() => {
-    if (!message.metadata?.parts || message.metadata.parts.length === 0)
-      return [];
+    if (!message.metadata?.parts || message.metadata.parts.length === 0) {
+      return message.content
+        ? ([{ type: "text", text: message.content }] as GroupedPart[])
+        : [];
+    }
 
-    const parts: Array<
-      | { type: "text"; text: string }
-      | { type: "tool-call"; part: unknown; index: number }
-      | { type: "tool-result"; part: unknown; index: number }
-      | { type: "error"; part: ErrorPart; index: number }
-      | { type: "reasoning"; part: ReasoningPart; index: number }
-      | {
-          type: "redacted-reasoning";
-          part: RedactedReasoningPart;
-          index: number;
-        }
-    > = [];
+    const parts: GroupedPart[] = [];
     let currentTextGroup = "";
 
-    message.metadata.parts.forEach((part, index) => {
-      if (part.type === "text") {
+    message.metadata.parts.forEach((part: any, index: number) => {
+      if (part.type === "text" && part.text !== undefined) {
         currentTextGroup += part.text;
       } else {
-        // If we have accumulated text, add it as a group
         if (currentTextGroup) {
           parts.push({ type: "text", text: currentTextGroup });
           currentTextGroup = "";
         }
-        // Add the non-text part
         if (part.type === "tool-call") {
           parts.push({ type: "tool-call", part, index });
         } else if (part.type === "tool-result") {
@@ -142,17 +134,18 @@ export function AssistantMessage({
             part: part as RedactedReasoningPart,
             index,
           });
+        } else {
+          parts.push({ type: "unknown", part, index });
         }
       }
     });
 
-    // Don't forget any remaining text at the end
     if (currentTextGroup) {
       parts.push({ type: "text", text: currentTextGroup });
     }
 
     return parts;
-  }, [message.metadata?.parts]);
+  }, [message.metadata?.parts, message.content]);
 
   const copyContent = useMemo(
     () => getMessageCopyContent(groupedParts),
@@ -166,10 +159,6 @@ export function AssistantMessage({
   const handleCopyMessageId = useCallback(() => {
     copyMessageId(message.id);
   }, [copyMessageId, message.id]);
-
-  if (!message.metadata?.parts || message.metadata.parts.length === 0) {
-    return null;
-  }
 
   return (
     <div

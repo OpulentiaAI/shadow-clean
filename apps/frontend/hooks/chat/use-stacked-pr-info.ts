@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import type { StackedPRInfo } from "@/lib/db-operations/get-stacked-pr-info";
+import { useConvexStackedPRInfo } from "@/lib/convex/hooks";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import type { TaskStatus } from "@repo/types";
 
 type InitialStackedPRData = {
@@ -13,25 +13,20 @@ export function useStackedPRInfo(
   taskId: string,
   initialData?: InitialStackedPRData
 ) {
-  return useQuery<StackedPRInfo>({
-    queryKey: ["stacked-pr-info", taskId],
-    queryFn: async () => {
-      const response = await fetch(`/api/tasks/${taskId}/stacked-pr-info`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch stacked PR info");
-      }
-      return response.json();
-    },
-    initialData: initialData
-      ? {
-          id: initialData.id,
-          title: initialData.title,
-          status: initialData.status || "INITIALIZING",
-          shadowBranch: initialData.shadowBranch || null,
-        }
-      : undefined,
-    refetchInterval: 15000, // Refetch every 15 seconds
-    staleTime: 10000, // Consider data stale after 10 seconds
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-  });
+  const data = useConvexStackedPRInfo(taskId as Id<"tasks">);
+  const merged =
+    data ||
+    (initialData && {
+      id: initialData.id,
+      title: initialData.title,
+      status: initialData.status || "INITIALIZING",
+      shadowBranch: initialData.shadowBranch || null,
+    }) ||
+    null;
+
+  return {
+    data: merged,
+    isLoading: data === undefined,
+    error: null,
+  };
 }
