@@ -5,7 +5,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile.sidecar"
 
 [deploy]
-startCommand = "node dist/server.js"
+# Use absolute path so Railway CWD differences don't break startup
+startCommand = "node /app/apps/sidecar/dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
