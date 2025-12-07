@@ -50,16 +50,17 @@ ENV PATH="${PATH}:/root/.bun/bin"
 RUN addgroup -g 1001 sidecar && adduser -D -u 1001 -G sidecar sidecar
 RUN mkdir -p /workspace && chown -R sidecar:sidecar /workspace
 
-USER sidecar
-
-# Copy built application
-COPY --from=installer --chown=sidecar:sidecar /app/apps/sidecar/dist ./apps/sidecar/dist
-COPY --from=installer --chown=sidecar:sidecar /app/apps/sidecar/package.json ./apps/sidecar/package.json
-
-# Copy necessary runtime files
+# Copy necessary runtime files (while still root, before USER switch)
 COPY --from=installer --chown=sidecar:sidecar /app/node_modules ./node_modules
 COPY --from=installer --chown=sidecar:sidecar /app/packages ./packages
 COPY --from=installer --chown=sidecar:sidecar /app/package.json ./package.json
+
+# Switch to sidecar workdir and copy app files
+WORKDIR /app/apps/sidecar
+COPY --from=installer --chown=sidecar:sidecar /app/apps/sidecar/dist ./dist
+COPY --from=installer --chown=sidecar:sidecar /app/apps/sidecar/package.json ./package.json
+
+USER sidecar
 
 # Environment variables
 ENV NODE_ENV=production
@@ -68,4 +69,4 @@ ENV WORKSPACE_DIR=/workspace
 
 EXPOSE 8080
 
-CMD ["node", "apps/sidecar/dist/server.js"]
+CMD ["node", "dist/server.js"]
