@@ -1,63 +1,61 @@
-# Multi-stage Dockerfile for Railway deployment
-FROM node:18-alpine AS builder
+# Frontend Dockerfile - Turborepo monorepo (simplified, no prune)
+# Cache buster: 2025-11-26-v2
+FROM node:22-alpine AS base
 
-# Install dependencies for building
-RUN apk add --no-cache python3 make g++ git
-
-# Set working directory
+# Installer stage - install dependencies and build
+FROM base AS installer
+RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Build-time arguments for NEXT_PUBLIC_* variables
+ARG NEXT_PUBLIC_SERVER_URL
+ENV NEXT_PUBLIC_SERVER_URL=$NEXT_PUBLIC_SERVER_URL
+
+# Copy package files and source (needed for workspace resolution)
 COPY package*.json ./
 COPY turbo.json ./
-COPY apps/server/package*.json ./apps/server/
-COPY apps/sidecar/package*.json ./apps/sidecar/
-COPY packages/*/package*.json ./packages/*/
+COPY apps/frontend/ ./apps/frontend/
+COPY packages/ ./packages/
 
 # Install dependencies
-RUN npm ci
+RUN npm install --frozen-lockfile || npm install
 
-# Copy source code
-COPY . .
+# Generate Prisma client (needed by frontend for BetterAuth)
+RUN npm run generate --filter=@repo/db
 
-# Generate Prisma client
-RUN npm run generate
+# Build the frontend (NEXT_PUBLIC_* vars are baked in at build time)
+RUN npm run build --filter=frontend
 
-# Build the application
-RUN npm run build
-
-# Production stage
-FROM node:18-alpine
-
-# Install git for workspace operations
-RUN apk add --no-cache git
-
-# Create workspace directory
-RUN mkdir -p /app/workspace && chmod 777 /app/workspace
-
+# Runtime stage - minimal production image
+FROM base AS runner
 WORKDIR /app
 
+# Install runtime dependencies
+RUN apk add --no-cache curl
+
+# Create non-root user
+RUN addgroup -g 1001 nodejs && \
+  adduser -D -u 1001 -G nodejs nextjs
+
 # Copy built application
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/server/dist ./apps/server/dist
-COPY --from=builder /app/apps/server/package*.json ./apps/server/
-COPY --from=builder /app/apps/sidecar/dist ./apps/sidecar/dist
-COPY --from=builder /app/apps/sidecar/package*.json ./apps/sidecar/
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/turbo.json ./
+COPY --from=installer --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
+COPY --from=installer --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=installer --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 
-# Set environment variables
+# Switch to non-root user
+USER nextjs
+
+# Environment variables
 ENV NODE_ENV=production
-ENV AGENT_MODE=local
-ENV WORKSPACE_DIR=/app/workspace
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Expose ports
-EXPOSE 4000 3001
+# Expose port
+EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:4000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000 || exit 1
 
-# Start both services
-CMD ["npm", "run", "start:production"]
+# Start Next.js
+CMD ["node", "apps/frontend/server.js"]
