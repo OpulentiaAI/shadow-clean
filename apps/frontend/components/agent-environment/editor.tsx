@@ -11,7 +11,17 @@ import { ShadowWikiContent } from "../shadow-wiki/shadow-wiki";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { MemoizedMarkdown } from "../chat/markdown/memoized-markdown";
 
-// Dynamic import Monaco Editor to avoid SSR issues
+// Temporary: Use a simple textarea instead of Monaco due to chunk loading issues
+// const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+//   ssr: false,
+//   loading: () => (
+//     <div className="bg-background flex size-full items-center justify-center">
+//       Loading editor...
+//     </div>
+//   ),
+// });
+
+// Dynamic import Monaco Editor to avoid SSR issues; required for terminal/file editor
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
   loading: () => (

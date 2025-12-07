@@ -3,7 +3,6 @@
 import { auth } from "@/lib/auth/auth";
 import { MessageRole, prisma, Task } from "@repo/db";
 import { headers } from "next/headers";
-import { after } from "next/server";
 import { z, ZodIssue } from "zod";
 import { generateTaskTitleAndBranch } from "./generate-title-branch";
 import {
@@ -202,37 +201,58 @@ export async function createTask(formData: FormData) {
       },
     });
 
-    // Schedule the backend API call and title generation to happen after the response is sent
-    after(async () => {
-      try {
-        // Initiate the task on the backend
-        // Forward cookies from the original request
-        const requestHeaders = await headers();
-        const cookieHeader = requestHeaders.get("cookie");
+    // Initiate the task immediately (synchronously) instead of using after()
+    // This ensures workspace initialization begins right after task creation
+    try {
+      console.log(`[TASK_CREATION] Initiating task ${task.id} immediately`);
 
-        const response = await makeBackendRequest(
-          `/api/tasks/${task.id}/initiate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(cookieHeader && { Cookie: cookieHeader }),
-            },
-            body: JSON.stringify({
-              message,
-              model,
-              userId: userId,
-            }),
-          }
-        );
+      // Forward cookies from the original request
+      const requestHeaders = await headers();
+      const cookieHeader = requestHeaders.get("cookie");
 
-        if (!response.ok) {
-          console.error("Failed to initiate task:", await response.text());
+      const response = await makeBackendRequest(
+        `/api/tasks/${task.id}/initiate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(cookieHeader && { Cookie: cookieHeader }),
+          },
+          body: JSON.stringify({
+            message,
+            model,
+            userId: userId,
+          }),
         }
-      } catch (error) {
-        console.error("Error initiating task:", error);
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[TASK_CREATION] Failed to initiate task ${task.id}:`, errorText);
+
+        // Update task status to failed if initialization fails
+        await prisma.task.update({
+          where: { id: task.id },
+          data: {
+            status: "FAILED",
+            initializationError: `Initialization failed: ${errorText}`,
+          },
+        });
+      } else {
+        console.log(`[TASK_CREATION] Successfully initiated task ${task.id}`);
       }
-    });
+    } catch (error) {
+      console.error(`[TASK_CREATION] Error initiating task ${task.id}:`, error);
+
+      // Update task status to failed if there's an error
+      await prisma.task.update({
+        where: { id: task.id },
+        data: {
+          status: "FAILED",
+          initializationError: `Initialization error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+      });
+    }
   } catch (error) {
     console.error("Failed to create task:", error);
     throw new Error("Failed to create task");

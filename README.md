@@ -121,8 +121,8 @@ npm run db:push
 
 4. Start development servers:
 ```bash
-# Start all services
-npm run dev
+# Start frontend + backend together (recommended for local dev)
+npm run dev:app
 
 # Or start specific services
 npm run dev --filter=frontend
@@ -204,6 +204,10 @@ npm run format
 # Type checking
 npm run check-types
 ```
+
+## Agent & Convex Internals
+
+See `agents.md` for the current agent flow, Convex chat integration, workspace initialization, and requirements for the real-time terminal/file editor.
 
 ### Database Operations
 
