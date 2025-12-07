@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@/components/layout/query-client-provider";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { SettingsModal } from "@/components/auth/settings-modal";
+import { ConvexClientProvider } from "@/lib/convex/provider";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { cookies } from "next/headers";
@@ -98,14 +99,15 @@ export default async function RootLayout({
       <body
         className={`${monumentGrotesk.variable} ${monumentGroteskMono.variable} ${departureMono.variable} ${cybertruckFont.variable} overscroll-none antialiased`}
       >
-        <QueryClientProvider>
-          <ThemeProvider
-            attribute="class"
-            forcedTheme="dark"
-            disableTransitionOnChange
-          >
-            <SessionProvider>
-              <ModalProvider>
+        <ConvexClientProvider>
+          <QueryClientProvider>
+            <ThemeProvider
+              attribute="class"
+              forcedTheme="dark"
+              disableTransitionOnChange
+            >
+              <SessionProvider>
+                <ModalProvider>
                 {/* SidebarProvider also provides a TooltipProvider inside */}
                 <SidebarProvider defaultOpen={defaultOpen}>
                   {/* Don't render the sidebar here; we have individual layouts for route groups to render different variants of the sidebar */}
@@ -113,10 +115,11 @@ export default async function RootLayout({
                   <SettingsModal />
                   <Toaster />
                 </SidebarProvider>
-              </ModalProvider>
-            </SessionProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
+                </ModalProvider>
+              </SessionProvider>
+            </ThemeProvider>
+          </QueryClientProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );

@@ -9,6 +9,26 @@ export const currentUser = query({
   },
 });
 
+export const getUserByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
+  },
+});
+
+export const getUserByExternalId = query({
+  args: { externalId: v.string() },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("users")
+      .withIndex("by_external_id", (q) => q.eq("externalId", args.externalId))
+      .first();
+  },
+});
+
 export const upsertUser = mutation({
   args: {
     externalId: v.string(),
@@ -23,7 +43,6 @@ export const upsertUser = mutation({
       .query("users")
       .withIndex("by_email", (q) => q.eq("email", args.email))
       .unique();
-
     if (existing) {
       await ctx.db.patch(existing._id, {
         name: args.name,
@@ -34,7 +53,6 @@ export const upsertUser = mutation({
       });
       return existing._id;
     }
-
     return ctx.db.insert("users", {
       externalId: args.externalId,
       name: args.name,
@@ -47,3 +65,252 @@ export const upsertUser = mutation({
   },
 });
 
+export const createSession = mutation({
+  args: {
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+    ipAddress: v.optional(v.string()),
+    userAgent: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const sessionId = await ctx.db.insert("sessions", {
+      userId: args.userId,
+      token: args.token,
+      expiresAt: args.expiresAt,
+      ipAddress: args.ipAddress,
+      userAgent: args.userAgent,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return sessionId;
+  },
+});
+
+export const getSessionByToken = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    if (!session) return null;
+    if (session.expiresAt < Date.now()) return null;
+    const user = await ctx.db.get(session.userId);
+    return { session, user };
+  },
+});
+
+export const deleteSession = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+    if (session) {
+      await ctx.db.delete(session._id);
+    }
+    return { success: true };
+  },
+});
+
+export const deleteUserSessions = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    for (const session of sessions) {
+      await ctx.db.delete(session._id);
+    }
+    return { deleted: sessions.length };
+  },
+});
+
+export const createAccount = mutation({
+  args: {
+    userId: v.id("users"),
+    accountId: v.string(),
+    providerId: v.string(),
+    accessToken: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    idToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    refreshTokenExpiresAt: v.optional(v.number()),
+    scope: v.optional(v.string()),
+    githubInstallationId: v.optional(v.string()),
+    githubAppConnected: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("accounts")
+      .withIndex("by_provider", (q) =>
+        q.eq("providerId", args.providerId).eq("accountId", args.accountId)
+      )
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        accessToken: args.accessToken,
+        refreshToken: args.refreshToken,
+        idToken: args.idToken,
+        accessTokenExpiresAt: args.accessTokenExpiresAt,
+        refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+        scope: args.scope,
+        githubInstallationId: args.githubInstallationId,
+        githubAppConnected: args.githubAppConnected ?? existing.githubAppConnected,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+    return ctx.db.insert("accounts", {
+      userId: args.userId,
+      accountId: args.accountId,
+      providerId: args.providerId,
+      accessToken: args.accessToken,
+      refreshToken: args.refreshToken,
+      idToken: args.idToken,
+      accessTokenExpiresAt: args.accessTokenExpiresAt,
+      refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+      scope: args.scope,
+      password: undefined,
+      githubInstallationId: args.githubInstallationId,
+      githubAppConnected: args.githubAppConnected ?? false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const getAccountByProvider = query({
+  args: {
+    userId: v.id("users"),
+    providerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("accounts")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("providerId", args.providerId)
+      )
+      .first();
+  },
+});
+
+export const getGitHubAccount = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("accounts")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("providerId", "github")
+      )
+      .first();
+  },
+});
+
+export const updateGitHubInstallation = mutation({
+  args: {
+    userId: v.id("users"),
+    githubInstallationId: v.optional(v.string()),
+    githubAppConnected: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const account = await ctx.db
+      .query("accounts")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("providerId", "github")
+      )
+      .first();
+    if (!account) {
+      return null;
+    }
+    await ctx.db.patch(account._id, {
+      githubInstallationId: args.githubInstallationId,
+      githubAppConnected: args.githubAppConnected,
+      updatedAt: Date.now(),
+    });
+    return account._id;
+  },
+});
+
+export const clearGitHubInstallation = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const account = await ctx.db
+      .query("accounts")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("providerId", "github")
+      )
+      .first();
+    if (!account) {
+      return null;
+    }
+    await ctx.db.patch(account._id, {
+      githubInstallationId: undefined,
+      githubAppConnected: false,
+      updatedAt: Date.now(),
+    });
+    return account._id;
+  },
+});
+
+export const createVerification = mutation({
+  args: {
+    identifier: v.string(),
+    value: v.string(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("verification")
+      .withIndex("by_identifier", (q) => q.eq("identifier", args.identifier))
+      .first();
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        value: args.value,
+        expiresAt: args.expiresAt,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+    return ctx.db.insert("verification", {
+      identifier: args.identifier,
+      value: args.value,
+      expiresAt: args.expiresAt,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const getVerification = query({
+  args: { identifier: v.string() },
+  handler: async (ctx, args) => {
+    const verification = await ctx.db
+      .query("verification")
+      .withIndex("by_identifier", (q) => q.eq("identifier", args.identifier))
+      .first();
+    if (!verification) return null;
+    if (verification.expiresAt < Date.now()) return null;
+    return verification;
+  },
+});
+
+export const deleteVerification = mutation({
+  args: { identifier: v.string() },
+  handler: async (ctx, args) => {
+    const verification = await ctx.db
+      .query("verification")
+      .withIndex("by_identifier", (q) => q.eq("identifier", args.identifier))
+      .first();
+    if (verification) {
+      await ctx.db.delete(verification._id);
+    }
+    return { success: true };
+  },
+});

@@ -1,26 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-
-const TaskStatus = v.union(
-  v.literal("STOPPED"),
-  v.literal("INITIALIZING"),
-  v.literal("ARCHIVED"),
-  v.literal("RUNNING"),
-  v.literal("COMPLETED"),
-  v.literal("FAILED"),
-);
-
-const InitStatus = v.union(
-  v.literal("INACTIVE"),
-  v.literal("PREPARE_WORKSPACE"),
-  v.literal("CREATE_VM"),
-  v.literal("WAIT_VM_READY"),
-  v.literal("VERIFY_VM_WORKSPACE"),
-  v.literal("START_BACKGROUND_SERVICES"),
-  v.literal("INSTALL_DEPENDENCIES"),
-  v.literal("COMPLETE_SHADOW_WIKI"),
-  v.literal("ACTIVE"),
-);
+import { TaskStatus, InitStatus } from "./schema";
 
 export const create = mutation({
   args: {
@@ -33,6 +13,7 @@ export const create = mutation({
     baseCommitSha: v.optional(v.string()),
     shadowBranch: v.optional(v.string()),
     mainModel: v.optional(v.string()),
+    githubIssueId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -57,9 +38,9 @@ export const create = mutation({
       baseCommitSha: args.baseCommitSha ?? "",
       shadowBranch: args.shadowBranch ?? "",
       pullRequestNumber: undefined,
-      githubIssueId: undefined,
+      githubIssueId: args.githubIssueId,
+      codebaseUnderstandingId: undefined,
     });
-
     return { taskId };
   },
 });
@@ -76,33 +57,106 @@ export const update = mutation({
     initializationError: v.optional(v.string()),
     workspaceCleanedUp: v.optional(v.boolean()),
     hasBeenInitialized: v.optional(v.boolean()),
+    pullRequestNumber: v.optional(v.number()),
+    scheduledCleanupAt: v.optional(v.number()),
+    shadowBranch: v.optional(v.string()),
+    baseCommitSha: v.optional(v.string()),
+    codebaseUnderstandingId: v.optional(v.id("codebaseUnderstanding")),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.taskId);
     if (!existing) {
       throw new Error("Task not found");
     }
+    const { taskId, ...updates } = args;
+    const patchData: Record<string, unknown> = { updatedAt: Date.now() };
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        patchData[key] = value;
+      }
+    }
+    await ctx.db.patch(taskId, patchData);
+    return { taskId };
+  },
+});
 
+export const updateTitle = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.taskId);
+    if (!existing) {
+      throw new Error("Task not found");
+    }
     await ctx.db.patch(args.taskId, {
-      ...(args.title ? { title: args.title } : {}),
-      ...(args.status ? { status: args.status } : {}),
-      ...(args.initStatus ? { initStatus: args.initStatus } : {}),
-      ...(args.mainModel ? { mainModel: args.mainModel } : {}),
-      ...(args.workspacePath ? { workspacePath: args.workspacePath } : {}),
-      ...(args.errorMessage ? { errorMessage: args.errorMessage } : {}),
-      ...(args.initializationError
-        ? { initializationError: args.initializationError }
-        : {}),
-      ...(args.workspaceCleanedUp !== undefined
-        ? { workspaceCleanedUp: args.workspaceCleanedUp }
-        : {}),
-      ...(args.hasBeenInitialized !== undefined
-        ? { hasBeenInitialized: args.hasBeenInitialized }
-        : {}),
+      title: args.title,
       updatedAt: Date.now(),
     });
+    return { success: true, task: { ...existing, title: args.title } };
+  },
+});
 
-    return { taskId: args.taskId };
+export const archive = mutation({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.taskId);
+    if (!existing) {
+      throw new Error("Task not found");
+    }
+    await ctx.db.patch(args.taskId, {
+      status: "ARCHIVED",
+      updatedAt: Date.now(),
+    });
+    return { success: true, task: { ...existing, status: "ARCHIVED" } };
+  },
+});
+
+export const remove = mutation({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.taskId);
+    if (!existing) {
+      throw new Error("Task not found");
+    }
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    for (const msg of messages) {
+      const snapshot = await ctx.db
+        .query("pullRequestSnapshots")
+        .withIndex("by_message", (q) => q.eq("messageId", msg._id))
+        .first();
+      if (snapshot) {
+        await ctx.db.delete(snapshot._id);
+      }
+      await ctx.db.delete(msg._id);
+    }
+    const todos = await ctx.db
+      .query("todos")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    for (const todo of todos) {
+      await ctx.db.delete(todo._id);
+    }
+    const memories = await ctx.db
+      .query("memories")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    for (const memory of memories) {
+      await ctx.db.delete(memory._id);
+    }
+    const sessions = await ctx.db
+      .query("taskSessions")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .collect();
+    for (const session of sessions) {
+      await ctx.db.delete(session._id);
+    }
+    await ctx.db.delete(args.taskId);
+    return { success: true, task: existing };
   },
 });
 
@@ -113,13 +167,99 @@ export const get = query({
   },
 });
 
+export const getWithDetails = query({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      return { task: null, todos: [], messages: [] };
+    }
+    const todos = await ctx.db
+      .query("todos")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .order("asc")
+      .collect();
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .order("asc")
+      .collect();
+    return { task, todos, messages };
+  },
+});
+
+export const getTitle = query({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    return task?.title ?? "";
+  },
+});
+
+export const getStatus = query({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      return null;
+    }
+    return {
+      status: task.status,
+      initStatus: task.initStatus,
+      initializationError: task.initializationError ?? null,
+      hasBeenInitialized: task.hasBeenInitialized,
+    };
+  },
+});
+
+export const getStackedPRInfo = query({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) {
+      return null;
+    }
+    return {
+      id: task._id,
+      title: task.title,
+      status: task.status,
+      shadowBranch: task.shadowBranch || null,
+    };
+  },
+});
+
 export const listByUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
     return ctx.db
       .query("tasks")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
       .collect();
   },
 });
 
+export const listByUserExcludeArchived = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const all = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+    return all.filter((t) => t.status !== "ARCHIVED");
+  },
+});
+
+export const countActiveByUser = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    return tasks.filter(
+      (t) => t.status !== "ARCHIVED" && t.status !== "COMPLETED" && t.status !== "FAILED"
+    ).length;
+  },
+});
