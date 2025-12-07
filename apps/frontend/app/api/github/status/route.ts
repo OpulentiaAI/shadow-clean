@@ -15,10 +15,18 @@ export async function GET(_request: NextRequest) {
 
     // In bypass mode, surface the installation URL so users can still connect if desired.
     if (BYPASS_AUTH) {
+      let installationUrl: string | undefined;
+      try {
+        installationUrl = getGitHubAppInstallationUrl();
+      } catch (error) {
+        // GitHub App not configured, installation URL will be undefined
+        console.warn("GitHub App not configured in bypass mode:", error);
+      }
+
       return NextResponse.json({
         isConnected: false,
         isAppInstalled: false,
-        installationUrl: getGitHubAppInstallationUrl(),
+        installationUrl,
         message:
           "GitHub integration disabled in local dev mode. Use Local Repo instead or install the GitHub App.",
       });
