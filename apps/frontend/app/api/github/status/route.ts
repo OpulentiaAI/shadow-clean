@@ -1,5 +1,6 @@
 import { getUser } from "@/lib/auth/get-user";
 import { getGitHubStatus } from "@/lib/github/github-api";
+import { getGitHubAppInstallationUrl } from "@/lib/github/github-app";
 import { NextRequest, NextResponse } from "next/server";
 
 const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
@@ -12,13 +13,14 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // In bypass mode, return a status indicating GitHub is not connected
-    // This allows users to focus on local repos without GitHub setup
+    // In bypass mode, surface the installation URL so users can still connect if desired.
     if (BYPASS_AUTH) {
       return NextResponse.json({
         isConnected: false,
         isAppInstalled: false,
-        message: "GitHub integration disabled in local dev mode. Use Local Repo instead.",
+        installationUrl: getGitHubAppInstallationUrl(),
+        message:
+          "GitHub integration disabled in local dev mode. Use Local Repo instead or install the GitHub App.",
       });
     }
 

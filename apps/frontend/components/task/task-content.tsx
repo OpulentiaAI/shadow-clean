@@ -24,6 +24,11 @@ function TaskPageContent() {
   const { data: messages = [], error: taskMessagesError } =
     useTaskMessages(taskId);
 
+  const convexTaskId = useMemo(
+    () => asConvexId<"tasks">(task?.id ?? taskId),
+    [task?.id, taskId]
+  );
+
   const sendMessageMutation = useSendMessage();
   const streamText = useStreamText();
 
@@ -33,10 +38,10 @@ function TaskPageContent() {
     (message: string, model: ModelType, queue: boolean) => {
       if (!taskId || !message.trim()) return;
       if (queue) return; // queuing not supported in Convex streaming path
-      const convexTaskId = asConvexId<"tasks">(taskId);
+      if (!convexTaskId) return;
 
       // Optimistic user append
-      sendMessageMutation.mutate({ taskId, message, model });
+      sendMessageMutation.mutate({ taskId: convexTaskId, message, model });
 
       // Fire streaming assistant response
       setIsStreaming(true);
@@ -50,7 +55,7 @@ function TaskPageContent() {
         })
         .finally(() => setIsStreaming(false));
     },
-    [taskId, sendMessageMutation, streamText]
+    [taskId, convexTaskId, sendMessageMutation, streamText]
   );
 
   const displayMessages = useMemo(() => {

@@ -1,8 +1,5 @@
 import { useMemo } from "react";
-import {
-  useConvexTasksExcludeArchived,
-  useConvexUserByExternalId,
-} from "@/lib/convex/hooks";
+import { useConvexTasksExcludeArchived } from "@/lib/convex/hooks";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { Task } from "@repo/db";
 import { asConvexId } from "@/lib/convex/id";
@@ -14,8 +11,7 @@ import { asConvexId } from "@/lib/convex/id";
  */
 export function useTasks(initialData: Task[], userExternalId?: string) {
   const externalUserId = userExternalId ?? initialData?.[0]?.userId;
-  const convexUser = useConvexUserByExternalId(externalUserId);
-  const convexUserId = (convexUser?._id as Id<"users"> | undefined) ?? asConvexId<"users">(externalUserId);
+  const convexUserId = asConvexId<"users">(externalUserId);
   const liveTasks = useConvexTasksExcludeArchived(convexUserId);
 
   const data = useMemo(() => {
