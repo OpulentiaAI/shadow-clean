@@ -1,0 +1,19 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node apps/sidecar/dist/server.js"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+numReplicas = 1
+
+[environments.production.variables]
+PORT = "8080"
+WORKSPACE_DIR = "/workspace"
+NODE_ENV = "production"
+FILESYSTEM_WATCH_ENABLED = "true"
+MORPH_API_KEY = "sk-fnpiSKi8kqN5AXL5DZdS23B8O6y-oWF3Q2xxIjGYZRjDKOtZ"
+GITHUB_PERSONAL_ACCESS_TOKEN = "your_github_token_here"
