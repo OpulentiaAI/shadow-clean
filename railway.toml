@@ -1,7 +1,7 @@
 [[services.shadow-sidecar]]
 [services.shadow-sidecar.build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile.sidecar"
+dockerfilePath = "Dockerfile"
 
 [services.shadow-sidecar.deploy]
 startCommand = "node apps/sidecar/dist/server.js"
