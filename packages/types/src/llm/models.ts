@@ -34,6 +34,7 @@ export const AvailableModels = {
   DEEPSEEK_CHAT_V3_0324: "deepseek/deepseek-chat-v3-0324",
   QWEN_3_CODER: "qwen/qwen3-coder",
   QWEN_3_235B_A22B_2507: "qwen/qwen3-235b-a22b-2507",
+  CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -154,7 +155,7 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
 };
 
 export function getModelProvider(
-  model: ModelType
+  model: ModelType,
 ): "anthropic" | "openai" | "openrouter" /* | "ollama" */ {
   return ModelInfos[model].provider;
 }
@@ -180,7 +181,7 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
  * Get all possible models based on user API keys (for settings UI)
  */
 export async function getAllPossibleModels(
-  userApiKeys: ApiKeys
+  userApiKeys: ApiKeys,
 ): Promise<ModelType[]> {
   const models: ModelType[] = [];
 
@@ -193,7 +194,7 @@ export async function getAllPossibleModels(
       AvailableModels.GPT_5,
       AvailableModels.GPT_5_MINI,
       AvailableModels.GPT_4_1,
-      AvailableModels.GPT_4O
+      AvailableModels.GPT_4O,
     );
   }
 
@@ -208,7 +209,7 @@ export async function getAllPossibleModels(
       AvailableModels.DEEPSEEK_R1_0528,
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
       AvailableModels.QWEN_3_CODER,
-      AvailableModels.QWEN_3_235B_A22B_2507
+      AvailableModels.QWEN_3_235B_A22B_2507,
     );
   }
 
@@ -234,7 +235,7 @@ export async function getAllPossibleModels(
  * Get default selected models based on user API keys
  */
 export async function getDefaultSelectedModels(
-  userApiKeys: ApiKeys
+  userApiKeys: ApiKeys,
 ): Promise<ModelType[]> {
   const defaultModels: ModelType[] = [];
 
@@ -244,7 +245,7 @@ export async function getDefaultSelectedModels(
       AvailableModels.GPT_5, // default
       AvailableModels.GPT_5_MINI, // default
       AvailableModels.GPT_4_1, // default
-      AvailableModels.GPT_4O // default
+      AvailableModels.GPT_4O, // default
       // AvailableModels.O3, // default
       // AvailableModels.O4_MINI // default
     );
@@ -253,7 +254,7 @@ export async function getDefaultSelectedModels(
   if (userApiKeys.anthropic) {
     defaultModels.push(
       AvailableModels.CLAUDE_OPUS_4, // default
-      AvailableModels.CLAUDE_SONNET_4 // default
+      AvailableModels.CLAUDE_SONNET_4, // default
     );
   }
 
@@ -269,7 +270,7 @@ export async function getDefaultSelectedModels(
       AvailableModels.DEEPSEEK_R1_0528,
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
       AvailableModels.QWEN_3_CODER,
-      AvailableModels.QWEN_3_235B_A22B_2507
+      AvailableModels.QWEN_3_235B_A22B_2507,
     );
   }
 
@@ -289,7 +290,7 @@ export async function getDefaultSelectedModels(
  */
 export async function getAvailableModels(
   userApiKeys: ApiKeys,
-  selectedModels?: ModelType[]
+  selectedModels?: ModelType[],
 ): Promise<ModelType[]> {
   const allPossible = await getAllPossibleModels(userApiKeys);
 
