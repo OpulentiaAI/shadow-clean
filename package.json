@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@convex-dev/agent": "0.3.2",
+    "@openrouter/ai-sdk-provider": "^0.7.3",
     "@next/swc-wasm-nodejs": "^15.4.6",
     "openai": "^4.28.0",
     "convex-helpers": "^0.1.104",

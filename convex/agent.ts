@@ -3,12 +3,23 @@ import { v } from "convex/values";
 import { components, internal, api } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import OpenAI from "openai";
+
+const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+const openrouterProvider = openrouterApiKey
+  ? createOpenRouter({ apiKey: openrouterApiKey })
+  : null;
+
+const embeddingModel = openrouterProvider
+  ? openrouterProvider.embedding("google/gemini-embedding-001")
+  : openai.embedding("text-embedding-3-small");
 
 const shadowAgent = new Agent(components.agent, {
   name: "ShadowAgent",
-  chat: openai.chat("gpt-4o"),
-  textEmbedding: openai.embedding("text-embedding-3-small"),
+  languageModel: openai.chat("gpt-4o"),
+  // Prefer OpenRouter Gemini embeddings when API key is available; fallback to OpenAI embeddings
+  textEmbedding: embeddingModel,
   instructions: `You are Shadow, an AI coding assistant. You help developers write, debug, and understand code. 
 You have access to the user's repository and can analyze code, suggest improvements, and help with implementation tasks.
 Be concise but thorough. When showing code, use proper formatting.`,
@@ -21,14 +32,11 @@ export const createThread = action({
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    const thread = await shadowAgent.createThread(ctx, {
-      metadata: {
-        taskId: args.taskId,
-        userId: args.userId,
-        ...args.metadata,
-      },
+    const result = await shadowAgent.createThread(ctx, {
+      userId: args.userId ?? undefined,
+      title: args.taskId ? `Task: ${args.taskId}` : undefined,
     });
-    return { threadId: thread };
+    return { threadId: result.threadId };
   },
 });
 
@@ -43,12 +51,13 @@ export const generateText = action({
   handler: async (ctx, args) => {
     let threadId = args.threadId;
     if (!threadId) {
-      threadId = await shadowAgent.createThread(ctx, {});
+      const result = await shadowAgent.createThread(ctx, {});
+      threadId = result.threadId;
     }
     const agent = args.systemPrompt
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          chat: openai.chat((args.model as any) || "gpt-4o"),
+          languageModel: openai.chat((args.model as any) || "gpt-4o"),
           instructions: args.systemPrompt,
         })
       : shadowAgent;
@@ -176,7 +185,7 @@ export const continueThread = action({
     const agent = args.model
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          chat: openai.chat(args.model as any),
+          languageModel: openai.chat(args.model as any),
         })
       : shadowAgent;
     const result = await agent.generateText(
@@ -202,17 +211,17 @@ export const analyzeCode = action({
     const prompt = args.question
       ? `Analyze the following ${args.language || "code"}:\n\n\`\`\`${args.language || ""}\n${args.code}\n\`\`\`\n\nQuestion: ${args.question}`
       : `Analyze the following ${args.language || "code"} and provide insights about its functionality, potential issues, and improvements:\n\n\`\`\`${args.language || ""}\n${args.code}\n\`\`\``;
-    const threadId = await shadowAgent.createThread(ctx, {
-      metadata: { type: "code-analysis" },
+    const threadResult = await shadowAgent.createThread(ctx, {
+      title: "Code Analysis",
     });
     const result = await shadowAgent.generateText(
       ctx,
-      { threadId },
+      { threadId: threadResult.threadId },
       { prompt },
     );
     return {
       analysis: result.text,
-      threadId,
+      threadId: threadResult.threadId,
     };
   },
 });
@@ -227,17 +236,17 @@ export const generateCode = action({
     const prompt = args.context
       ? `Generate ${args.language} code for the following requirement:\n\n${args.description}\n\nContext:\n${args.context}`
       : `Generate ${args.language} code for the following requirement:\n\n${args.description}`;
-    const threadId = await shadowAgent.createThread(ctx, {
-      metadata: { type: "code-generation", language: args.language },
+    const threadResult = await shadowAgent.createThread(ctx, {
+      title: `Code Generation: ${args.language}`,
     });
     const result = await shadowAgent.generateText(
       ctx,
-      { threadId },
+      { threadId: threadResult.threadId },
       { prompt },
     );
     return {
       code: result.text,
-      threadId,
+      threadId: threadResult.threadId,
     };
   },
 });
@@ -253,17 +262,17 @@ export const explainError = action({
     if (args.code) {
       prompt += `\n\nRelevant code:\n\`\`\`${args.language || ""}\n${args.code}\n\`\`\``;
     }
-    const threadId = await shadowAgent.createThread(ctx, {
-      metadata: { type: "error-explanation" },
+    const threadResult = await shadowAgent.createThread(ctx, {
+      title: "Error Explanation",
     });
     const result = await shadowAgent.generateText(
       ctx,
-      { threadId },
+      { threadId: threadResult.threadId },
       { prompt },
     );
     return {
       explanation: result.text,
-      threadId,
+      threadId: threadResult.threadId,
     };
   },
 });
@@ -282,22 +291,20 @@ export const chat = action({
     }
     let threadId = args.threadId;
     if (!threadId) {
-      threadId = await shadowAgent.createThread(ctx, {
-        metadata: {
-          taskId: args.taskId,
-          repoFullName: task.repoFullName,
-        },
+      const threadResult = await shadowAgent.createThread(ctx, {
+        title: `Task: ${task.title || args.taskId}`,
       });
+      threadId = threadResult.threadId;
     }
     const agent = args.model
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          chat: openai.chat(args.model as any),
+          languageModel: openai.chat(args.model as any),
           instructions: `You are Shadow, an AI coding assistant working on the repository: ${task.repoFullName}. Help the user with their coding tasks.`,
         })
       : new Agent(components.agent, {
           name: "ShadowAgent",
-          chat: openai.chat("gpt-4o"),
+          languageModel: openai.chat("gpt-4o"),
           instructions: `You are Shadow, an AI coding assistant working on the repository: ${task.repoFullName}. Help the user with their coding tasks.`,
         });
     const result = await agent.generateText(
