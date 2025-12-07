@@ -1,9 +1,9 @@
 FROM node:18-alpine
 WORKDIR /app
-COPY package*.json ./
-COPY apps/sidecar/package*.json apps/sidecar/
+# Copy only sidecar package.json to avoid monorepo postinstall scripts
+COPY apps/sidecar/package*.json ./
 RUN npm ci
-COPY . .
+COPY apps/sidecar/ ./apps/sidecar/
 WORKDIR /app/apps/sidecar
 RUN npm run build
 EXPOSE 8080
