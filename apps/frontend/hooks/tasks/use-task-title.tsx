@@ -16,6 +16,22 @@ export function useTaskTitle(taskId: string) {
 }
 
 export function useUpdateTaskTitle() {
-  const mutate = useConvexUpdateTitle();
-  return mutate;
+  const mutationFn = useConvexUpdateTitle();
+
+  const mutate = ({ taskId, title }: { taskId: string; title: string }) => {
+    const convexTaskId = asConvexId<"tasks">(taskId);
+    if (!convexTaskId) {
+      console.warn("Convex task id missing; skipping title update");
+      return Promise.resolve();
+    }
+    return mutationFn({ taskId: convexTaskId as Id<"tasks">, title });
+  };
+
+  // Wrap Convex mutation to provide React Query-like interface
+  return {
+    mutate,
+    mutateAsync: mutate,
+    variables: undefined as { taskId: string; title: string } | undefined,
+    isPending: false, // Convex mutations are optimistic, no pending state
+  };
 }

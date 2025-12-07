@@ -10,13 +10,19 @@ interface EditMessageParams {
 }
 
 export function useEditMessage() {
-  const mutate = useConvexEditMessage();
+  const mutationFn = useConvexEditMessage();
+
+  const mutate = ({ taskId, messageId, newContent, newModel }: EditMessageParams) =>
+    mutationFn({
+      messageId: messageId as Id<"chatMessages">,
+      content: newContent,
+      llmModel: newModel,
+    });
+
+  // Wrap Convex mutation to provide React Query-like interface
   return {
-    mutate: ({ taskId, messageId, newContent, newModel }: EditMessageParams) =>
-      mutate({
-        messageId: messageId as Id<"chatMessages">,
-        content: newContent,
-        llmModel: newModel,
-      }),
+    mutate,
+    mutateAsync: mutate,
+    isPending: false, // Convex mutations are optimistic, no pending state
   };
 }

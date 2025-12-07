@@ -32,7 +32,13 @@ export interface RedactedReasoningPart {
 }
 
 // Extended ToolCallPart with streaming state tracking
-export interface ToolCallPart extends BaseToolCallPart {
+// Note: AI SDK v5 renamed 'args' to 'input' - we provide both for compatibility
+export interface ToolCallPart extends Omit<BaseToolCallPart, 'input'> {
+  // AI SDK v5 uses 'input', we provide both for compatibility
+  input?: unknown;
+  // Compatibility: 'args' is deprecated in v5 but we keep it for backwards compatibility
+  args?: unknown;
+
   // Streaming state properties
   streamingState?: "starting" | "streaming" | "complete";
   argsComplete?: boolean; // Are args fully received?

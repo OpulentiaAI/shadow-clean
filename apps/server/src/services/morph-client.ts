@@ -1,5 +1,9 @@
 import { MorphClient } from "@morphllm/morphsdk";
-import { CommandExecProvider } from "@morphllm/morphsdk/tools/warp-grep";
+
+// Type for command execution provider (for remote mode execution)
+type CommandExecProvider = {
+  exec: (command: string) => Promise<{ stdout: string; stderr: string }>;
+};
 
 /**
  * Singleton Morph SDK client for fast code editing and semantic grep
@@ -131,8 +135,7 @@ class MorphService {
       console.log(`[MORPH_WARP_GREP] Searching: ${query}`);
       console.log(`[MORPH_WARP_GREP] Repo root: ${repoRoot}`);
 
-      // @ts-expect-error - warpGrep exists at runtime but types may not be updated yet
-      const result = await client.warpGrep.execute({
+      const result = await (client as any).warpGrep.execute({
         query,
         repoRoot,
         provider, // Use custom provider if provided (for remote mode)

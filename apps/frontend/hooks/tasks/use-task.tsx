@@ -27,14 +27,15 @@ function mapTask(doc: any): Task {
     errorMessage: doc.errorMessage ?? null,
     workspaceCleanedUp: doc.workspaceCleanedUp ?? false,
     hasBeenInitialized: doc.hasBeenInitialized ?? false,
-    createdAt: new Date(doc.createdAt).toISOString(),
-    updatedAt: new Date(doc.updatedAt).toISOString(),
+    createdAt: new Date(doc.createdAt),
+    updatedAt: new Date(doc.updatedAt),
     userId: doc.userId,
     baseBranch: doc.baseBranch,
     baseCommitSha: doc.baseCommitSha,
     shadowBranch: doc.shadowBranch ?? null,
     pullRequestNumber: doc.pullRequestNumber ?? null,
     githubIssueId: doc.githubIssueId ?? null,
+    codebaseUnderstandingId: doc.codebaseUnderstandingId ?? null,
   };
 }
 
@@ -44,8 +45,8 @@ function mapTodo(doc: any): Todo {
     content: doc.content,
     status: doc.status,
     sequence: doc.sequence,
-    createdAt: new Date(doc.createdAt).toISOString(),
-    updatedAt: new Date(doc.updatedAt).toISOString(),
+    createdAt: new Date(doc.createdAt),
+    updatedAt: new Date(doc.updatedAt),
     taskId: doc.taskId,
   };
 }

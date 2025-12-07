@@ -39,7 +39,7 @@ export class PRGenerator {
       const { object } = await generateObject({
         model: this.modelProvider.getModel(prModel, userApiKeys),
         temperature: 0.3,
-        maxTokens: 1000,
+        maxOutputTokens: 1000,
         schema: prMetadataSchema,
         prompt,
       });

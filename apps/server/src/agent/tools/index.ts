@@ -748,7 +748,7 @@ export async function createTools(taskId: string, workspacePath?: string) {
 
         const wrappedTool = createMCPToolWrapper(
           originalName,
-          mcpTool as {
+          mcpTool as unknown as {
             execute: (params: Record<string, unknown>) => Promise<unknown>;
             description: string;
             parameters: unknown;

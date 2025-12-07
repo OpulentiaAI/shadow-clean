@@ -11,17 +11,23 @@ interface CreatePRResponse {
 }
 
 export function useCreatePR() {
-  const mutate = useCreatePullRequestAction();
+  const mutationFn = useCreatePullRequestAction();
+
+  const mutate = (taskId: string): Promise<CreatePRResponse> => {
+    const convexTaskId = asConvexId<"tasks">(taskId);
+    if (!convexTaskId) {
+      return Promise.resolve({
+        success: false,
+        error: "Convex task id unavailable",
+      });
+    }
+    return mutationFn({ taskId: convexTaskId as Id<"tasks"> }) as Promise<CreatePRResponse>;
+  };
+
+  // Wrap Convex action to provide React Query-like interface
   return {
-    mutate: (taskId: string): Promise<CreatePRResponse> => {
-      const convexTaskId = asConvexId<"tasks">(taskId);
-      if (!convexTaskId) {
-        return Promise.resolve({
-          success: false,
-          error: "Convex task id unavailable",
-        });
-      }
-      return mutate({ taskId: convexTaskId as Id<"tasks"> }) as Promise<CreatePRResponse>;
-    },
+    mutate,
+    mutateAsync: mutate,
+    isPending: false, // Convex actions don't have built-in pending state
   };
 }

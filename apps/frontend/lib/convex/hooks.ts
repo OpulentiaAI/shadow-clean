@@ -56,8 +56,9 @@ export function useDeleteTask() {
   return useMutation(api.tasks.remove);
 }
 
-export function useTaskDetailsAction() {
-  return useAction(api.tasks.getDetails);
+// Explicit return type to avoid non-portable inferred type from ReturnType<typeof action>
+export function useTaskDetailsAction(): (args: { taskId: Id<"tasks"> }) => Promise<any> {
+  return useAction(api.tasks.getDetails) as any;
 }
 
 export function useCreatePullRequestAction() {
@@ -232,36 +233,37 @@ export function useUpdateCodebaseUnderstanding() {
   return useMutation(api.codebaseUnderstanding.update);
 }
 
-export function useAgentGenerateText() {
-  return useAction(api.agent.generateText);
+// Explicit return types to avoid non-portable inferred types from ReturnType<typeof action>
+export function useAgentGenerateText(): (args: any) => Promise<any> {
+  return useAction(api.agent.generateText) as any;
 }
 
-export function useAgentChat() {
-  return useAction(api.agent.chat);
+export function useAgentChat(): (args: any) => Promise<any> {
+  return useAction(api.agent.chat) as any;
 }
 
-export function useAgentAnalyzeCode() {
-  return useAction(api.agent.analyzeCode);
+export function useAgentAnalyzeCode(): (args: any) => Promise<any> {
+  return useAction(api.agent.analyzeCode) as any;
 }
 
-export function useAgentGenerateCode() {
-  return useAction(api.agent.generateCode);
+export function useAgentGenerateCode(): (args: any) => Promise<any> {
+  return useAction(api.agent.generateCode) as any;
 }
 
-export function useAgentExplainError() {
-  return useAction(api.agent.explainError);
+export function useAgentExplainError(): (args: any) => Promise<any> {
+  return useAction(api.agent.explainError) as any;
 }
 
-export function useCreateThread() {
-  return useAction(api.agent.createThread);
+export function useCreateThread(): (args: any) => Promise<any> {
+  return useAction(api.agent.createThread) as any;
 }
 
-export function useContinueThread() {
-  return useAction(api.agent.continueThread);
+export function useContinueThread(): (args: any) => Promise<any> {
+  return useAction(api.agent.continueThread) as any;
 }
 
-export function useStreamText() {
-  return useAction(api.agent.streamText);
+export function useStreamText(): (args: any) => Promise<any> {
+  return useAction(api.agent.agentStreamText) as any;
 }
 
 export function useStartStreamingMessage() {

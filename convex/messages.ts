@@ -1,6 +1,91 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { MessageRole } from "./schema";
+
+// Internal mutations for use by other Convex functions (avoids circular type references)
+export const internalStartStreaming = internalMutation({
+  args: {
+    taskId: v.id("tasks"),
+    llmModel: v.optional(v.string()),
+    stackedTaskId: v.optional(v.id("tasks")),
+  },
+  handler: async (ctx, args) => {
+    const latest = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .order("desc")
+      .first();
+    const sequence = latest ? latest.sequence + 1 : 0;
+    const createdAt = Date.now();
+    const messageId = await ctx.db.insert("chatMessages", {
+      taskId: args.taskId,
+      role: "ASSISTANT",
+      content: "",
+      llmModel: args.llmModel,
+      metadataJson: JSON.stringify({ isStreaming: true, parts: [] }),
+      promptTokens: undefined,
+      completionTokens: undefined,
+      totalTokens: undefined,
+      finishReason: undefined,
+      stackedTaskId: args.stackedTaskId,
+      sequence,
+      createdAt,
+      editedAt: undefined,
+    });
+    return { messageId, sequence };
+  },
+});
+
+export const internalAppendStreamDelta = internalMutation({
+  args: {
+    messageId: v.id("chatMessages"),
+    deltaText: v.string(),
+    usage: v.optional(
+      v.object({
+        promptTokens: v.optional(v.number()),
+        completionTokens: v.optional(v.number()),
+        totalTokens: v.optional(v.number()),
+      })
+    ),
+    finishReason: v.optional(v.string()),
+    isFinal: v.boolean(),
+    parts: v.optional(
+      v.array(
+        v.object({
+          type: v.string(),
+          text: v.optional(v.string()),
+          data: v.optional(v.any()),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.messageId);
+    if (!existing) {
+      throw new Error("Message not found for streaming");
+    }
+    const currentMetadata = existing.metadataJson
+      ? JSON.parse(existing.metadataJson)
+      : {};
+    const currentContent = existing.content || "";
+    const updatedContent = currentContent + args.deltaText;
+    const currentParts: any[] = currentMetadata.parts || [];
+    const updatedParts = args.parts ? [...currentParts, ...args.parts] : currentParts;
+    const updatedMetadata = {
+      ...currentMetadata,
+      isStreaming: !args.isFinal,
+      parts: updatedParts,
+      usage: args.usage ? { ...currentMetadata.usage, ...args.usage } : currentMetadata.usage,
+      finishReason: args.finishReason ?? currentMetadata.finishReason,
+    };
+    await ctx.db.patch(args.messageId, {
+      content: updatedContent,
+      metadataJson: JSON.stringify(updatedMetadata),
+      editedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
 
 export const append = mutation({
   args: {

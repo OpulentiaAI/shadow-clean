@@ -52,7 +52,7 @@ export async function generateTaskTitleAndBranch(
             }).chat(modelConfig.modelChoice);
 
     const { text: generatedText } = await generateText({
-      model,
+      model: model as any, // Type cast for OpenRouter compatibility with AI SDK v5
       temperature: 0.3,
       prompt: generateTitlePrompt(userPrompt),
     });

@@ -92,8 +92,10 @@ export function AssistantMessage({
       return map;
     message.metadata.parts.forEach((part) => {
       if (part.type === "tool-result") {
+        // Handle both AI SDK v4 (result) and v5 (output) property names
+        const resultValue = (part as any).output ?? (part as any).result;
         map.set(part.toolCallId, {
-          result: part.result,
+          result: resultValue,
           toolName: part.toolName,
         });
       }
@@ -316,7 +318,7 @@ export function AssistantMessage({
 
       {showGenerating && (
         <div
-          key={JSON.stringify(message.metadata.parts)}
+          key={JSON.stringify(message.metadata?.parts)}
           className="animate-in fade-in delay-2000 fill-mode-both ease-out-quad duration-300"
         >
           <div className="shimmer flex h-7 w-fit items-center px-3 text-[13px]">

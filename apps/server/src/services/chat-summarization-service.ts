@@ -93,7 +93,7 @@ ${processedContent}
       const { text } = await generateText({
         model: miniModelInstance,
         temperature: 0.1,
-        maxTokens: 300,
+        maxOutputTokens: 300,
         messages: [
           {
             role: "system",
@@ -166,10 +166,11 @@ Be concise but capture the essential context needed to understand the project st
 
         case "tool-call": {
           const toolCall = part as ToolCallPart;
+          const inputValue = (toolCall as any).input ?? (toolCall as any).args;
           const argsStr =
-            typeof toolCall.args === "object"
-              ? JSON.stringify(toolCall.args, null, 2)
-              : String(toolCall.args);
+            typeof inputValue === "object"
+              ? JSON.stringify(inputValue, null, 2)
+              : String(inputValue);
           const truncatedArgs = this.truncateLongContent(argsStr);
           xmlParts.push(
             `<tool_call>${toolCall.toolName}: ${truncatedArgs}</tool_call>`
@@ -179,10 +180,11 @@ Be concise but capture the essential context needed to understand the project st
 
         case "tool-result": {
           const toolResult = part as ToolResultPart;
+          const outputValue = (toolResult as any).output ?? (toolResult as any).result;
           const resultStr =
-            typeof toolResult.result === "object"
-              ? JSON.stringify(toolResult.result, null, 2)
-              : String(toolResult.result);
+            typeof outputValue === "object"
+              ? JSON.stringify(outputValue, null, 2)
+              : String(outputValue);
           const truncatedResult = this.truncateLongContent(resultStr);
           xmlParts.push(
             `<tool_result>${toolResult.toolName}: ${truncatedResult}</tool_result>`

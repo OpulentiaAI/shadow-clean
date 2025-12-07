@@ -275,7 +275,8 @@ const getBackendBaseUrl = () => {
   return base.replace(/\/$/, "");
 };
 
-export const getDetails = action({
+// Add type annotation to avoid circular type reference
+export const getDetails: ReturnType<typeof action> = action({
   args: { taskId: v.id("tasks") },
   handler: async (ctx, args) => {
     const [task, todos, messages] = await Promise.all([

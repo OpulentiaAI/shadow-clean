@@ -58,7 +58,7 @@ export async function generateTaskTitleAndBranch(
             }).chat(modelConfig.modelChoice);
 
     const { text: generatedText } = await generateText({
-      model,
+      model: model as any,
       temperature: 0.3,
       prompt: generateTitlePrompt(userPrompt),
       experimental_telemetry: braintrustService.getOperationTelemetry(

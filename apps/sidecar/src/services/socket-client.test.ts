@@ -84,10 +84,13 @@ describe('SocketClient-unit-test', () => {
     mockSocket.connected = true;
 
     const event: FileSystemEvent = {
+      id: 'event-123',
       taskId: 'task-123',
       type: 'file-modified',
       path: '/test/file.txt',
       timestamp: Date.now(),
+      source: 'local',
+      isDirectory: false,
     };
 
     socketClient.emitFileSystemChange(event);
@@ -101,10 +104,13 @@ describe('SocketClient-unit-test', () => {
     mockSocket.connected = false;
 
     const event: FileSystemEvent = {
+      id: 'event-456',
       taskId: 'task-123',
       type: 'file-modified',
       path: '/test/file.txt',
       timestamp: Date.now(),
+      source: 'local',
+      isDirectory: false,
     };
 
     socketClient.emitFileSystemChange(event);
@@ -166,6 +172,6 @@ describe('SocketClient-integration-test', () => {
       // Clean up
       socketClient.disconnect();
     },
-    { timeout: 10000 }
+    10000
   );
 });

@@ -919,7 +919,7 @@ File: ${path.basename(rel)}${wasTruncated ? " (content was truncated to focus on
       model: miniModelInstance,
       temperature: 0.6,
       messages,
-      maxTokens,
+      maxOutputTokens: maxTokens,
       experimental_telemetry: braintrustService.getOperationTelemetry(
         "shadowwiki-file-summary",
         {
@@ -965,7 +965,7 @@ async function chat(
     model: miniModelInstance,
     temperature: TEMP,
     messages,
-    maxTokens: budget,
+    maxOutputTokens: budget,
     experimental_telemetry: braintrustService.getTelemetryConfig({
       operation: "shadowwiki-directory-summary",
       messageCount: messages.length,

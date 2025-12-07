@@ -16,7 +16,7 @@ export function useTasks(initialData: Task[], userExternalId?: string) {
 
   const data = useMemo(() => {
     if (!liveTasks) return initialData ?? [];
-    return liveTasks.map((t) => ({
+    return liveTasks.map((t: any) => ({
       // Map Convex doc -> Prisma Task shape expected by UI
       id: t._id,
       title: t.title,
@@ -32,14 +32,15 @@ export function useTasks(initialData: Task[], userExternalId?: string) {
       errorMessage: t.errorMessage ?? null,
       workspaceCleanedUp: t.workspaceCleanedUp ?? false,
       hasBeenInitialized: t.hasBeenInitialized ?? false,
-      createdAt: new Date(t.createdAt).toISOString(),
-      updatedAt: new Date(t.updatedAt).toISOString(),
+      createdAt: new Date(t.createdAt),
+      updatedAt: new Date(t.updatedAt),
       userId: t.userId,
       baseBranch: t.baseBranch,
       baseCommitSha: t.baseCommitSha,
       shadowBranch: t.shadowBranch ?? null,
       pullRequestNumber: t.pullRequestNumber ?? null,
       githubIssueId: t.githubIssueId ?? null,
+      codebaseUnderstandingId: t.codebaseUnderstandingId ?? null,
     })) as Task[];
   }, [liveTasks, initialData]);
 

@@ -19,7 +19,7 @@
   "dependencies": {
     "@repo/command-security": "*",
     "@repo/db": "*",
-    "ai": "^3.4.33",
+    "ai": "5.0.82",
     "nanoid": "^3.3.11"
   },
   "devDependencies": {

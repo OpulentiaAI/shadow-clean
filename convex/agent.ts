@@ -6,21 +6,17 @@ import { openai } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import OpenAI from "openai";
 
+// OpenRouter provider for chat models when API key is available
 const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 const openrouterProvider = openrouterApiKey
   ? createOpenRouter({ apiKey: openrouterApiKey })
   : null;
 
-const embeddingModel = openrouterProvider
-  ? openrouterProvider.embedding("google/gemini-embedding-001")
-  : openai.embedding("text-embedding-3-small");
-
 const shadowAgent = new Agent(components.agent, {
   name: "ShadowAgent",
   languageModel: openai.chat("gpt-4o"),
-  // Prefer OpenRouter Gemini embeddings when API key is available; fallback to OpenAI embeddings
-  textEmbedding: embeddingModel,
-  instructions: `You are Shadow, an AI coding assistant. You help developers write, debug, and understand code. 
+  // Note: textEmbedding removed - not supported in current @convex-dev/agent version
+  instructions: `You are Shadow, an AI coding assistant. You help developers write, debug, and understand code.
 You have access to the user's repository and can analyze code, suggest improvements, and help with implementation tasks.
 Be concise but thorough. When showing code, use proper formatting.`,
 });
@@ -74,7 +70,8 @@ export const generateText = action({
   },
 });
 
-export const streamText = action({
+// Use action with explicit type to avoid circular type reference
+export const agentStreamText: ReturnType<typeof action> = action({
   args: {
     prompt: v.string(),
     threadId: v.optional(v.string()),
@@ -85,7 +82,7 @@ export const streamText = action({
   handler: async (ctx, args) => {
     // If no task context is provided, bail out early to avoid validation errors downstream.
     if (!args.taskId) {
-      console.warn("[agent.streamText] missing taskId, skipping streaming");
+      console.warn("[agent.agentStreamText] missing taskId, skipping streaming");
       return {
         threadId: args.threadId ?? null,
         text: "",
@@ -108,8 +105,8 @@ export const streamText = action({
       },
     });
 
-    // Create streaming assistant message
-    const start = await ctx.runMutation(api.messages.startStreaming, {
+    // Create streaming assistant message (use internal mutation to avoid circular types)
+    const start = await ctx.runMutation(internal.messages.internalStartStreaming, {
       taskId: args.taskId as any,
       llmModel: args.model,
     });
@@ -120,7 +117,7 @@ export const streamText = action({
 
     try {
       const stream = await client.chat.completions.create({
-        model: args.model,
+        model: args.model || "gpt-4o", // Default to gpt-4o if not specified
         messages: [{ role: "user", content: args.prompt }],
         stream: true,
       });
@@ -130,16 +127,12 @@ export const streamText = action({
         const delta = choice?.delta?.content;
         finishReason = choice?.finish_reason || finishReason;
 
-        const textDelta =
-          typeof delta === "string"
-            ? delta
-            : Array.isArray(delta)
-              ? delta.map((d) => (typeof d === "string" ? d : d?.text ?? "")).join("")
-              : "";
+        // delta.content is string | null | undefined in OpenAI streaming API
+        const textDelta = delta ?? "";
 
         if (textDelta) {
           fullText += textDelta;
-          await ctx.runMutation(api.messages.appendStreamDelta, {
+          await ctx.runMutation(internal.messages.internalAppendStreamDelta, {
             messageId,
             deltaText: textDelta,
             parts: [{ type: "text", text: textDelta }],
@@ -149,7 +142,7 @@ export const streamText = action({
       }
     } catch (error) {
       console.error("OpenAI streaming error", error);
-      await ctx.runMutation(api.messages.appendStreamDelta, {
+      await ctx.runMutation(internal.messages.internalAppendStreamDelta, {
         messageId,
         deltaText: `\n\n[Stream Error: ${error instanceof Error ? error.message : String(error)}]`,
         parts: [{ type: "error", data: String(error) }],
@@ -158,7 +151,7 @@ export const streamText = action({
       throw error;
     }
 
-    await ctx.runMutation(api.messages.appendStreamDelta, {
+    await ctx.runMutation(internal.messages.internalAppendStreamDelta, {
       messageId,
       deltaText: "",
       parts: [],
@@ -277,7 +270,8 @@ export const explainError = action({
   },
 });
 
-export const chat = action({
+// Add type annotation to avoid circular type reference
+export const chat: ReturnType<typeof action> = action({
   args: {
     taskId: v.id("tasks"),
     message: v.string(),

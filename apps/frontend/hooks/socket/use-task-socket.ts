@@ -413,12 +413,13 @@ export function useTaskSocket(taskId: string | undefined) {
                 ? correspondingCall.toolName
                 : "";
 
-            const toolResultPart: ToolResultPart = {
-              type: "tool-result",
+            // AI SDK v5 uses 'output' instead of 'result' with stricter typing
+            const toolResultPart = {
+              type: "tool-result" as const,
               toolCallId: chunk.toolResult.id,
               toolName,
-              result: chunk.toolResult.result,
-            };
+              output: chunk.toolResult.result,
+            } as unknown as ToolResultPart;
             newPartsMap.set(partId, toolResultPart);
             newPartsOrder.push(partId);
           } else if (chunk.type === "reasoning" && chunk.reasoning) {
@@ -568,12 +569,13 @@ export function useTaskSocket(taskId: string | undefined) {
                 ? correspondingCall.toolName
                 : "";
 
-            const toolResultPart: ToolResultPart = {
-              type: "tool-result",
+            // AI SDK v5 uses 'output' instead of 'result' with stricter typing
+            const toolResultPart = {
+              type: "tool-result" as const,
               toolCallId: chunk.toolResult.id,
               toolName,
-              result: chunk.toolResult.result,
-            };
+              output: chunk.toolResult.result,
+            } as unknown as ToolResultPart;
 
             addStreamingPart(toolResultPart, `${chunk.toolResult.id}-result`);
           }
