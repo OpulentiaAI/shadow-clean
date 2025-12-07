@@ -1,11 +1,10 @@
 import { createAuthClient } from "better-auth/react";
 
-// Use window.location.origin at runtime for client-side, fallback for SSR
+// Use window.location.origin at runtime; provide SSR fallbacks
 const getBaseURL = () => {
   if (typeof window !== "undefined") {
     return window.location.origin;
   }
-  // SSR fallback
   if (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL) {
     return `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`;
   }
@@ -15,10 +14,16 @@ const getBaseURL = () => {
   return "http://localhost:3000";
 };
 
-export const authClient: ReturnType<typeof createAuthClient> = createAuthClient({
-  baseURL: getBaseURL(),
-  basePath: "/api/auth",
-});
+// Create client only in the browser to avoid SSR/localStorage issues
+const createClient = (): ReturnType<typeof createAuthClient> =>
+  typeof window !== "undefined"
+    ? createAuthClient({
+        baseURL: getBaseURL(),
+        basePath: "/api/auth",
+      })
+    : ({} as ReturnType<typeof createAuthClient>);
+
+export const authClient = createClient();
 
 // This destructuring is necessary to avoid weird better-auth type errors
 export const signIn: typeof authClient.signIn = authClient.signIn;

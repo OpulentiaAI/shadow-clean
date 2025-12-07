@@ -146,6 +146,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "Qwen 3 235B A22B 2507",
     provider: "openrouter",
   },
+  [AvailableModels.CLAUDE_OPUS_4_5]: {
+    id: AvailableModels.CLAUDE_OPUS_4_5,
+    name: "Claude Opus 4.5",
+    provider: "openrouter",
+  },
 };
 
 export function getModelProvider(

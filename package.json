@@ -36,7 +36,7 @@
   "devDependencies": {
     "@next/swc-wasm-nodejs": "^15.4.6",
     "prettier": "^3.6.2",
-    "turbo": "^2.5.4",
+    "turbo": "^2.6.1",
     "typescript": "5.8.3"
   },
   "engines": {
