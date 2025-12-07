@@ -36,7 +36,9 @@ const SessionContext = createContext<SessionContextType>({
 });
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const { data: session, isPending: isLoading } = useSession();
+  // Handle case where useSession might not be available during SSR
+  const sessionData = typeof useSession === 'function' ? useSession() : { data: null, isPending: true };
+  const { data: session, isPending: isLoading } = sessionData;
 
   // Use dev session when bypass auth is enabled
   const effectiveSession = BYPASS_AUTH ? DEV_SESSION : session;

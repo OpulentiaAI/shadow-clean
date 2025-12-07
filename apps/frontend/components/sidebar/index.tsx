@@ -29,15 +29,17 @@ const sidebarViewLabels = {
 export function SidebarViews({
   initialTasks,
   currentTaskId = null,
+  currentUserId,
 }: {
   initialTasks: Task[];
   currentTaskId?: string | null;
+  currentUserId?: string | null;
 }) {
   const {
     data: tasks,
     isLoading: isLoadingTasks,
     error: tasksError,
-  } = useTasks(initialTasks);
+  } = useTasks(initialTasks, currentUserId ?? undefined);
 
   const [sidebarView, setSidebarView] = useState<SidebarView>(
     currentTaskId ? "agent" : "tasks"

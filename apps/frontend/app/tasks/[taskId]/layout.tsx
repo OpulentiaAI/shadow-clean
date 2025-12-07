@@ -83,7 +83,11 @@ export default async function TaskLayout({
     <HydrationBoundary state={dehydrate(queryClient)}>
       <TaskSocketProvider taskId={taskId}>
         <AgentEnvironmentProvider taskId={taskId}>
-          <SidebarViews initialTasks={initialTasks} currentTaskId={task.id} />
+          <SidebarViews
+            initialTasks={initialTasks}
+            currentTaskId={task.id}
+            currentUserId={user?.id ?? null}
+          />
           {children}
         </AgentEnvironmentProvider>
       </TaskSocketProvider>

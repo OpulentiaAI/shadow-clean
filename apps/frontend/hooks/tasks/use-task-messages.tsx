@@ -1,6 +1,7 @@
 import { useConvexMessages } from "@/lib/convex/hooks";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { Message } from "@repo/types";
+import { asConvexId } from "@/lib/convex/id";
 
 function mapMessage(doc: any): Message {
   return {
@@ -24,11 +25,12 @@ function mapMessage(doc: any): Message {
 }
 
 export function useTaskMessages(taskId: string) {
-  const data = useConvexMessages(taskId as Id<"tasks">);
+  const convexTaskId = asConvexId<"tasks">(taskId);
+  const data = useConvexMessages(convexTaskId as Id<"tasks"> | undefined);
   const mapped = data?.map(mapMessage) ?? [];
   return {
     data: mapped,
-    isLoading: data === undefined,
-    error: null,
+    isLoading: convexTaskId ? data === undefined : false,
+    error: null as Error | null,
   };
 }

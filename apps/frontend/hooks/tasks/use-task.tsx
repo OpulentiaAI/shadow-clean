@@ -9,6 +9,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 import type { Task, Todo } from "@repo/db";
 import type { Message } from "@repo/types";
 import type { FileChange, DiffStats } from "@/lib/db-operations/get-task-with-details";
+import { asConvexId } from "@/lib/convex/id";
 
 function mapTask(doc: any): Task {
   return {
@@ -71,10 +72,10 @@ function mapMessage(doc: any): Message {
 }
 
 export function useTask(taskId: string) {
-  const id = taskId as Id<"tasks">;
-  const task = useConvexTask(id);
-  const todos = useConvexTodos(id);
-  const messages = useConvexMessages(id);
+  const convexTaskId = asConvexId<"tasks">(taskId);
+  const task = useConvexTask(convexTaskId as Id<"tasks"> | undefined);
+  const todos = useConvexTodos(convexTaskId as Id<"tasks"> | undefined);
+  const messages = useConvexMessages(convexTaskId as Id<"tasks"> | undefined);
   const getDetails = useTaskDetailsAction();
 
   const [fileChanges, setFileChanges] = useState<FileChange[]>([]);
@@ -99,11 +100,14 @@ export function useTask(taskId: string) {
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      if (!taskId) return;
+      if (!convexTaskId) {
+        setLoadingFiles(false);
+        return;
+      }
       setLoadingFiles(true);
       setError(null);
       try {
-        const data = await getDetails({ taskId: id });
+        const data = await getDetails({ taskId: convexTaskId as Id<"tasks"> });
         if (cancelled) return;
         setFileChanges(data.fileChanges ?? []);
         setDiffStats(
@@ -120,7 +124,7 @@ export function useTask(taskId: string) {
     return () => {
       cancelled = true;
     };
-  }, [getDetails, id, taskId]);
+  }, [getDetails, convexTaskId, taskId]);
 
   return {
     task: mappedTask,
@@ -128,7 +132,9 @@ export function useTask(taskId: string) {
     messages: mappedMessages as Message[],
     fileChanges,
     diffStats,
-    isLoading: task === undefined || todos === undefined || messages === undefined || loadingFiles,
+    isLoading:
+      !!convexTaskId &&
+      (task === undefined || todos === undefined || messages === undefined || loadingFiles),
     error,
   };
 }

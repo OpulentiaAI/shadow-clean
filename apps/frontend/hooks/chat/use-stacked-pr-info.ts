@@ -1,6 +1,7 @@
 import { useConvexStackedPRInfo } from "@/lib/convex/hooks";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { TaskStatus } from "@repo/types";
+import { asConvexId } from "@/lib/convex/id";
 
 type InitialStackedPRData = {
   id: string;
@@ -13,7 +14,8 @@ export function useStackedPRInfo(
   taskId: string,
   initialData?: InitialStackedPRData
 ) {
-  const data = useConvexStackedPRInfo(taskId as Id<"tasks">);
+  const convexTaskId = asConvexId<"tasks">(taskId);
+  const data = useConvexStackedPRInfo(convexTaskId as Id<"tasks"> | undefined);
   const merged =
     data ||
     (initialData && {
@@ -26,7 +28,7 @@ export function useStackedPRInfo(
 
   return {
     data: merged,
-    isLoading: data === undefined,
+    isLoading: convexTaskId ? data === undefined : false,
     error: null,
   };
 }

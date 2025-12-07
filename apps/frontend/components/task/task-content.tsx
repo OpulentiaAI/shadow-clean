@@ -8,14 +8,11 @@ import { useParams } from "next/navigation";
 import { ScrollToBottom } from "./scroll-to-bottom";
 import { useCallback, memo, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ModelType } from "@repo/types";
+import type { ModelType } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
 import { useStreamText } from "@/lib/convex/hooks";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import {
-  deduplicatePartsFromMap,
-  convertMapToPartsArray,
-} from "@/lib/streaming";
+import { asConvexId } from "@/lib/convex/id";
 
 function TaskPageContent() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -36,6 +33,7 @@ function TaskPageContent() {
     (message: string, model: ModelType, queue: boolean) => {
       if (!taskId || !message.trim()) return;
       if (queue) return; // queuing not supported in Convex streaming path
+      const convexTaskId = asConvexId<"tasks">(taskId);
 
       // Optimistic user append
       sendMessageMutation.mutate({ taskId, message, model });
@@ -44,7 +42,7 @@ function TaskPageContent() {
       setIsStreaming(true);
       streamText({
         prompt: message,
-        taskId: taskId as Id<"tasks">,
+        taskId: convexTaskId as Id<"tasks"> | undefined,
         model,
       })
         .catch((err) => {
@@ -55,6 +53,12 @@ function TaskPageContent() {
     [taskId, sendMessageMutation, streamText]
   );
 
+  const displayMessages = useMemo(() => {
+    // Messages from Convex include metadata.isStreaming; render as-is.
+    // If we ever add client-side partials, we can merge here using parts helpers.
+    return messages;
+  }, [messages]);
+
   if (taskMessagesError) {
     return (
       <div className="mx-auto flex w-full max-w-xl grow flex-col items-center justify-center">
@@ -64,12 +68,6 @@ function TaskPageContent() {
       </div>
     );
   }
-
-  const displayMessages = useMemo(() => {
-    // Messages from Convex include metadata.isStreaming; render as-is.
-    // If we ever add client-side partials, we can merge here using parts helpers.
-    return messages;
-  }, [messages]);
 
   return (
     <div className="relative z-0 mx-auto flex w-full max-w-xl grow flex-col items-center px-4 sm:px-6">

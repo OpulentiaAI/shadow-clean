@@ -1,15 +1,22 @@
 import { useMemo } from "react";
-import { useConvexTasksExcludeArchived } from "@/lib/convex/hooks";
+import {
+  useConvexTasksExcludeArchived,
+  useConvexUserByExternalId,
+} from "@/lib/convex/hooks";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import type { Task } from "@repo/db";
+import { asConvexId } from "@/lib/convex/id";
 
 /**
  * Tasks hook backed by Convex live queries.
  * Falls back to initialData for SSR/hydration, then live-updates from Convex.
+ * Uses the Prisma user id (external id) to look up the Convex user id safely.
  */
-export function useTasks(initialData: Task[]) {
-  const initialUserId = initialData?.[0]?.userId as Id<"users"> | undefined;
-  const liveTasks = useConvexTasksExcludeArchived(initialUserId);
+export function useTasks(initialData: Task[], userExternalId?: string) {
+  const externalUserId = userExternalId ?? initialData?.[0]?.userId;
+  const convexUser = useConvexUserByExternalId(externalUserId);
+  const convexUserId = (convexUser?._id as Id<"users"> | undefined) ?? asConvexId<"users">(externalUserId);
+  const liveTasks = useConvexTasksExcludeArchived(convexUserId);
 
   const data = useMemo(() => {
     if (!liveTasks) return initialData ?? [];
@@ -42,7 +49,7 @@ export function useTasks(initialData: Task[]) {
 
   return {
     data,
-    isLoading: liveTasks === undefined,
+    isLoading: convexUserId ? liveTasks === undefined : false,
     error: null,
   };
 }

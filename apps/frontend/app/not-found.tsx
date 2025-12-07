@@ -11,7 +11,7 @@ export default async function NotFound() {
 
   return (
     <>
-      <SidebarViews initialTasks={initialTasks} />
+      <SidebarViews initialTasks={initialTasks} currentUserId={user?.id ?? null} />
 
       {/* Fallback content */}
       <div className="flex grow flex-col items-center justify-center gap-6 p-6">
