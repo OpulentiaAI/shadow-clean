@@ -1,9 +1,9 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile.sidecar"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "npm run start"
+startCommand = "node apps/sidecar/dist/server.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
