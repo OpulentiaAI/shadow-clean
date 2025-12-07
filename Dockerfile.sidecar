@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copy monorepo config for workspace dependencies
@@ -19,15 +19,19 @@ RUN npx tsc -p tsconfig.build.json
 
 # Production image
 FROM node:18-alpine AS production
-WORKDIR /app
+WORKDIR /app/apps/sidecar
 
-# Copy built packages and sidecar
-COPY --from=0 /app/packages/ ./packages/
-COPY --from=0 /app/apps/sidecar/dist/ ./dist/
-COPY --from=0 /app/apps/sidecar/package.json ./
+# Copy node_modules from builder (monorepo lockfile is at root)
+COPY --from=builder /app/node_modules /app/node_modules
+COPY --from=builder /app/packages /app/packages
+COPY --from=builder /app/package.json /app/package.json
 
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Copy built sidecar
+COPY --from=builder /app/apps/sidecar/dist ./dist
+COPY --from=builder /app/apps/sidecar/package.json ./package.json
+
+ENV NODE_ENV=production
+ENV PORT=8080
 
 EXPOSE 8080
 CMD ["node", "dist/server.js"]
