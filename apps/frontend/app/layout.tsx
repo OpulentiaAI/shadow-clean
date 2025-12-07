@@ -64,7 +64,10 @@ const cybertruckFont = localFont({
   variable: "--font-cybertruck",
 });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://opulent-os.vercel.app";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: "Opulent OS",
   description:
     "An open-source background agent and web interface to build, debug, and understand code.",

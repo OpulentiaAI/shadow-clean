@@ -1,0 +1,33 @@
+FROM node:18-alpine
+WORKDIR /app
+
+# Copy monorepo config for workspace dependencies
+COPY package*.json turbo.json ./
+COPY packages/ ./packages/
+
+# Copy sidecar source
+COPY apps/sidecar/ ./apps/sidecar/
+
+# Install dependencies and build workspace packages
+RUN npm ci
+RUN npx turbo run build --filter @repo/types
+RUN npx turbo run build --filter @repo/command-security
+
+# Build sidecar (excluding tests)
+WORKDIR /app/apps/sidecar
+RUN npx tsc -p tsconfig.build.json
+
+# Production image
+FROM node:18-alpine AS production
+WORKDIR /app
+
+# Copy built packages and sidecar
+COPY --from=0 /app/packages/ ./packages/
+COPY --from=0 /app/apps/sidecar/dist/ ./dist/
+COPY --from=0 /app/apps/sidecar/package.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+EXPOSE 8080
+CMD ["node", "dist/server.js"]
