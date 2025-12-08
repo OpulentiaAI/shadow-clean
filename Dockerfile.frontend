@@ -31,15 +31,16 @@ COPY --from=deps /app ./
 # Build shared packages first
 RUN npx turbo run build --filter @repo/types
 
-# Set build-time environment variables (NEXT_PUBLIC_* are baked into the build)
-ARG NEXT_PUBLIC_SERVER_URL
-ARG NEXT_PUBLIC_CONVEX_URL
-ARG NEXT_PUBLIC_APP_URL
-ARG NEXT_PUBLIC_BYPASS_AUTH
-ARG NEXT_PUBLIC_API_URL
-ARG NEXTAUTH_URL
-ARG BETTER_AUTH_SECRET
-ARG DATABASE_URL
+# Set build-time environment variables with production defaults
+# These NEXT_PUBLIC_* values get baked into the client bundle at build time
+ARG NEXT_PUBLIC_SERVER_URL=https://shadow-clean-production.up.railway.app
+ARG NEXT_PUBLIC_CONVEX_URL=https://polished-goldfish-393.convex.cloud
+ARG NEXT_PUBLIC_APP_URL=https://shadow-frontend-production-373f.up.railway.app
+ARG NEXT_PUBLIC_BYPASS_AUTH=false
+ARG NEXT_PUBLIC_API_URL=https://shadow-clean-production.up.railway.app
+ARG NEXTAUTH_URL=https://shadow-frontend-production-373f.up.railway.app
+ARG BETTER_AUTH_SECRET=build-time-placeholder-secret-minimum-32-characters-long
+ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 
 ENV NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL}
 ENV NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL}
@@ -47,9 +48,8 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BYPASS_AUTH=${NEXT_PUBLIC_BYPASS_AUTH}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXTAUTH_URL=${NEXTAUTH_URL}
-# Provide a build-time secret to satisfy BetterAuth validation (runtime uses real secret)
-ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-build-time-placeholder-secret-min-32-chars}
-ENV DATABASE_URL=${DATABASE_URL:-postgresql://placeholder:placeholder@localhost:5432/placeholder}
+ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+ENV DATABASE_URL=${DATABASE_URL}
 
 # Build the frontend
 WORKDIR /app/apps/frontend
