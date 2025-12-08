@@ -33,11 +33,10 @@ function TaskPageContent() {
       // Optimistic user append
       sendMessageMutation.mutate({ taskId, message, model });
 
-      // Fire backend message processing instead of just Convex streaming
+      // Fire backend message processing via frontend API route (proxies to backend with auth)
       setIsStreaming(true);
-      const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || '';
       try {
-        const response = await fetch(`${serverUrl}/api/tasks/${taskId}/messages`, {
+        const response = await fetch(`/api/tasks/${taskId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
