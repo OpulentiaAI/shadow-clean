@@ -10,8 +10,6 @@ import { useCallback, memo, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ModelType } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
-import { useStreamText } from "@/lib/convex/hooks";
-import type { Id } from "../../../../convex/_generated/dataModel";
 import { asConvexId } from "@/lib/convex/id";
 
 function TaskPageContent() {
@@ -30,32 +28,46 @@ function TaskPageContent() {
   );
 
   const sendMessageMutation = useSendMessage();
-  const streamText = useStreamText();
 
   const [isStreaming, setIsStreaming] = useState(false);
 
   const handleSendMessage = useCallback(
-    (message: string, model: ModelType, queue: boolean) => {
+    async (message: string, model: ModelType, queue: boolean) => {
       if (!taskId || !message.trim()) return;
-      if (queue) return; // queuing not supported in Convex streaming path
-      if (!convexTaskId) return;
+      if (queue) return; // queuing not supported
 
       // Optimistic user append
       sendMessageMutation.mutate({ taskId: convexTaskId, message, model });
 
-      // Fire streaming assistant response
+      // Fire backend message processing instead of just Convex streaming
       setIsStreaming(true);
-      streamText({
-        prompt: message,
-        taskId: convexTaskId as Id<"tasks"> | undefined,
-        model,
-      })
-        .catch((err) => {
-          console.error("Streaming failed", err);
-        })
-        .finally(() => setIsStreaming(false));
+      try {
+        const response = await fetch(`/api/tasks/${taskId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message,
+            model,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to submit message');
+        }
+
+        console.log(`[MESSAGE_SUBMIT] Message submitted successfully to task ${taskId}`);
+      } catch (error) {
+        console.error(`[MESSAGE_SUBMIT] Error submitting message:`, error);
+        // Revert optimistic update on error
+        queryClient.invalidateQueries({ queryKey: ['task-messages', taskId] });
+      } finally {
+        setIsStreaming(false);
+      }
     },
-    [taskId, convexTaskId, sendMessageMutation, streamText]
+    [taskId, sendMessageMutation, queryClient]
   );
 
   const displayMessages = useMemo(() => {

@@ -297,6 +297,73 @@ app.get("/api/tasks/:taskId/messages", async (req, res) => {
   }
 });
 
+// Submit a message to an existing task
+app.post("/api/tasks/:taskId/messages", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { message, model } = req.body;
+
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    console.log(`[MESSAGE_SUBMIT] Submitting message to task ${taskId}`);
+
+    // Get task and validate it exists
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { user: true },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    // Check if task is initialized
+    if (task.status !== "ACTIVE" && task.status !== "RUNNING") {
+      return res.status(400).json({
+        error: "Task is not active. Please wait for initialization to complete."
+      });
+    }
+
+    // Build model context
+    const apiKeys = {
+      openai: task.user.openaiApiKey,
+      anthropic: task.user.anthropicApiKey,
+      openrouter: task.user.openrouterApiKey,
+      groq: task.user.groqApiKey,
+      morph: task.user.morphApiKey,
+      github: task.user.githubAccessToken,
+    };
+
+    const context = new TaskModelContext({
+      taskId,
+      mainModel: (model as ModelType) || task.mainModel || "gpt-4o",
+      apiKeys,
+      repoFullName: task.repoFullName,
+      repoUrl: task.repoUrl,
+      userId: task.userId,
+    });
+
+    // Process the user message
+    await chatService.processUserMessage({
+      taskId,
+      userMessage: message,
+      context,
+      enableTools: true,
+      workspacePath: task.workspacePath || undefined,
+    });
+
+    res.json({ success: true, message: "Message submitted successfully" });
+  } catch (error) {
+    console.error(`[MESSAGE_SUBMIT] Error submitting message to task ${req.params.taskId}:`, error);
+    res.status(500).json({
+      error: "Failed to submit message",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
 app.delete("/api/tasks/:taskId/cleanup", async (req, res) => {
   try {
     const { taskId } = req.params;
