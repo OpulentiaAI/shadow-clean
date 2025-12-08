@@ -2,9 +2,12 @@
 builder = "dockerfile"
 dockerfilePath = "Dockerfile.frontend"
 
-# Pass NEXT_PUBLIC_SERVER_URL through at build time so Next.js bakes the correct backend URL
+# Pass NEXT_PUBLIC environment variables at build time so Next.js bakes them in
 [build.args]
 NEXT_PUBLIC_SERVER_URL = "${NEXT_PUBLIC_SERVER_URL}"
+NEXT_PUBLIC_CONVEX_URL = "${NEXT_PUBLIC_CONVEX_URL}"
+NEXT_PUBLIC_APP_URL = "${NEXT_PUBLIC_APP_URL}"
+NEXT_PUBLIC_BYPASS_AUTH = "${NEXT_PUBLIC_BYPASS_AUTH}"
 
 [deploy]
 startCommand = "node apps/frontend/server.js"
@@ -12,3 +15,8 @@ healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3
+numReplicas = 1
+
+[environments.production.variables]
+PORT = "3000"
+NODE_ENV = "production"
