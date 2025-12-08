@@ -25,7 +25,6 @@ export const AvailableModels = {
 
   // OpenRouter models
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5", // Default model via OpenRouter
-  XAI_GROK_4_FAST_FREE: "x-ai/grok-4.1-fast:free",
   XAI_GROK_4_1_FAST_FREE: "x-ai/grok-4.1-fast:free", // Free tier with reasoning
   MOONSHOT_KIMI_K2: "moonshotai/kimi-k2",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
@@ -96,11 +95,6 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   },
 
   // OpenRouter models
-  [AvailableModels.XAI_GROK_4_FAST_FREE]: {
-    id: AvailableModels.XAI_GROK_4_FAST_FREE,
-    name: "Grok 3",
-    provider: "openrouter",
-  },
   [AvailableModels.XAI_GROK_4_1_FAST_FREE]: {
     id: AvailableModels.XAI_GROK_4_1_FAST_FREE,
     name: "Grok 4.1 Fast (Free)",
@@ -195,7 +189,7 @@ export async function getAllPossibleModels(
   if (userApiKeys.openrouter) {
     models.push(
       AvailableModels.XAI_GROK_4_1_FAST_FREE, // Default - Free with reasoning
-      AvailableModels.XAI_GROK_4_FAST_FREE,
+      AvailableModels.XAI_GROK_4_1_FAST_FREE,
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
@@ -256,7 +250,7 @@ export async function getDefaultSelectedModels(
     // All OpenRouter models default - Grok 4.1 Fast (Free) first as primary
     defaultModels.push(
       AvailableModels.XAI_GROK_4_1_FAST_FREE, // Default - Free with reasoning
-      AvailableModels.XAI_GROK_4_FAST_FREE,
+      AvailableModels.XAI_GROK_4_1_FAST_FREE,
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
