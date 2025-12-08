@@ -10,7 +10,6 @@ import { useCallback, memo, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ModelType } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
-import { asConvexId } from "@/lib/convex/id";
 
 function TaskPageContent() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -22,11 +21,6 @@ function TaskPageContent() {
   const { data: messages = [], error: taskMessagesError } =
     useTaskMessages(taskId);
 
-  const convexTaskId = useMemo(
-    () => asConvexId<"tasks">(task?.id ?? taskId),
-    [task?.id, taskId]
-  );
-
   const sendMessageMutation = useSendMessage();
 
   const [isStreaming, setIsStreaming] = useState(false);
@@ -37,7 +31,7 @@ function TaskPageContent() {
       if (queue) return; // queuing not supported
 
       // Optimistic user append
-      sendMessageMutation.mutate({ taskId: convexTaskId, message, model });
+      sendMessageMutation.mutate({ taskId, message, model });
 
       // Fire backend message processing instead of just Convex streaming
       setIsStreaming(true);
