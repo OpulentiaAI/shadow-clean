@@ -142,6 +142,7 @@ The frontend uses config-as-code via `railway-frontend.toml`:
 4. Railway will use the config file to override build/deploy settings
 
 **Environment Variables (set in Railway):**
+
 - `NEXT_PUBLIC_SERVER_URL` - Backend URL (e.g., `https://shadow-clean-production.up.railway.app`)
 - `NEXT_PUBLIC_CONVEX_URL` - Convex deployment URL
 - `NEXT_PUBLIC_APP_URL` - Frontend URL (e.g., `https://shadow-frontend-production-373f.up.railway.app`)
@@ -149,6 +150,7 @@ The frontend uses config-as-code via `railway-frontend.toml`:
 - `BETTER_AUTH_SECRET` - Auth secret (32+ chars)
 - `DATABASE_URL` - PostgreSQL connection string
 - `NEXTAUTH_URL` - Same as `NEXT_PUBLIC_APP_URL`
+- `SHADOW_API_KEY` - API key for frontend-to-backend authentication (required for message submission)
 
 ### Backend Service (`shadow-clean`)
 
@@ -164,5 +166,7 @@ Uses default `railway.toml` for sidecar configuration or configure via dashboard
 
 ### Known Issues
 
-**Message Submission:** The frontend currently posts to `/api/tasks/{taskId}/messages` which returns 405. This endpoint needs to proxy to the backend server or be routed correctly. The backend handles message processing at `NEXT_PUBLIC_SERVER_URL/api/tasks/{taskId}/messages`.
+**Convex Task ID Conversion:** The "Convex task id missing" warning occurs when task IDs can't be converted to Convex format. This affects optimistic UI updates but doesn't block message submission to the backend.
+
+**SHADOW_API_KEY Required:** Ensure `SHADOW_API_KEY` is set in the frontend Railway environment. Without it, message submission will fail with 401 Unauthorized.
 
