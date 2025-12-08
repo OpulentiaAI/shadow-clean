@@ -46,7 +46,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "Next steps:"
     echo "1. Verify variables with: railway variables"
-    echo "2. Deploy with: railway up --detach"
+    echo "2. Deploy with: railway up --config railway-backend.toml --detach"
     echo "3. Run migrations with: railway run npm run db:prod:migrate"
 else
     echo ""

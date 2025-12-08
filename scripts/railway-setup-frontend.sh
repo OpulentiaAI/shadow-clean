@@ -50,7 +50,7 @@ if [ $? -eq 0 ]; then
     echo "✅ Environment variables set successfully!"
     echo ""
     echo "🚀 Deploying frontend..."
-    railway up -d
+    railway up --config railway-frontend.toml -d
 
     if [ $? -eq 0 ]; then
         echo ""
