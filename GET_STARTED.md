@@ -120,3 +120,49 @@ Your First Session
 - Create or pick a task, describe the goal and acceptance criteria
 - Let Opulent Code execute; review diffs, tests, and PRs; take over in the IDE when needed
 
+---
+
+## Railway Deployment Configuration
+
+### Frontend Service (`shadow-frontend`)
+
+The frontend uses config-as-code via `railway-frontend.toml`:
+
+**Required Settings:**
+- **Config File Path:** `railway-frontend.toml`
+- **Dockerfile Path:** `Dockerfile.frontend`
+- **Start Command:** `node apps/frontend/server.js`
+- **Target Port:** `3000`
+- **Healthcheck Path:** `/`
+
+**In Railway Dashboard:**
+1. Go to `shadow-frontend` service → Settings
+2. Scroll to "Config-as-code" section
+3. Add File Path: `railway-frontend.toml`
+4. Railway will use the config file to override build/deploy settings
+
+**Environment Variables (set in Railway):**
+- `NEXT_PUBLIC_SERVER_URL` - Backend URL (e.g., `https://shadow-clean-production.up.railway.app`)
+- `NEXT_PUBLIC_CONVEX_URL` - Convex deployment URL
+- `NEXT_PUBLIC_APP_URL` - Frontend URL (e.g., `https://shadow-frontend-production-373f.up.railway.app`)
+- `NEXT_PUBLIC_BYPASS_AUTH` - Set to `false` for production
+- `BETTER_AUTH_SECRET` - Auth secret (32+ chars)
+- `DATABASE_URL` - PostgreSQL connection string
+- `NEXTAUTH_URL` - Same as `NEXT_PUBLIC_APP_URL`
+
+### Backend Service (`shadow-clean`)
+
+Uses default `railway.toml` for sidecar configuration or configure via dashboard.
+
+### Sidecar Service (`shadow-sidecar`)
+
+**Required Settings:**
+- **Dockerfile Path:** `Dockerfile.sidecar`
+- **Start Command:** `node /app/apps/sidecar/dist/server.js`
+- **Target Port:** `8080`
+- **Healthcheck Path:** `/health`
+
+### Known Issues
+
+**Message Submission:** The frontend currently posts to `/api/tasks/{taskId}/messages` which returns 405. This endpoint needs to proxy to the backend server or be routed correctly. The backend handles message processing at `NEXT_PUBLIC_SERVER_URL/api/tasks/{taskId}/messages`.
+
