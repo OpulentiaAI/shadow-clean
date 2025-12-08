@@ -26,7 +26,7 @@ function getHardcodedMiniModel(
     case "openai":
       return "gpt-4o-mini";
     case "openrouter":
-      return "x-ai/grok-3";
+      return "x-ai/grok-4.1-fast:free";
     default:
       return "claude-3-5-haiku-20241022";
   }
