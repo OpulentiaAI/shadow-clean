@@ -31,15 +31,25 @@ COPY --from=deps /app ./
 # Build shared packages first
 RUN npx turbo run build --filter @repo/types
 
-# Set build-time environment variables
+# Set build-time environment variables (NEXT_PUBLIC_* are baked into the build)
 ARG NEXT_PUBLIC_SERVER_URL
 ARG NEXT_PUBLIC_CONVEX_URL
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_BYPASS_AUTH
+ARG NEXT_PUBLIC_API_URL
+ARG NEXTAUTH_URL
+ARG BETTER_AUTH_SECRET
+ARG DATABASE_URL
+
 ENV NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL}
 ENV NEXT_PUBLIC_CONVEX_URL=${NEXT_PUBLIC_CONVEX_URL}
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_BYPASS_AUTH=${NEXT_PUBLIC_BYPASS_AUTH}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXTAUTH_URL=${NEXTAUTH_URL}
+# Provide a build-time secret to satisfy BetterAuth validation (runtime uses real secret)
+ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-build-time-placeholder-secret-min-32-chars}
+ENV DATABASE_URL=${DATABASE_URL:-postgresql://placeholder:placeholder@localhost:5432/placeholder}
 
 # Build the frontend
 WORKDIR /app/apps/frontend
