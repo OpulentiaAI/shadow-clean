@@ -52,7 +52,7 @@ export async function generateTaskTitleAndBranch(
           : createOpenRouter({
               apiKey: apiKeys.openrouter!,
               headers: {
-                "HTTP-Referer": "https://shadowrealm.ai",
+                "HTTP-Referer": "https://code.opulentia.ai",
                 "X-Title": "Shadow Agent",
               },
             }).chat(modelConfig.modelChoice);

@@ -7,7 +7,7 @@ import TS from "tree-sitter-typescript";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const Python = require("tree-sitter-python");
 import { ModelProvider } from "@/agent/llm/models/model-provider";
-import { ModelType, ApiKeys } from "@repo/types";
+import { ModelType, ApiKeys, AvailableModels } from "@repo/types";
 import { CoreMessage, generateText, LanguageModel } from "ai";
 import { TaskModelContext } from "@/services/task-model-context";
 import { braintrustService } from "../../agent/llm/observability/braintrust-service";
@@ -30,7 +30,7 @@ function getHardcodedMiniModel(
     case "openai":
       return "gpt-4o-mini";
     case "openrouter":
-      return "x-ai/grok-4.1-fast:free";
+      return AvailableModels.XAI_GROK_CODE_FAST_1;
     default:
       return "claude-3-5-haiku-20241022";
   }

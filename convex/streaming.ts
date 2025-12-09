@@ -4,6 +4,8 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { type LanguageModel } from "ai";
 import { createAgentTools } from "./agentTools";
 
 // Track active stream controllers so cancelStream can abort in-flight actions
@@ -18,13 +20,19 @@ type ProviderOptions = {
   };
 };
 
-function resolveProvider({ model, apiKeys }: ProviderOptions) {
+function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
-    return createOpenAI({
+    const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+    const openrouterClient = createOpenRouter({
       apiKey: apiKeys.openrouter,
-      baseURL: "https://openrouter.ai/api/v1",
-    })(model);
+      baseURL,
+      headers: {
+        "HTTP-Referer": "https://code.opulentia.ai",
+        "X-Title": "Shadow Agent",
+      },
+    });
+    return openrouterClient.chat(model) as unknown as LanguageModel;
   }
 
   if (apiKeys.anthropic) {
@@ -38,10 +46,16 @@ function resolveProvider({ model, apiKeys }: ProviderOptions) {
   // Fallback to environment keys to keep UI simple (no client key prompts)
   const envOpenRouter = process.env.OPENROUTER_API_KEY;
   if (envOpenRouter) {
-    return createOpenAI({
+    const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+    const openrouterClient = createOpenRouter({
       apiKey: envOpenRouter,
-      baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
-    })(model);
+      baseURL,
+      headers: {
+        "HTTP-Referer": "https://code.opulentia.ai",
+        "X-Title": "Shadow Agent",
+      },
+    });
+    return openrouterClient.chat(model) as unknown as LanguageModel;
   }
 
   const envAnthropic = process.env.ANTHROPIC_API_KEY;

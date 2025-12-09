@@ -2,7 +2,7 @@ import { generateText } from "ai";
 import { TextPart, ToolCallPart, ToolResultPart } from "ai";
 import { ModelProvider } from "@/agent/llm/models/model-provider";
 import { TaskModelContext } from "@/services/task-model-context";
-import { ModelType, getModelProvider } from "@repo/types";
+import { ModelType, getModelProvider, AvailableModels } from "@repo/types";
 import { AssistantMessagePart, ReasoningPart } from "@repo/types";
 import { ChatService } from "@/agent/chat";
 
@@ -24,7 +24,7 @@ export class ChatSummarizationService {
       case "openai":
         return "gpt-4o-mini";
       case "openrouter":
-        return "x-ai/grok-4.1-fast:free";
+        return AvailableModels.XAI_GROK_CODE_FAST_1;
       default:
         return null;
     }

@@ -91,6 +91,16 @@ export function PromptForm({
     }
   }, [isHome, querySelectedModel]);
 
+  // When not on the home page, sync the selected model once the task-provided
+  // initial model arrives (e.g., after the task query resolves). This prevents
+  // the selector from showing empty on first load or after submits that trigger
+  // a re-render.
+  useEffect(() => {
+    if (!isHome && initialSelectedModel) {
+      setSelectedModel(initialSelectedModel);
+    }
+  }, [isHome, initialSelectedModel]);
+
   const [repo, setRepo] = useState<Repository | null>(
     initialGitCookieState?.repo || null
   );

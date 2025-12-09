@@ -60,7 +60,7 @@ export class ModelProvider {
             apiKey: userApiKeys.openrouter,
             // Add required headers for OpenRouter
             headers: {
-              "HTTP-Referer": "https://shadowrealm.ai",
+              "HTTP-Referer": "https://code.opulentia.ai",
               "X-Title": "Shadow Agent",
             },
           });

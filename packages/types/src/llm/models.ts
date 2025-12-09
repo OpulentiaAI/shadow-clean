@@ -25,7 +25,7 @@ export const AvailableModels = {
 
   // OpenRouter models
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5", // Default model via OpenRouter
-  XAI_GROK_4_1_FAST_FREE: "x-ai/grok-4.1-fast:free", // Free tier with reasoning
+  XAI_GROK_CODE_FAST_1: "x-ai/grok-code-fast-1", // xAI Grok Code Fast (OpenRouter, spec v2)
   MOONSHOT_KIMI_K2: "moonshotai/kimi-k2",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_CODESTRAL_2508: "mistralai/codestral-2508",
@@ -95,9 +95,9 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   },
 
   // OpenRouter models
-  [AvailableModels.XAI_GROK_4_1_FAST_FREE]: {
-    id: AvailableModels.XAI_GROK_4_1_FAST_FREE,
-    name: "Grok 4.1 Fast (Free)",
+  [AvailableModels.XAI_GROK_CODE_FAST_1]: {
+    id: AvailableModels.XAI_GROK_CODE_FAST_1,
+    name: "Grok Code Fast 1",
     provider: "openrouter",
   },
   [AvailableModels.CLAUDE_OPUS_4_5]: {
@@ -159,7 +159,7 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
     case "openai":
       return AvailableModels.GPT_5;
     case "openrouter":
-      return AvailableModels.XAI_GROK_4_1_FAST_FREE; // Grok 4.1 Fast (Free) with reasoning
+      return AvailableModels.XAI_GROK_CODE_FAST_1; // xAI Grok Code Fast (OpenRouter)
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -188,8 +188,7 @@ export async function getAllPossibleModels(
 
   if (userApiKeys.openrouter) {
     models.push(
-      AvailableModels.XAI_GROK_4_1_FAST_FREE, // Default - Free with reasoning
-      AvailableModels.XAI_GROK_4_1_FAST_FREE,
+      AvailableModels.XAI_GROK_CODE_FAST_1, // Default OpenRouter mini
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
@@ -247,10 +246,9 @@ export async function getDefaultSelectedModels(
   }
 
   if (userApiKeys.openrouter) {
-    // All OpenRouter models default - Grok 4.1 Fast (Free) first as primary
+    // All OpenRouter models default - xAI Grok Code Fast first as primary
     defaultModels.push(
-      AvailableModels.XAI_GROK_4_1_FAST_FREE, // Default - Free with reasoning
-      AvailableModels.XAI_GROK_4_1_FAST_FREE,
+      AvailableModels.XAI_GROK_CODE_FAST_1, // Default OpenRouter mini
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
