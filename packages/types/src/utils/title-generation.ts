@@ -82,7 +82,7 @@ export function getTitleGenerationModel(config: TitleGenerationConfig): {
       modelChoice = "claude-3-5-sonnet-20241022" as ModelType;
     } else {
       provider = "openrouter";
-      modelChoice = "x-ai/grok-3" as ModelType;
+      modelChoice = "x-ai/grok-code-fast-1" as ModelType;
     }
   }
 
