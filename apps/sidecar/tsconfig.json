@@ -17,6 +17,14 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*", "../../convex/_generated/**/*"],
-  "exclude": ["node_modules", "dist", "tests/**/*", "../../convex/*.ts", "../../convex/agent.ts", "../../convex/agentTools.ts", "../../convex/convex.config.ts"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "tests/**/*",
+    "../../convex/*.ts",
+    "../../convex/agent.ts",
+    "../../convex/agentTools.ts",
+    "../../convex/convex.config.ts"
+  ]
 }

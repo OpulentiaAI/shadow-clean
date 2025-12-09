@@ -6,8 +6,8 @@ COPY package*.json ./
 COPY turbo.json ./
 COPY packages/ ./packages/
 
-# Copy Convex generated files (required for sidecar imports)
-COPY convex/ ./convex/
+# Copy only Convex generated files (sidecar only needs type definitions, not full convex)
+COPY convex/_generated/ ./convex/_generated/
 
 # Copy sidecar source
 COPY apps/sidecar/ ./apps/sidecar/
@@ -25,4 +25,4 @@ RUN npm run build
 
 EXPOSE 8080
 # Force rebuild marker: 2025-12-07
-CMD ["node", "dist/server.js"]
+CMD ["node", "dist/apps/sidecar/src/server.js"]
