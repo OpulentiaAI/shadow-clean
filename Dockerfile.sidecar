@@ -6,6 +6,9 @@ COPY package*.json ./
 COPY turbo.json ./
 COPY packages/ ./packages/
 
+# Copy Convex generated files (required for sidecar imports)
+COPY convex/ ./convex/
+
 # Copy sidecar source
 COPY apps/sidecar/ ./apps/sidecar/
 
