@@ -91,7 +91,7 @@ export function useHybridTask(taskId: string | undefined) {
     activeToolCount: isConvexEnabled ? convexData.activeToolCount : 0,
 
     // Mode indicator
-    mode: (isConvexEnabled ? "convex-only" : "socket-only") as const,
+    mode: (isConvexEnabled ? "convex-only" : "socket-only") as "convex-only" | "socket-only",
     isConvexEnabled,
   };
 }

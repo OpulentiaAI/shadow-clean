@@ -143,52 +143,55 @@ export function RealtimeMonitor() {
           <CardContent>
             <div className="max-h-48 overflow-y-auto">
               <div className="space-y-1">
-                {fileChanges.slice(0, 20).map(
-                  (change: {
-                    _id: string;
-                    operation: "CREATE" | "UPDATE" | "DELETE" | "RENAME";
-                    filePath: string;
-                    additions: number;
-                    deletions: number;
-                  }) => (
-                  <div
-                    key={change._id}
-                    className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <Badge
-                        variant={
-                          change.operation === "CREATE"
-                            ? "default"
-                            : change.operation === "DELETE"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                        className="text-xs shrink-0"
+                {fileChanges
+                  .slice(0, 20)
+                  .map(
+                    (change: {
+                      _id: string;
+                      operation: "CREATE" | "UPDATE" | "DELETE" | "RENAME";
+                      filePath: string;
+                      additions: number;
+                      deletions: number;
+                    }) => (
+                      <div
+                        key={change._id}
+                        className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
                       >
-                        {change.operation}
-                      </Badge>
-                      <span
-                        className="text-sm truncate"
-                        title={change.filePath}
-                      >
-                        {change.filePath}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 text-xs text-muted-foreground shrink-0">
-                      {change.additions > 0 && (
-                        <span className="text-green-600">
-                          +{change.additions}
-                        </span>
-                      )}
-                      {change.deletions > 0 && (
-                        <span className="text-red-600">
-                          -{change.deletions}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <Badge
+                            variant={
+                              change.operation === "CREATE"
+                                ? "default"
+                                : change.operation === "DELETE"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className="text-xs shrink-0"
+                          >
+                            {change.operation}
+                          </Badge>
+                          <span
+                            className="text-sm truncate"
+                            title={change.filePath}
+                          >
+                            {change.filePath}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 text-xs text-muted-foreground shrink-0">
+                          {change.additions > 0 && (
+                            <span className="text-green-600">
+                              +{change.additions}
+                            </span>
+                          )}
+                          {change.deletions > 0 && (
+                            <span className="text-red-600">
+                              -{change.deletions}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
               </div>
             </div>
           </CardContent>
@@ -205,19 +208,31 @@ export function RealtimeMonitor() {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold">
-                  {toolLogs.filter((t: { status: string }) => t.status === "COMPLETED").length}
+                  {
+                    toolLogs.filter(
+                      (t: { status: string }) => t.status === "COMPLETED"
+                    ).length
+                  }
                 </div>
                 <div className="text-xs text-muted-foreground">Completed</div>
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {toolLogs.filter((t: { status: string }) => t.status === "RUNNING").length}
+                  {
+                    toolLogs.filter(
+                      (t: { status: string }) => t.status === "RUNNING"
+                    ).length
+                  }
                 </div>
                 <div className="text-xs text-muted-foreground">Running</div>
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {toolLogs.filter((t: { status: string }) => t.status === "FAILED").length}
+                  {
+                    toolLogs.filter(
+                      (t: { status: string }) => t.status === "FAILED"
+                    ).length
+                  }
                 </div>
                 <div className="text-xs text-muted-foreground">Failed</div>
               </div>
