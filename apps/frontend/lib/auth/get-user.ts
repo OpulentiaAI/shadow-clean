@@ -6,7 +6,17 @@ import { headers } from "next/headers";
 const DEV_USER_ID = "dev-local-user";
 const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
 
-const DEV_USER = {
+type UserLike = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  emailVerified?: boolean | null;
+  image?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+const DEV_USER: UserLike = {
   id: DEV_USER_ID,
   name: "Local Dev User",
   email: "dev@localhost",
@@ -20,7 +30,7 @@ export type AuthUser = Awaited<ReturnType<typeof getUser>>;
 
 const syncedConvexUsers = new Set<string>();
 
-async function ensureConvexUser(user: typeof DEV_USER) {
+async function ensureConvexUser(user: UserLike) {
   // Avoid re-sending upserts for the same user within the same runtime
   if (syncedConvexUsers.has(user.id)) return;
   try {
