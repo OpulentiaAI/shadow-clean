@@ -8,6 +8,10 @@ echo "🔨 Building Shadow Server..."
 echo "🧹 Cleaning previous build..."
 rm -rf dist
 
+echo "🛠️ Generating Convex code..."
+# Run Convex codegen from repo root so runtime has convex/_generated/api.js
+(cd ../.. && npx convex codegen)
+
 echo "📦 Compiling TypeScript..."
 # Note: Some AI SDK v5 type compatibility issues may cause warnings
 # The runtime behavior is correct, these are type definition mismatches
@@ -42,6 +46,11 @@ echo "🔗 Resolving path aliases..."
 tsc-alias
 
 echo "📄 Copying tool instruction files..."
+
+# Ensure Convex generated files are available at runtime
+echo "📂 Copying Convex generated API..."
+mkdir -p dist/convex/_generated
+cp -r ../../convex/_generated/* dist/convex/_generated/
 
 mkdir -p dist/agent/tools/prompts
 

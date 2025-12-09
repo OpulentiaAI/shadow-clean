@@ -3,7 +3,13 @@
 import { useTaskSocketContext } from "@/contexts/task-socket-context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, FileCode, Terminal, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  Activity,
+  FileCode,
+  Terminal,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 
 /**
  * Real-time monitoring panel for Convex-native sidecar data
@@ -33,8 +39,8 @@ export function RealtimeMonitor() {
           <Activity className="h-4 w-4 text-green-500" />
           <span className="text-sm font-medium">Real-time Mode</span>
         </div>
-        <Badge variant={mode === "hybrid" ? "default" : "secondary"}>
-          {mode === "hybrid" ? "Hybrid (Socket.IO + Convex)" : "Socket.IO Only"}
+        <Badge variant={mode === "convex-only" ? "default" : "secondary"}>
+          {mode === "convex-only" ? "Convex (Realtime)" : "Socket.IO Only"}
         </Badge>
       </div>
 
@@ -55,13 +61,19 @@ export function RealtimeMonitor() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Health:</span>
-                <span className={isWorkspaceHealthy ? "text-green-600" : "text-red-600"}>
+                <span
+                  className={
+                    isWorkspaceHealthy ? "text-green-600" : "text-red-600"
+                  }
+                >
                   {isWorkspaceHealthy ? "Healthy" : "Unhealthy"}
                 </span>
               </div>
               {workspaceStatus.activeProcessCount !== undefined && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Active Processes:</span>
+                  <span className="text-muted-foreground">
+                    Active Processes:
+                  </span>
                   <span>{workspaceStatus.activeProcessCount}</span>
                 </div>
               )}
@@ -69,7 +81,8 @@ export function RealtimeMonitor() {
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Disk Usage:</span>
                   <span>
-                    {(workspaceStatus.diskUsageBytes / 1024 / 1024).toFixed(2)} MB
+                    {(workspaceStatus.diskUsageBytes / 1024 / 1024).toFixed(2)}{" "}
+                    MB
                   </span>
                 </div>
               )}
@@ -103,7 +116,9 @@ export function RealtimeMonitor() {
                   >
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                      <span className="text-sm font-medium">{tool.toolName}</span>
+                      <span className="text-sm font-medium">
+                        {tool.toolName}
+                      </span>
                     </div>
                     <Badge variant="outline" className="text-xs">
                       Running
@@ -139,23 +154,30 @@ export function RealtimeMonitor() {
                           change.operation === "CREATE"
                             ? "default"
                             : change.operation === "DELETE"
-                            ? "destructive"
-                            : "secondary"
+                              ? "destructive"
+                              : "secondary"
                         }
                         className="text-xs shrink-0"
                       >
                         {change.operation}
                       </Badge>
-                      <span className="text-sm truncate" title={change.filePath}>
+                      <span
+                        className="text-sm truncate"
+                        title={change.filePath}
+                      >
                         {change.filePath}
                       </span>
                     </div>
                     <div className="flex gap-2 text-xs text-muted-foreground shrink-0">
                       {change.additions > 0 && (
-                        <span className="text-green-600">+{change.additions}</span>
+                        <span className="text-green-600">
+                          +{change.additions}
+                        </span>
                       )}
                       {change.deletions > 0 && (
-                        <span className="text-red-600">-{change.deletions}</span>
+                        <span className="text-red-600">
+                          -{change.deletions}
+                        </span>
                       )}
                     </div>
                   </div>
