@@ -21,6 +21,7 @@ import {
   upsertUser,
   appendMessage,
   updateTask,
+  getTask as getConvexTask,
 } from "../convex/actions";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -206,6 +207,25 @@ export async function createTask(formData: FormData) {
       mainModel: model,
     });
     taskId = createResult.taskId;
+
+    console.log(`[TASK_CREATION] Task created with ID: ${taskId}`);
+
+    // Verify the task was created successfully by querying it back
+    // This catches any Convex connectivity or consistency issues early
+    const verifyTask = await getConvexTask(taskId);
+    if (!verifyTask) {
+      console.error(
+        `[TASK_CREATION] CRITICAL: Task ${taskId} was created but not found on verify. ` +
+          `CONVEX_URL: ${process.env.NEXT_PUBLIC_CONVEX_URL?.substring(0, 50)}...`
+      );
+      throw new Error(
+        "Task creation failed: task not found after creation. Please try again."
+      );
+    }
+
+    console.log(
+      `[TASK_CREATION] Task ${taskId} verified successfully. Status: ${verifyTask.status}`
+    );
 
     // Create the initial user message
     await appendMessage({
