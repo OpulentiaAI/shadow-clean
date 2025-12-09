@@ -41,6 +41,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     github: {
       clientId: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      scope: ["repo", "read:user", "user:email"], // Request full repo access for cloning and pushing
     },
   },
   secret: process.env.BETTER_AUTH_SECRET as string,
