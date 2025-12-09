@@ -28,6 +28,20 @@ Sets up isolated execution environments for AI agents to work on GitHub reposito
 - Morph SDK integration for fast code editing
 - Custom rules for code generation
 
+### Convex-native status (current)
+- Convex is the primary datastore for tasks/messages/todos/memories/tool calls.
+- Phase 2 added Convex-native chat streaming (`streamChat`, `streamChatWithTools`) plus presence/activity + tool-call tracking tables; hooks are available via `useConvexChatStreaming` and `usePresence`. The task UI now calls `startStreamWithTools` when Convex streaming is enabled.
+- Sidecar supports Convex-native mode (file changes, tool logs, terminal output, workspace status) via `USE_CONVEX_NATIVE=true` and `CONVEX_URL`.
+- Hybrid fallback remains: legacy Socket.IO sidecar events and REST are still available while UI wiring catches up. Use `NEXT_PUBLIC_USE_CONVEX_REALTIME=true` (frontend) to opt into Convex streaming.
+- Provider routing now prefers OpenRouter (first-party), with Anthropic/OpenAI fallbacks and abortable cancellation; presence cleanup runs via `convex/crons.ts`.
+- Known gaps before full nativity: streaming tool execution is explicitly disabled in `streamChatWithTools` (status is recorded) until real tool runners are wired; some Phase 1 hooks still carry implicit `any` types.
+
+### Convex streaming quick test (local)
+- Set frontend env: `NEXT_PUBLIC_CONVEX_URL=<your convex>`, `NEXT_PUBLIC_USE_CONVEX_REALTIME=true`, `NEXT_PUBLIC_API_URL=http://localhost:4000`.
+- Start services: `npx convex dev`, `npm run dev --filter=server`, then restart frontend `npm run dev --filter=frontend` (or `npm run dev:app`).
+- Create a **new task** in the UI (ensures Prisma + Convex rows), send a message, and watch the stream.
+- If you see “Could not find public function…”, run `npx convex dev --until-success --once` to regenerate/deploy functions.
+
 ## Execution Modes
 
 Opulent Code supports two execution modes through an abstraction layer:
