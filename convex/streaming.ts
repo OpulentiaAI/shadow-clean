@@ -1,6 +1,7 @@
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAgentTools } from "./agentTools";
@@ -76,6 +77,23 @@ function normalizeUsage(usage: any | undefined) {
   return { promptTokens, completionTokens, totalTokens };
 }
 
+// Return type for streamChat action
+type StreamChatResult = {
+  success: boolean;
+  messageId: Id<"chatMessages">;
+  text: string;
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+};
+
+// Return type for streamChatWithTools action
+type StreamChatWithToolsResult = {
+  success: boolean;
+  messageId: Id<"chatMessages">;
+  text: string;
+  toolCallIds: string[];
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+};
+
 /**
  * Streaming chat action using Convex's native streaming support
  * Replaces Socket.IO streaming with Convex actions + subscriptions
@@ -93,7 +111,7 @@ export const streamChat = action({
       openrouter: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<StreamChatResult> => {
     // Get task details
     const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
     if (!task) {
@@ -198,7 +216,7 @@ export const streamChatWithTools = action({
       openrouter: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
     // Get task details
     const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
     if (!task) {
@@ -365,7 +383,7 @@ export const resumeStream = action({
       openrouter: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<StreamChatResult> => {
     // Get the from message to find its sequence
     const fromMessage = await ctx.runQuery(api.messages.get, {
       messageId: args.fromMessageId,

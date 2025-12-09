@@ -31,7 +31,7 @@ export function useMessageStreaming(taskId: string | undefined) {
     if (!messages) return null;
 
     // Look for message with isStreaming: true in metadata
-    const found = messages.find((msg) => {
+    const found = messages.find((msg: { metadataJson?: string }) => {
       if (!msg.metadataJson) return false;
       try {
         const metadata = JSON.parse(msg.metadataJson);

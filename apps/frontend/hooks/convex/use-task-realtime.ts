@@ -8,6 +8,17 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { TaskWithDetails } from "@/lib/db-operations/get-task-with-details";
 import type { FileNode } from "@repo/types";
 
+// Type for file change from Convex query
+type FileChange = {
+  _id: Id<"fileChanges">;
+  _creationTime: number;
+  filePath: string;
+  operation: string;
+  additions: number;
+  deletions: number;
+  createdAt: number;
+};
+
 /**
  * Real-time Convex subscriptions for task-related data from sidecar
  * Provides live updates for file changes, tool logs, and terminal output
@@ -41,7 +52,7 @@ export function useTaskRealtime(taskId: Id<"tasks"> | undefined) {
   );
 
   // Track previous file changes to detect new ones
-  const prevFileChangesRef = useRef<typeof fileChanges>([]);
+  const prevFileChangesRef = useRef<FileChange[]>([]);
 
   // Update React Query cache when Convex data changes
   useEffect(() => {
@@ -52,9 +63,9 @@ export function useTaskRealtime(taskId: Id<"tasks"> | undefined) {
 
     // Detect new file changes
     const newChanges = currentChanges.filter(
-      (change) =>
+      (change: FileChange) =>
         !prevChanges.find(
-          (prev) =>
+          (prev: FileChange) =>
             prev._id === change._id &&
             prev._creationTime === change._creationTime
         )
@@ -62,7 +73,7 @@ export function useTaskRealtime(taskId: Id<"tasks"> | undefined) {
 
     if (newChanges.length > 0 && isInitialized) {
       // Update file tree optimistically for each new change
-      newChanges.forEach((change) => {
+      newChanges.forEach((change: FileChange) => {
         updateFileTreeFromChange(queryClient, taskId.toString(), change);
       });
 
@@ -72,7 +83,7 @@ export function useTaskRealtime(taskId: Id<"tasks"> | undefined) {
         (oldData: TaskWithDetails) => {
           if (!oldData) return oldData;
 
-          const fileChangesArray = currentChanges.map((fc) => ({
+          const fileChangesArray = currentChanges.map((fc: FileChange) => ({
             filePath: fc.filePath,
             operation: fc.operation,
             additions: fc.additions,
@@ -81,7 +92,7 @@ export function useTaskRealtime(taskId: Id<"tasks"> | undefined) {
           }));
 
           const diffStats = fileChangesArray.reduce(
-            (acc, file) => ({
+            (acc: { additions: number; deletions: number; totalFiles: number }, file: { additions: number; deletions: number }) => ({
               additions: acc.additions + file.additions,
               deletions: acc.deletions + file.deletions,
               totalFiles: acc.totalFiles + 1,

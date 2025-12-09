@@ -39,9 +39,9 @@ export function useTerminalRealtime(commandId: string | undefined) {
 
     // Detect new output lines
     const newLines = currentOutput.filter(
-      (line) =>
+      (line: TerminalOutput) =>
         !prevOutput.find(
-          (prev) =>
+          (prev: TerminalOutput) =>
             prev._id === line._id && prev._creationTime === line._creationTime
         )
     );
@@ -49,8 +49,8 @@ export function useTerminalRealtime(commandId: string | undefined) {
     if (newLines.length > 0) {
       // Append new lines to combined output
       const newContent = newLines
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .map((line) => line.content)
+        .sort((a: TerminalOutput, b: TerminalOutput) => a.timestamp - b.timestamp)
+        .map((line: TerminalOutput) => line.content)
         .join("");
 
       setCombinedOutput((prev) => prev + newContent);
@@ -98,7 +98,7 @@ export function useTaskTerminalRealtime(taskId: Id<"tasks"> | undefined) {
 
     const grouped = new Map<string, TerminalOutput[]>();
 
-    terminalData.forEach((output) => {
+    terminalData.forEach((output: TerminalOutput) => {
       const existing = grouped.get(output.commandId) || [];
       grouped.set(output.commandId, [...existing, output]);
     });

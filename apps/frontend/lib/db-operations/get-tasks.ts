@@ -55,7 +55,7 @@ export async function getTasks(userExternalId: string): Promise<Task[]> {
     );
 
     return convexTasks
-      .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+      .sort((a: { updatedAt?: number }, b: { updatedAt?: number }) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
       .map(mapConvexTaskToTask);
   } catch (err) {
     console.error("Failed to fetch tasks from Convex", err);
