@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p tsconfig.build.json",
-    "postbuild": "mkdir -p dist && cp dist/apps/sidecar/src/server.js dist/server.js",
+    "postbuild": "mkdir -p dist && cp -r dist/apps/sidecar/src/* dist/",
     "start": "node dist/apps/sidecar/src/server.js",
     "lint": "eslint 'src/**/*.ts'",
     "check-types": "tsc --noEmit",
