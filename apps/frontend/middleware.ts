@@ -21,8 +21,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for better-auth session token in cookies
-  const sessionToken = request.cookies.get("better-auth.session_token");
+  // Check for better-auth session token in cookies (handles secure prefix)
+  const sessionToken =
+    request.cookies.get("__Secure-better-auth.session_token") ??
+    request.cookies.get("better-auth.session_token");
 
   // If no session token, redirect to auth page
   if (!sessionToken) {
