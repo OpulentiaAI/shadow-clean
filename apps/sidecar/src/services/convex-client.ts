@@ -7,7 +7,6 @@
  * - Workspace state management
  */
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { config } from "../config";
 import { logger } from "../utils/logger";
@@ -15,6 +14,16 @@ import type { FileSystemEvent } from "@repo/types";
 
 // Singleton Convex client instance
 let convexClient: ConvexHttpClient | null = null;
+let apiModulePromise: Promise<typeof import("../../../../convex/_generated/api")> | null =
+  null;
+
+async function getApi() {
+  if (!apiModulePromise) {
+    // Use dynamic import so we can load the ESM convex api module from CJS output
+    apiModulePromise = import("../../../../convex/_generated/api.js");
+  }
+  return apiModulePromise;
+}
 
 /**
  * Initialize and get the Convex client
@@ -53,6 +62,7 @@ export async function recordFileChange(event: FileSystemEvent): Promise<boolean>
   }
 
   try {
+    const { api } = await getApi();
     await client.mutation(api.fileChanges.create, {
       taskId: toConvexTaskId(event.taskId),
       filePath: event.path,
@@ -109,6 +119,7 @@ export async function logToolStart(
   }
 
   try {
+    const { api } = await getApi();
     const result = await client.mutation(api.toolLogs.create, {
       taskId: toConvexTaskId(taskId),
       toolName,
@@ -147,6 +158,7 @@ export async function logToolComplete(
   }
 
   try {
+    const { api } = await getApi();
     await client.mutation(api.toolLogs.update, {
       logId: logId as Id<"toolLogs">,
       status: "COMPLETED",
@@ -183,6 +195,7 @@ export async function logToolError(
   }
 
   try {
+    const { api } = await getApi();
     await client.mutation(api.toolLogs.update, {
       logId: logId as Id<"toolLogs">,
       status: "FAILED",
@@ -224,6 +237,7 @@ export async function updateWorkspaceStatus(
   }
 
   try {
+    const { api } = await getApi();
     await client.mutation(api.tasks.updateWorkspaceStatus, {
       taskId: toConvexTaskId(taskId),
       isHealthy: status.isHealthy,
@@ -262,6 +276,7 @@ export async function streamTerminalOutput(
   }
 
   try {
+    const { api } = await getApi();
     await client.mutation(api.terminalOutput.append, {
       taskId: toConvexTaskId(taskId),
       commandId,
