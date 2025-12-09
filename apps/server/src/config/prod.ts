@@ -21,7 +21,13 @@ const prodConfigSchema = sharedConfigSchema.extend({
   // Production CORS origins (comma-separated)
   CORS_ORIGINS: z
     .string()
-    .default("https://www.shadowrealm.ai,https://code.opulentia.ai"),
+    .default(
+      [
+        "https://www.shadowrealm.ai",
+        "https://code.opulentia.ai",
+        "https://shadow-frontend-production-373f.up.railway.app",
+      ].join(",")
+    ),
 
   // === EXECUTION MODE ===
   // Controls how agent code executes - 'remote' for VM isolation, 'local' for direct execution
