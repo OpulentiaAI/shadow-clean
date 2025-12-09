@@ -22,6 +22,9 @@ WORKDIR /app
 
 # Copy source files first (needed for Prisma schema during postinstall)
 COPY --from=builder /app/out/full/ .
+# Ensure Convex generated files are available even if prune omitted the convex workspace
+RUN mkdir -p convex/_generated
+COPY --from=builder /app/convex/_generated ./convex/_generated
 
 # Ensure scripts directory has execute permissions
 RUN chmod +x apps/server/scripts/*.sh
