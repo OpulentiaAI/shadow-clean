@@ -68,6 +68,8 @@ COPY --from=installer --chown=server:server /app/apps/server/node_modules ./apps
 COPY --from=installer --chown=server:server /app/apps/server/scripts ./apps/server/scripts
 COPY --from=installer --chown=server:server /app/node_modules ./node_modules
 COPY --from=installer --chown=server:server /app/packages ./packages
+# Copy Convex generated files - required at runtime for server imports
+COPY --from=installer --chown=server:server /app/convex/_generated ./convex/_generated
 
 # Switch to non-root user
 USER server
