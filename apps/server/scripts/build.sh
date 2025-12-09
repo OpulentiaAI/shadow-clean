@@ -8,9 +8,13 @@ echo "🔨 Building Shadow Server..."
 echo "🧹 Cleaning previous build..."
 rm -rf dist
 
-echo "🛠️ Generating Convex code..."
-# Run Convex codegen from repo root so runtime has convex/_generated/api.js
-(cd ../.. && npx convex codegen)
+echo "🛠️ Generating Convex code (or using checked-in artifacts)..."
+# Prefer generating, but fall back to checked-in _generated if deployment is not configured
+if [ -n "$CONVEX_DEPLOYMENT" ] || [ -n "$CONVEX_URL" ]; then
+  (cd ../.. && npx convex codegen --deployment "${CONVEX_DEPLOYMENT:-$CONVEX_URL}")
+else
+  echo "⚠️  CONVEX_DEPLOYMENT/CONVEX_URL not set; using existing convex/_generated artifacts"
+fi
 
 echo "📦 Compiling TypeScript..."
 # Note: Some AI SDK v5 type compatibility issues may cause warnings
@@ -50,7 +54,7 @@ echo "📄 Copying tool instruction files..."
 # Ensure Convex generated files are available at runtime
 echo "📂 Copying Convex generated API..."
 mkdir -p dist/convex/_generated
-cp -r ../../convex/_generated/* dist/convex/_generated/
+cp -r ../../convex/_generated/* dist/convex/_generated/ || echo "⚠️  No convex/_generated to copy; ensure codegen ran"
 
 mkdir -p dist/agent/tools/prompts
 
