@@ -14,8 +14,9 @@ import type { FileSystemEvent } from "@repo/types";
 
 // Singleton Convex client instance
 let convexClient: ConvexHttpClient | null = null;
-let apiModulePromise: Promise<typeof import("../../../../convex/_generated/api")> | null =
-  null;
+let apiModulePromise: Promise<
+  typeof import("../../../../convex/_generated/api")
+> | null = null;
 
 async function getApi() {
   if (!apiModulePromise) {
@@ -30,7 +31,9 @@ async function getApi() {
  */
 export function getConvexClient(): ConvexHttpClient | null {
   if (!config.convexUrl) {
-    logger.debug("[CONVEX_CLIENT] No CONVEX_URL configured, skipping initialization");
+    logger.debug(
+      "[CONVEX_CLIENT] No CONVEX_URL configured, skipping initialization"
+    );
     return null;
   }
 
@@ -54,10 +57,14 @@ function toConvexTaskId(taskId: string): Id<"tasks"> {
 /**
  * Record a file system change directly to Convex
  */
-export async function recordFileChange(event: FileSystemEvent): Promise<boolean> {
+export async function recordFileChange(
+  event: FileSystemEvent
+): Promise<boolean> {
   const client = getConvexClient();
   if (!client) {
-    logger.debug("[CONVEX_CLIENT] Client not available, skipping file change record");
+    logger.debug(
+      "[CONVEX_CLIENT] Client not available, skipping file change record"
+    );
     return false;
   }
 
@@ -90,7 +97,9 @@ export async function recordFileChange(event: FileSystemEvent): Promise<boolean>
 /**
  * Map file system event type to Convex operation type
  */
-function mapEventTypeToOperation(type: string): "CREATE" | "UPDATE" | "DELETE" | "RENAME" {
+function mapEventTypeToOperation(
+  type: string
+): "CREATE" | "UPDATE" | "DELETE" | "RENAME" {
   switch (type) {
     case "add":
       return "CREATE";
