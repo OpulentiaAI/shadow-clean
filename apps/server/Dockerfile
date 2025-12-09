@@ -77,14 +77,14 @@ USER server
 
 # Environment variables
 ENV NODE_ENV=production
-ENV PORT=4000
+ENV PORT=8080
 
-# Expose port
-EXPOSE 4000
+# Expose port (Railway uses 8080)
+EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
+# Health check - uses PORT env var (Railway sets PORT=8080)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Start the server
 CMD ["node", "apps/server/dist/server.js"]
