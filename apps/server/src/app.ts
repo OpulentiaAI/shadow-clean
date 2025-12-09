@@ -126,9 +126,11 @@ app.use(
 );
 
 // Special raw body handling for webhook endpoints (before JSON parsing)
-app.use("/api/webhooks", express.raw({ type: "application/json" }));
+app.use("/api/webhooks", express.raw({ type: "application/json", limit: "2mb" }));
 
-app.use(express.json());
+// General JSON/urlencoded parsers with increased limits (some requests exceed 100kb)
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ limit: "2mb", extended: true }));
 
 // API key authentication for protected routes
 app.use("/api", (req, res, next) => {
