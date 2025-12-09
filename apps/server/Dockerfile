@@ -45,13 +45,13 @@ RUN npx turbo build --filter=server
 FROM base AS runner
 WORKDIR /app
 
-# Install runtime dependencies and package managers (npm, pnpm, yarn)
+# Install runtime dependencies and package managers (pnpm - yarn already included in node image)
 RUN apk add --no-cache \
   bash \
   git \
   openssh-client \
   curl \
-  && npm install -g pnpm@latest yarn@latest \
+  && npm install -g pnpm@latest \
   && rm -rf /var/cache/apk/*
 
 # Create non-root user
