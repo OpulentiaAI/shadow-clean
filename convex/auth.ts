@@ -258,6 +258,30 @@ export const clearGitHubInstallation = mutation({
   },
 });
 
+export const updateAccountTokens = mutation({
+  args: {
+    accountId: v.id("accounts"),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    accessTokenExpiresAt: v.number(),
+    refreshTokenExpiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.accountId);
+    if (!existing) {
+      throw new Error("Account not found");
+    }
+    await ctx.db.patch(args.accountId, {
+      accessToken: args.accessToken,
+      refreshToken: args.refreshToken,
+      accessTokenExpiresAt: args.accessTokenExpiresAt,
+      refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+      updatedAt: Date.now(),
+    });
+    return { success: true };
+  },
+});
+
 export const createVerification = mutation({
   args: {
     identifier: v.string(),

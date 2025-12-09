@@ -1,16 +1,19 @@
-import { action, internalAction, internalMutation } from "./_generated/server";
+import { action, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { components, internal, api } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
 import { openai } from "@ai-sdk/openai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+// import { createOpenRouter } from "@openrouter/ai-sdk-provider"; // Will be used for model switching
 import OpenAI from "openai";
+import { createAgentTools } from "./agentTools";
+import { Id } from "./_generated/dataModel";
 
 // OpenRouter provider for chat models when API key is available
-const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-const openrouterProvider = openrouterApiKey
-  ? createOpenRouter({ apiKey: openrouterApiKey })
-  : null;
+// Currently unused - will be used when implementing model switching
+// const openrouterApiKey = process.env.OPENROUTER_API_KEY;
+// const openrouterProvider = openrouterApiKey
+//   ? createOpenRouter({ apiKey: openrouterApiKey })
+//   : null;
 
 const shadowAgent = new Agent(components.agent, {
   name: "ShadowAgent",
@@ -311,5 +314,149 @@ export const chat: ReturnType<typeof action> = action({
       response: result.text,
       usage: result.usage,
     };
+  },
+});
+
+/**
+ * Create an Agent with tools for a specific task
+ * This is used for full autonomous coding sessions
+ */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+function createTaskAgent(ctx: ActionCtx, taskId: Id<"tasks">, model?: string) {
+  const tools = createAgentTools(ctx, taskId);
+
+  return new Agent(components.agent, {
+    name: "ShadowTaskAgent",
+    languageModel: openai.chat((model as any) || "gpt-4o"),
+    instructions: `You are Shadow, an AI coding assistant with access to tools for file operations, code search, and task management.
+
+CRITICAL RULES:
+1. Always read files before editing them
+2. Use todo_write to track progress on multi-step tasks
+3. Mark todos as in_progress before starting, completed when done
+4. Only one todo should be in_progress at a time
+5. Never mark as completed if tests fail or work is incomplete
+6. Use grep_search or semantic_search to understand the codebase
+7. Run terminal commands to test your changes`,
+    tools,
+  });
+}
+
+/**
+ * Execute a task with full tool support
+ * This action creates an Agent with tools and processes the message
+ */
+export const executeTaskWithTools: ReturnType<typeof action> = action({
+  args: {
+    taskId: v.id("tasks"),
+    message: v.string(),
+    model: v.optional(v.string()),
+    threadId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    const agent = createTaskAgent(ctx, args.taskId, args.model);
+
+    let threadId = args.threadId;
+    if (!threadId) {
+      const threadResult = await agent.createThread(ctx, {
+        title: `Task: ${task.title || args.taskId}`,
+      });
+      threadId = threadResult.threadId;
+    }
+
+    const result = await agent.generateText(
+      ctx,
+      { threadId },
+      { prompt: args.message },
+    );
+
+    return {
+      threadId,
+      response: result.text,
+      usage: result.usage,
+      toolCalls: result.toolCalls || [],
+    };
+  },
+});
+
+/**
+ * Stream task execution with tools (for real-time UI updates)
+ * This creates a streaming response that can be consumed by the frontend
+ */
+export const streamTaskWithTools: ReturnType<typeof action> = action({
+  args: {
+    taskId: v.id("tasks"),
+    message: v.string(),
+    model: v.optional(v.string()),
+    threadId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    const agent = createTaskAgent(ctx, args.taskId, args.model);
+
+    let threadId = args.threadId;
+    if (!threadId) {
+      const threadResult = await agent.createThread(ctx, {
+        title: `Task: ${task.title || args.taskId}`,
+      });
+      threadId = threadResult.threadId;
+    }
+
+    // Create a message record in the database for streaming
+    const start = await ctx.runMutation(internal.messages.internalStartStreaming, {
+      taskId: args.taskId,
+      llmModel: args.model,
+    });
+    const messageId = start.messageId;
+
+    try {
+      // Generate with tools
+      const result = await agent.generateText(
+        ctx,
+        { threadId },
+        { prompt: args.message },
+      );
+
+      // Update the message with the final result
+      // Cast usage to any to handle different AI SDK versions
+      const usageData: any = result.usage;
+      await ctx.runMutation(internal.messages.internalAppendStreamDelta, {
+        messageId,
+        deltaText: result.text,
+        parts: [{ type: "text", text: result.text }],
+        usage: usageData ? {
+          promptTokens: usageData.promptTokens || usageData.inputTokens || 0,
+          completionTokens: usageData.completionTokens || usageData.outputTokens || 0,
+          totalTokens: (usageData.promptTokens || usageData.inputTokens || 0) + (usageData.completionTokens || usageData.outputTokens || 0),
+        } : undefined,
+        isFinal: true,
+      });
+
+      return {
+        threadId,
+        messageId,
+        response: result.text,
+        usage: result.usage,
+        toolCalls: result.toolCalls || [],
+      };
+    } catch (error) {
+      // Mark message as error
+      await ctx.runMutation(internal.messages.internalAppendStreamDelta, {
+        messageId,
+        deltaText: `\n\n[Error: ${error instanceof Error ? error.message : String(error)}]`,
+        parts: [{ type: "error", data: String(error) }],
+        isFinal: true,
+      });
+      throw error;
+    }
   },
 });

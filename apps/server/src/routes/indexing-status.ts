@@ -1,5 +1,5 @@
-import { prisma } from "@repo/db";
 import { isCurrentlyIndexing } from "../initialization/background-indexing";
+import { getRepositoryIndex } from "../lib/convex-operations";
 
 export type IndexingStatusResponse = {
   status: 'not-started' | 'indexing' | 'completed' | 'failed';
@@ -25,13 +25,7 @@ export async function getIndexingStatus(repoFullName: string): Promise<IndexingS
     }
 
     // Check database for indexing history
-    const repositoryIndex = await prisma.repositoryIndex.findUnique({
-      where: { repoFullName },
-      select: {
-        lastIndexedAt: true,
-        lastCommitSha: true
-      }
-    });
+    const repositoryIndex = await getRepositoryIndex(repoFullName);
 
     if (!repositoryIndex) {
       return {
@@ -44,7 +38,7 @@ export async function getIndexingStatus(repoFullName: string): Promise<IndexingS
     if (repositoryIndex.lastIndexedAt) {
       return {
         status: 'completed',
-        lastIndexedAt: repositoryIndex.lastIndexedAt.toISOString(),
+        lastIndexedAt: new Date(repositoryIndex.lastIndexedAt).toISOString(),
         lastCommitSha: repositoryIndex.lastCommitSha
       };
     }

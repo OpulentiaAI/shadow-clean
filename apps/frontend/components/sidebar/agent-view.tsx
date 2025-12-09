@@ -147,14 +147,6 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
     return createFileTree(filePaths);
   }, [fileChanges]);
 
-  if (!task) {
-    return (
-      <SidebarGroup>
-        <SidebarGroupLabel>Loading task...</SidebarGroupLabel>
-      </SidebarGroup>
-    );
-  }
-
   const handleFileSelect = useCallback(
     (file: FileNode) => {
       updateSelectedFilePath(file.path);
@@ -229,6 +221,14 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
     if (indexingStatus.status === "failed") return "Retry Indexing";
     return "Index Repo";
   };
+
+  if (!task) {
+    return (
+      <SidebarGroup>
+        <SidebarGroupLabel>Loading task...</SidebarGroupLabel>
+      </SidebarGroup>
+    );
+  }
 
   return (
     <>

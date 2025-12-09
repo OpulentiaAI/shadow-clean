@@ -1,6 +1,7 @@
-import { prisma, TaskStatus, InitStatus } from "@repo/db";
+import { TaskStatus, InitStatus } from "@repo/db";
 import { emitTaskStatusUpdate } from "../socket";
 import config from "@/config";
+import { updateTask, toConvexId } from "../lib/convex-operations";
 
 /**
  * Updates a task's status in the database and emits a real-time update
@@ -15,13 +16,11 @@ export async function updateTaskStatus(
   errorMessage?: string
 ): Promise<void> {
   try {
-    await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        status,
-        errorMessage:
-          status === "FAILED" ? errorMessage || "Unknown error" : null,
-      },
+    await updateTask({
+      taskId: toConvexId<"tasks">(taskId),
+      status: status as "STOPPED" | "INITIALIZING" | "ARCHIVED" | "RUNNING" | "COMPLETED" | "FAILED",
+      errorMessage:
+        status === "FAILED" ? errorMessage || "Unknown error" : undefined,
     });
 
     // Log the status change
@@ -49,12 +48,10 @@ export async function setInitStatus(
   taskId: string,
   status: InitStatus
 ): Promise<void> {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      initStatus: status,
-      initializationError: null, // Clear any previous errors
-    },
+  await updateTask({
+    taskId: toConvexId<"tasks">(taskId),
+    initStatus: status as "INACTIVE" | "PREPARE_WORKSPACE" | "CREATE_VM" | "WAIT_VM_READY" | "VERIFY_VM_WORKSPACE" | "START_BACKGROUND_SERVICES" | "INSTALL_DEPENDENCIES" | "COMPLETE_SHADOW_WIKI" | "ACTIVE",
+    initializationError: undefined, // Clear any previous errors
   });
 }
 
@@ -65,12 +62,10 @@ export async function setTaskCompleted(
   taskId: string,
   status: InitStatus
 ): Promise<void> {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      initStatus: status,
-      initializationError: null,
-    },
+  await updateTask({
+    taskId: toConvexId<"tasks">(taskId),
+    initStatus: status as "INACTIVE" | "PREPARE_WORKSPACE" | "CREATE_VM" | "WAIT_VM_READY" | "VERIFY_VM_WORKSPACE" | "START_BACKGROUND_SERVICES" | "INSTALL_DEPENDENCIES" | "COMPLETE_SHADOW_WIKI" | "ACTIVE",
+    initializationError: undefined,
   });
 }
 
@@ -82,12 +77,10 @@ export async function setTaskFailed(
   step: InitStatus,
   error: string
 ): Promise<void> {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      initStatus: step, // Keep the step where failure occurred
-      initializationError: error,
-    },
+  await updateTask({
+    taskId: toConvexId<"tasks">(taskId),
+    initStatus: step as "INACTIVE" | "PREPARE_WORKSPACE" | "CREATE_VM" | "WAIT_VM_READY" | "VERIFY_VM_WORKSPACE" | "START_BACKGROUND_SERVICES" | "INSTALL_DEPENDENCIES" | "COMPLETE_SHADOW_WIKI" | "ACTIVE",
+    initializationError: error,
   });
 }
 
@@ -95,17 +88,17 @@ export async function setTaskFailed(
  * Clear task progress (reset to not started state)
  */
 export async function clearTaskProgress(taskId: string): Promise<void> {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      initStatus: "INACTIVE",
-      initializationError: null,
-    },
+  await updateTask({
+    taskId: toConvexId<"tasks">(taskId),
+    initStatus: "INACTIVE",
+    initializationError: undefined,
   });
 }
 
 /**
  * Updates a task's updatedAt timestamp to reflect recent activity
+ * Note: Convex automatically updates _creationTime on document creation.
+ * For activity tracking, we'll use a dedicated field if needed.
  * @param taskId - The task ID to update
  * @param context - Optional context for logging (e.g., "MESSAGE", "CHAT", "TOOL")
  */
@@ -114,13 +107,7 @@ export async function updateTaskActivity(
   context?: string
 ): Promise<void> {
   try {
-    await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        updatedAt: new Date(),
-      },
-    });
-
+    // Convex handles timestamps automatically, but we log the activity
     const logPrefix = context ? `[${context}]` : "[ACTIVITY]";
     console.log(`${logPrefix} Task ${taskId} activity timestamp updated`);
   } catch (error) {
@@ -145,11 +132,9 @@ export async function scheduleTaskCleanup(
   const scheduledAt = new Date(Date.now() + delayMinutes * 60 * 1000);
 
   try {
-    await prisma.task.update({
-      where: { id: taskId },
-      data: {
-        scheduledCleanupAt: scheduledAt,
-      },
+    await updateTask({
+      taskId: toConvexId<"tasks">(taskId),
+      scheduledCleanupAt: scheduledAt.getTime(),
     });
 
     console.log(
@@ -164,11 +149,9 @@ export async function scheduleTaskCleanup(
  * Cancel scheduled cleanup for a task
  */
 export async function cancelTaskCleanup(taskId: string): Promise<void> {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      scheduledCleanupAt: null,
-    },
+  await updateTask({
+    taskId: toConvexId<"tasks">(taskId),
+    scheduledCleanupAt: undefined,
   });
 
   console.log(`[TASK_CLEANUP] Cancelled cleanup for task ${taskId}`);
@@ -178,11 +161,9 @@ export async function cancelTaskCleanup(taskId: string): Promise<void> {
  * Mark task as having been initialized for the first time
  */
 export async function setTaskInitialized(taskId: string): Promise<void> {
-  await prisma.task.update({
-    where: { id: taskId },
-    data: {
-      hasBeenInitialized: true,
-    },
+  await updateTask({
+    taskId: toConvexId<"tasks">(taskId),
+    hasBeenInitialized: true,
   });
 
   console.log(`[TASK_STATUS] Task ${taskId} marked as initialized`);

@@ -13,7 +13,7 @@ import {
 } from "../interfaces/types";
 import { LocalToolExecutor } from "./local-tool-executor";
 import { GitManager } from "../../services/git-manager";
-import { prisma } from "@repo/db";
+import { getUser, updateTask, toConvexId } from "../../lib/convex-operations";
 import logger from "@/indexing/logger";
 import { SCRATCHPAD_DISPLAY_NAME } from "@repo/types";
 
@@ -228,11 +228,8 @@ export class LocalWorkspaceManager implements WorkspaceManager {
     const gitManager = new GitManager(workspacePath);
 
     try {
-      // Get user information from database
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true, email: true },
-      });
+      // Get user information from Convex
+      const user = await getUser(toConvexId<"users">(userId));
 
       if (!user) {
         throw new Error(`User not found: ${userId}`);
@@ -251,12 +248,10 @@ export class LocalWorkspaceManager implements WorkspaceManager {
         { skipPush }
       );
 
-      // Update task in database with base commit SHA
-      await prisma.task.update({
-        where: { id: taskId },
-        data: {
-          baseCommitSha,
-        },
+      // Update task in Convex with base commit SHA
+      await updateTask({
+        taskId: toConvexId<"tasks">(taskId),
+        baseCommitSha,
       });
 
       console.log(`[LOCAL_WORKSPACE] Git setup complete for task ${taskId}:`, {

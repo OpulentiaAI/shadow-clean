@@ -12,15 +12,8 @@ import {
 import {
   CoreMessage,
   streamText,
-  generateText,
-  NoSuchToolError,
-  InvalidToolArgumentsError,
   ToolSet,
 } from "ai";
-import type {
-  LanguageModelV1FunctionToolCall,
-  LanguageModelV1ProviderMetadata,
-} from "@ai-sdk/provider";
 import { createTools } from "../../tools";
 import { ModelProvider } from "../models/model-provider";
 import { ChunkHandlers } from "./chunk-handlers";
@@ -82,7 +75,8 @@ export class StreamProcessor {
         finalMessages = coreMessages;
       }
 
-      const reasoningProviderOptions: LanguageModelV1ProviderMetadata = {
+      // Provider-specific options for reasoning/thinking modes
+      const reasoningProviderOptions = {
         anthropic: {
           thinking: {
             type: "enabled",
@@ -127,118 +121,9 @@ export class StreamProcessor {
             isAnthropicModel,
           }
         ),
-        ...(enableTools &&
-          tools && {
-            experimental_repairToolCall: async ({
-              system,
-              messages,
-              toolCall,
-              tools,
-              error,
-            }: {
-              system: string | undefined;
-              messages: CoreMessage[];
-              toolCall: LanguageModelV1FunctionToolCall;
-              tools: ToolSet;
-              error: NoSuchToolError | InvalidToolArgumentsError;
-            }): Promise<LanguageModelV1FunctionToolCall | null> => {
-              // Log error details for debugging
-              console.log(
-                `[REPAIR_DEBUG] Tool call repair triggered for ${toolCall.toolName}:`,
-                {
-                  errorType: error.constructor.name,
-                  errorMessage: error.message,
-                  isInvalidArgs: error instanceof InvalidToolArgumentsError,
-                  isNoSuchTool: error instanceof NoSuchToolError,
-                  originalArgs: toolCall.args,
-                  toolCallId: toolCall.toolCallId,
-                }
-              );
-
-              // Only handle parameter validation errors, let other errors fail normally
-              if (error.constructor.name !== "InvalidToolArgumentsError") {
-                console.log(
-                  `[REPAIR_DEBUG] Skipping repair - error type: ${error.constructor.name}, instanceof check: ${error instanceof InvalidToolArgumentsError}`
-                );
-                return null;
-              }
-
-              try {
-                console.log(
-                  `[REPAIR_DEBUG] Attempting repair for ${toolCall.toolName} with error: ${error.message}`
-                );
-
-                // Re-ask the model with error context
-                const repairResult = await generateText({
-                  model: modelInstance,
-                  system: system || systemPrompt,
-                  messages: [
-                    ...messages,
-                    {
-                      role: "assistant" as const,
-                      content: `I attempted to call the tool ${toolCall.toolName} with arguments: ${toolCall.args}`,
-                    },
-                    {
-                      role: "user" as const,
-                      content: `Error: ${error.message}\n\nPlease retry this tool call with the correct parameters.`,
-                    },
-                  ],
-                  tools,
-                  experimental_telemetry:
-                    braintrustService.getOperationTelemetry("tool-repair", {
-                      taskId,
-                      toolName: toolCall.toolName,
-                      errorType: error.constructor.name,
-                      originalArgs: toolCall.args,
-                      modelProvider,
-                    }),
-                });
-
-                console.log(`[REPAIR_DEBUG] Repair result:`, {
-                  toolCallsCount: repairResult.toolCalls?.length || 0,
-                  toolCallNames:
-                    repairResult.toolCalls?.map((tc) => tc.toolName) || [],
-                  targetToolName: toolCall.toolName,
-                });
-
-                // Extract the first tool call that matches our tool name
-                const repairedToolCall = repairResult.toolCalls?.find(
-                  (tc) => tc.toolName === toolCall.toolName
-                );
-
-                if (repairedToolCall) {
-                  console.log(
-                    `[REPAIR_DEBUG] Successfully repaired ${toolCall.toolName}:`,
-                    {
-                      originalArgs: toolCall.args,
-                      repairedArgs: JSON.stringify(repairedToolCall.args),
-                    }
-                  );
-
-                  return {
-                    toolCallType: "function" as const,
-                    toolCallId: toolCall.toolCallId, // Keep original ID
-                    toolName: repairedToolCall.toolName,
-                    args: JSON.stringify(repairedToolCall.args),
-                  };
-                }
-
-                console.log(
-                  `[REPAIR_DEBUG] No matching tool call found in repair response for ${toolCall.toolName}`
-                );
-                return null;
-              } catch (repairError) {
-                console.log(`[REPAIR_DEBUG] Repair attempt failed:`, {
-                  error:
-                    repairError instanceof Error
-                      ? repairError.message
-                      : String(repairError),
-                  toolName: toolCall.toolName,
-                });
-                return null;
-              }
-            },
-          }),
+        // AI SDK v5 experimental_repairToolCall - disabled for now due to type changes
+        // Tool repair will be re-enabled once the v5 API stabilizes
+        // ...(enableTools && tools && { experimental_repairToolCall: ... }),
       };
 
       // Log cache control usage for debugging

@@ -1,6 +1,16 @@
 import { router as IndexingRouter } from "@/indexing/index";
-import { prisma } from "@repo/db";
 import { AvailableModels, ModelType } from "@repo/types";
+import {
+  getTask,
+  getTaskWithDetails,
+  updateTask,
+  listMessagesByTask,
+  listToolCallsByTask,
+} from "./lib/convex-operations";
+import { toConvexId } from "./lib/convex-operations";
+import { prisma } from "@repo/db";
+import { getConvexClient } from "./lib/convex-client";
+import { api } from "../../../convex/_generated/api";
 import cors from "cors";
 import express from "express";
 import http from "http";
@@ -18,11 +28,73 @@ import { createWorkspaceManager } from "./execution";
 import { filesRouter } from "./files/router";
 import { handleGitHubWebhook } from "./webhooks/github-webhook";
 import { getIndexingStatus } from "./routes/indexing-status";
+import { toolsRouter } from "./routes/tools";
 import { modelContextService } from "./services/model-context-service";
+import { parseApiKeysFromCookies } from "./utils/cookie-parser";
+import { TaskModelContext } from "./services/task-model-context";
 
 const app = express();
 export const chatService = new ChatService();
 const initializationEngine = new TaskInitializationEngine();
+
+async function ensureConvexTask(taskId: string) {
+  const convexClient = getConvexClient();
+
+  // Try to use the provided taskId directly (if it is already a Convex ID)
+  try {
+    const existing = await convexClient.query(api.tasks.getWithDetails, {
+      taskId: toConvexId<"tasks">(taskId),
+    });
+    if (existing?.task) {
+      return { convexTaskId: taskId };
+    }
+  } catch (error) {
+    console.warn(
+      `[TASK_SYNC] Task ${taskId} not found in Convex, will attempt to sync from Prisma.`,
+      error
+    );
+  }
+
+  const prismaTask = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: { user: true },
+  });
+
+  if (!prismaTask || !prismaTask.user) {
+    return { convexTaskId: null, error: "Task not found" as const };
+  }
+
+  // Ensure Convex user exists (by externalId)
+  const userExternalId = prismaTask.user.id;
+  const existingUser = await convexClient
+    .query(api.auth.getUserByExternalId, { externalId: userExternalId })
+    .catch(() => null);
+
+  const convexUserId =
+    existingUser?._id ||
+    (await convexClient.mutation(api.auth.upsertUser, {
+      externalId: userExternalId,
+      name: prismaTask.user.name || "Unknown User",
+      email: prismaTask.user.email || `${userExternalId}@example.invalid`,
+      image: prismaTask.user.image || undefined,
+      emailVerified: prismaTask.user.emailVerified ?? true,
+    }));
+
+  const created = await convexClient.mutation(api.tasks.create, {
+    title: prismaTask.title || "Untitled Task",
+    repoFullName: prismaTask.repoFullName || "unknown/repo",
+    repoUrl: prismaTask.repoUrl || "https://example.com/repo",
+    userId: convexUserId,
+    isScratchpad: prismaTask.isScratchpad ?? false,
+    baseBranch: prismaTask.baseBranch || "main",
+    baseCommitSha: prismaTask.baseCommitSha || "pending",
+    shadowBranch: prismaTask.shadowBranch || "shadow",
+    mainModel: prismaTask.mainModel || undefined,
+    githubIssueId: prismaTask.githubIssueId || undefined,
+  });
+
+  return { convexTaskId: created.taskId };
+}
 
 const initiateTaskSchema = z.object({
   message: z.string().min(1, "Message is required"),
@@ -77,6 +149,9 @@ app.use("/api/indexing", IndexingRouter);
 // Files routes
 app.use("/api/tasks", filesRouter);
 
+// Tool execution routes for Convex Agent
+app.use("/api/tools", toolsRouter);
+
 // GitHub webhook endpoint
 app.post("/api/webhooks/github/pull-request", handleGitHubWebhook);
 
@@ -97,23 +172,34 @@ app.get("/api/indexing-status/:repoFullName", async (req, res) => {
 app.get("/api/tasks/:taskId", async (req, res) => {
   try {
     const { taskId } = req.params;
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    });
+    const taskResult = await getTaskWithDetails(toConvexId<"tasks">(taskId));
 
-    if (!task) {
+    if (!taskResult.task) {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    res.json(task);
+    // Return task with user info in format expected by frontend
+    res.json({
+      ...taskResult.task,
+      user: taskResult.task.userId ? { id: taskResult.task.userId } : null,
+      messages: taskResult.messages,
+      todos: taskResult.todos,
+    });
   } catch (error) {
     console.error("Error fetching task:", error);
     res.status(500).json({ error: "Failed to fetch task" });
+  }
+});
+
+// Get tool calls for a task
+app.get("/api/tasks/:taskId/tool-calls", async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const toolCalls = await listToolCallsByTask(toConvexId<"tasks">(taskId));
+    res.json({ toolCalls });
+  } catch (error) {
+    console.error("Error fetching tool calls:", error);
+    res.status(500).json({ error: "Failed to fetch tool calls" });
   }
 });
 
@@ -126,6 +212,11 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
     // Validate request body with Zod
     const validation = initiateTaskSchema.safeParse(req.body);
     if (!validation.success) {
+      console.warn("[TASK_INITIATE] Validation failed", {
+        taskId,
+        body: req.body,
+        issues: validation.error.issues,
+      });
       return res.status(400).json({
         error: "Validation failed",
         details: validation.error.issues.map((issue) => ({
@@ -136,6 +227,11 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
     }
 
     const { message, model, userId } = validation.data;
+    console.log("[TASK_INITIATE] Payload accepted", {
+      taskId,
+      userId,
+      model,
+    });
 
     // Check task limit before processing (production only)
     const isAtLimit = await hasReachedTaskLimit(userId);
@@ -147,23 +243,13 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
       });
     }
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        repoFullName: true,
-        repoUrl: true,
-        baseBranch: true,
-        shadowBranch: true,
-        isScratchpad: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    const isScratchpad = task.isScratchpad;
+    const isScratchpad = task.isScratchpad ?? false;
 
     // Check if this is a local repository (doesn't require GitHub auth)
     const isLocalRepo =
@@ -223,7 +309,8 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
         `⏳ [TASK_INITIATE] Task ${taskId} status set to INITIALIZING - starting initialization...`
       );
 
-      const initSteps = await initializationEngine.getDefaultStepsForTask(taskId);
+      const initSteps =
+        await initializationEngine.getDefaultStepsForTask(taskId);
       await initializationEngine.initializeTask(
         taskId,
         initSteps,
@@ -231,10 +318,7 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
         initContext
       );
 
-      const updatedTask = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { workspacePath: true },
-      });
+      const updatedTask = await getTask(toConvexId<"tasks">(taskId));
 
       await updateTaskStatus(taskId, "RUNNING", "INIT");
 
@@ -309,41 +393,43 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
 
     console.log(`[MESSAGE_SUBMIT] Submitting message to task ${taskId}`);
 
-    // Get task and validate it exists
-    const task = await prisma.task.findUnique({
+    // Fetch Prisma task (source of truth for legacy tasks)
+    const prismaTask = await prisma.task.findUnique({
       where: { id: taskId },
       include: { user: true },
     });
 
-    if (!task) {
+    if (!prismaTask) {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    // Check if task is initialized
-    if (task.status !== "ACTIVE" && task.status !== "RUNNING") {
+    // Allow messages once a task has reached RUNNING or has been initialized before
+    const isActiveStatus =
+      prismaTask.status === "RUNNING" ||
+      prismaTask.hasBeenInitialized === true ||
+      prismaTask.initStatus === "ACTIVE";
+    if (!isActiveStatus) {
       return res.status(400).json({
-        error: "Task is not active. Please wait for initialization to complete."
+        error:
+          "Task is not active. Please wait for initialization to complete.",
       });
     }
 
-    // Build model context
-    const apiKeys = {
-      openai: task.user.openaiApiKey,
-      anthropic: task.user.anthropicApiKey,
-      openrouter: task.user.openrouterApiKey,
-      groq: task.user.groqApiKey,
-      morph: task.user.morphApiKey,
-      github: task.user.githubAccessToken,
-    };
+    // Ensure a Convex task exists for streaming; create/mirror if missing
+    const { convexTaskId, error } = await ensureConvexTask(taskId);
+    if (!convexTaskId || error) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+    chatService.setConvexTaskId(taskId, convexTaskId);
 
-    const context = new TaskModelContext({
+    // Build model context - API keys come from cookies (sent by frontend)
+    const apiKeys = parseApiKeysFromCookies(req.headers.cookie || "");
+
+    const context = new TaskModelContext(
       taskId,
-      mainModel: (model as ModelType) || task.mainModel || "gpt-4o",
-      apiKeys,
-      repoFullName: task.repoFullName,
-      repoUrl: task.repoUrl,
-      userId: task.userId,
-    });
+      (model as ModelType) || prismaTask.mainModel || "gpt-4o",
+      apiKeys
+    );
 
     // Process the user message
     await chatService.processUserMessage({
@@ -351,15 +437,18 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
       userMessage: message,
       context,
       enableTools: true,
-      workspacePath: task.workspacePath || undefined,
+      workspacePath: prismaTask.workspacePath || undefined,
     });
 
     res.json({ success: true, message: "Message submitted successfully" });
   } catch (error) {
-    console.error(`[MESSAGE_SUBMIT] Error submitting message to task ${req.params.taskId}:`, error);
+    console.error(
+      `[MESSAGE_SUBMIT] Error submitting message to task ${req.params.taskId}:`,
+      error
+    );
     res.status(500).json({
       error: "Failed to submit message",
-      details: error instanceof Error ? error.message : "Unknown error"
+      details: error instanceof Error ? error.message : "Unknown error",
     });
   }
 });
@@ -370,16 +459,7 @@ app.delete("/api/tasks/:taskId/cleanup", async (req, res) => {
 
     console.log(`[TASK_CLEANUP] Starting cleanup for task ${taskId}`);
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        status: true,
-        workspacePath: true,
-        workspaceCleanedUp: true,
-        repoUrl: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       console.warn(`[TASK_CLEANUP] Task ${taskId} not found`);
@@ -423,9 +503,9 @@ app.delete("/api/tasks/:taskId/cleanup", async (req, res) => {
       });
     }
 
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { workspaceCleanedUp: true },
+    await updateTask({
+      taskId: toConvexId<"tasks">(taskId),
+      workspaceCleanedUp: true,
     });
 
     res.json({
@@ -461,22 +541,7 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
 
     console.log(`[PR_CREATION] Creating PR for task ${taskId}`);
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        userId: true,
-        repoFullName: true,
-        shadowBranch: true,
-        baseBranch: true,
-        title: true,
-        status: true,
-        repoUrl: true,
-        pullRequestNumber: true,
-        workspacePath: true,
-        isScratchpad: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       console.warn(`[PR_CREATION] Task ${taskId} not found`);
@@ -513,18 +578,13 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
       });
     }
 
-    const latestAssistantMessage = await prisma.chatMessage.findFirst({
-      where: {
-        taskId,
-        role: "ASSISTANT",
-      },
-      orderBy: {
-        sequence: "desc",
-      },
-      select: {
-        id: true,
-      },
-    });
+    // Get messages and find the latest assistant message
+    const messages = await listMessagesByTask(toConvexId<"tasks">(taskId));
+    const assistantMessages = messages.filter((m) => m.role === "ASSISTANT");
+    const latestAssistantMessage =
+      assistantMessages.length > 0
+        ? assistantMessages[assistantMessages.length - 1]
+        : null;
 
     if (!latestAssistantMessage) {
       console.warn(
@@ -543,11 +603,12 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
       req.headers.cookie
     );
 
+    const messageId = latestAssistantMessage._id as string;
     if (modelContext) {
       await chatService.createPRIfNeeded(
         taskId,
         task.workspacePath || undefined,
-        latestAssistantMessage.id,
+        messageId,
         modelContext
       );
     } else {
@@ -555,17 +616,11 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
       await chatService.createPRIfNeeded(
         taskId,
         task.workspacePath || undefined,
-        latestAssistantMessage.id
+        messageId
       );
     }
 
-    const updatedTask = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        pullRequestNumber: true,
-        repoUrl: true,
-      },
-    });
+    const updatedTask = await getTask(toConvexId<"tasks">(taskId));
 
     if (!updatedTask?.pullRequestNumber) {
       throw new Error("PR creation completed but no PR number found");
@@ -579,7 +634,7 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
       success: true,
       prNumber: updatedTask.pullRequestNumber,
       prUrl: `${updatedTask.repoUrl}/pull/${updatedTask.pullRequestNumber}`,
-      messageId: latestAssistantMessage.id,
+      messageId,
     });
   } catch (error) {
     console.error(

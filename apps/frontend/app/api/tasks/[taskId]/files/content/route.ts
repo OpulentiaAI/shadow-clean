@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
-import { db } from "@repo/db";
-import { getUser } from "@/lib/auth/get-user";
 import { makeBackendRequest } from "@/lib/make-backend-request";
+import { verifyTaskOwnership } from "@/lib/auth/verify-task-ownership";
 
 export async function GET(
   request: NextRequest,
@@ -20,35 +19,8 @@ export async function GET(
   }
 
   try {
-    // Check authentication
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Get task and verify ownership
-    const task = await db.task.findUnique({
-      where: { id: taskId },
-      select: { userId: true },
-    });
-
-    if (!task) {
-      return NextResponse.json(
-        { success: false, error: "Task not found" },
-        { status: 404 }
-      );
-    }
-
-    // Verify task ownership
-    if (task.userId !== user.id) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden" },
-        { status: 403 }
-      );
-    }
+    const { error } = await verifyTaskOwnership(taskId);
+    if (error) return error;
 
     // Proxy request to backend server
     const params = new URLSearchParams({ path: filePath });

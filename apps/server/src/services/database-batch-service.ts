@@ -1,7 +1,7 @@
-import { prisma } from "@repo/db";
 import { AssistantMessagePart, MessageMetadata } from "@repo/types";
 import { TextPart } from "ai";
 import { TaskModelContext } from "./task-model-context";
+import { updateMessage, toConvexId } from "../lib/convex-operations";
 
 // Type for batched assistant message updates
 type AssistantUpdateData = {
@@ -76,23 +76,20 @@ export class DatabaseBatchService {
         parts: updateData.assistantParts,
       };
 
-      // Update the assistant message
-      await prisma.chatMessage.update({
-        where: { id: updateData.messageId },
-        data: {
-          content: fullContent,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          metadata: metadata as any,
-          // Include denormalized usage fields if available
-          ...(updateData.usageMetadata && {
-            promptTokens: updateData.usageMetadata.promptTokens,
-            completionTokens: updateData.usageMetadata.completionTokens,
-            totalTokens: updateData.usageMetadata.totalTokens,
-          }),
-          ...(updateData.finishReason && {
-            finishReason: updateData.finishReason,
-          }),
-        },
+      // Update the assistant message via Convex
+      await updateMessage({
+        messageId: toConvexId<"chatMessages">(updateData.messageId),
+        content: fullContent,
+        metadataJson: JSON.stringify(metadata),
+        // Include denormalized usage fields if available
+        ...(updateData.usageMetadata && {
+          promptTokens: updateData.usageMetadata.promptTokens,
+          completionTokens: updateData.usageMetadata.completionTokens,
+          totalTokens: updateData.usageMetadata.totalTokens,
+        }),
+        ...(updateData.finishReason && {
+          finishReason: updateData.finishReason,
+        }),
       });
 
     } catch (error) {

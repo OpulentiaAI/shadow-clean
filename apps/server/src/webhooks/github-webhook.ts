@@ -1,12 +1,12 @@
 import crypto from "crypto";
 import { Request, Response } from "express";
-import { prisma } from "@repo/db";
 import { updateTaskStatus } from "../utils/task-status";
 import config from "../config";
 import {
   GitHubPullRequestWebhookSchema,
   GitHubPullRequestWebhook,
 } from "./types";
+import { listTasksByPrAndRepo } from "../lib/convex-operations";
 
 /**
  * Verify GitHub webhook signature
@@ -49,15 +49,8 @@ async function processPullRequestClosed(
   const isMerged = payload.pull_request.merged;
   const action = isMerged ? "merged" : "closed";
 
-  // Find all tasks associated with this PR
-  const tasks = await prisma.task.findMany({
-    where: {
-      pullRequestNumber: prNumber,
-      repoFullName: repoFullName,
-      status: { not: "ARCHIVED" },
-    },
-    select: { id: true },
-  });
+  // Find all tasks associated with this PR via Convex
+  const tasks = await listTasksByPrAndRepo(prNumber, repoFullName);
 
   if (tasks.length === 0) {
     console.log(`[WEBHOOK] No tasks found for PR #${prNumber}`);
@@ -66,7 +59,7 @@ async function processPullRequestClosed(
 
   // Update all found tasks to ARCHIVED status
   await Promise.all(
-    tasks.map((task) => updateTaskStatus(task.id, "ARCHIVED", "WEBHOOK"))
+    tasks.map((task) => updateTaskStatus(task._id, "ARCHIVED", "WEBHOOK"))
   );
 
   console.log(

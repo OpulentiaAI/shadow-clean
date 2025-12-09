@@ -22,6 +22,7 @@
     "@repo/db": "*",
     "@repo/types": "*",
     "compression": "^1.7.5",
+    "convex": "^1.21.1",
     "cors": "^2.8.5",
     "diff": "^8.0.2",
     "dotenv": "^17.2.1",

@@ -3,7 +3,13 @@ import {
   generateToolGuidance,
 } from "./tools/prompts/tools-prompt";
 import type { ToolSet } from "ai";
-import { prisma } from "@repo/db";
+import {
+  getTask,
+  getCodebaseUnderstanding,
+  getCodebaseByRepo,
+  updateTask,
+  toConvexId,
+} from "../lib/convex-operations";
 
 const IDENTITY_AND_CAPABILITIES = `You are an AI coding assistant working within Shadow, an autonomous coding platform. You operate in an isolated microVM with full system access to complete long-running coding tasks. Your environment is streamed live to a user who can observe, interrupt, or provide guidance at any time.
 
@@ -284,34 +290,32 @@ async function getExistingShadowWikiContent(taskId: string): Promise<string> {
 
   try {
     // Get task details
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: { codebaseUnderstanding: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) return "";
 
-    let codebaseUnderstanding = task.codebaseUnderstanding;
+    // Get codebase understanding if task has a reference
+    let codebaseUnderstanding = task.codebaseUnderstandingId
+      ? await getCodebaseUnderstanding(task.codebaseUnderstandingId)
+      : null;
 
     // If no codebase understanding exists for this task, check if one exists for the repo
     if (!codebaseUnderstanding) {
-      codebaseUnderstanding = await prisma.codebaseUnderstanding.findUnique({
-        where: { repoFullName: task.repoFullName },
-      });
+      codebaseUnderstanding = await getCodebaseByRepo(task.repoFullName);
 
       // If we found one for the repo, link it to this task
       if (codebaseUnderstanding) {
-        await prisma.task.update({
-          where: { id: taskId },
-          data: { codebaseUnderstandingId: codebaseUnderstanding.id },
+        await updateTask({
+          taskId: toConvexId<"tasks">(taskId),
+          codebaseUnderstandingId: codebaseUnderstanding._id,
         });
       }
     }
 
     // Extract content if available (never generate - that happens during initialization)
     if (codebaseUnderstanding?.content) {
-      const content = codebaseUnderstanding.content as any;
-      const rootSummary = content.rootSummary || "";
+      const content = codebaseUnderstanding.content as Record<string, unknown>;
+      const rootSummary = (content.rootSummary as string) || "";
 
       if (rootSummary) {
         return `

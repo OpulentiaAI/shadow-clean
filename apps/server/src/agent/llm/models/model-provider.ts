@@ -67,7 +67,9 @@ export class ModelProvider {
           const model = openrouterClient.chat(modelId);
 
           console.log(`[MODEL_PROVIDER] Created OpenRouter model: ${modelId}`);
-          return model;
+          // Cast to LanguageModel for AI SDK v5 compatibility
+          // OpenRouter provider may not fully implement LanguageModelV2.supportedUrls
+          return model as unknown as LanguageModel;
         } catch (error) {
           console.error("OpenRouter client creation failed:", error);
           throw error;

@@ -1,6 +1,6 @@
-import { prisma } from "@repo/db";
 import { MAX_TASKS_PER_USER_PRODUCTION } from "@repo/types";
 import config from "../config";
+import { countActiveTasksByUser, toConvexId } from "../lib/convex-operations";
 
 /**
  * Check if user has reached the maximum number of active tasks
@@ -11,13 +11,8 @@ export async function hasReachedTaskLimit(userId: string): Promise<boolean> {
     return false;
   }
 
-  const activeTaskCount = await prisma.task.count({
-    where: {
-      userId,
-      status: {
-        notIn: ["COMPLETED", "FAILED", "ARCHIVED"],
-      },
-    },
-  });
+  const activeTaskCount = await countActiveTasksByUser(
+    toConvexId<"users">(userId)
+  );
   return activeTaskCount >= MAX_TASKS_PER_USER_PRODUCTION;
 }

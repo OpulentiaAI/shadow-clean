@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useModal } from "@/components/layout/modal-context";
@@ -69,6 +70,9 @@ export function WelcomeModal({
         showCloseButton={false}
         description="Welcome steps to connect GitHub and add API keys."
       >
+        <DialogDescription className="sr-only">
+          Welcome steps to connect GitHub and add API keys.
+        </DialogDescription>
         <DialogHeader className="items-center py-4">
           <LogoBurst size="lg" forceAnimate={canGetStarted} />
           <DialogTitle className="sr-only">Welcome to Opulent OS</DialogTitle>

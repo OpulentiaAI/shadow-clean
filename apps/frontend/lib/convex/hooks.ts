@@ -266,10 +266,66 @@ export function useStreamText(): (args: any) => Promise<any> {
   return useAction(api.agent.agentStreamText) as any;
 }
 
+export function useExecuteTaskWithTools(): (args: any) => Promise<any> {
+  return useAction(api.agent.executeTaskWithTools) as any;
+}
+
+export function useStreamTaskWithTools(): (args: any) => Promise<any> {
+  return useAction(api.agent.streamTaskWithTools) as any;
+}
+
 export function useStartStreamingMessage() {
   return useMutation(api.messages.startStreaming);
 }
 
 export function useAppendStreamDelta() {
   return useMutation(api.messages.appendStreamDelta);
+}
+
+// File Changes hooks (sidecar Convex-native)
+export function useConvexFileChanges(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.fileChanges.byTask, taskId ? { taskId } : "skip");
+}
+
+export function useConvexRecentFileChanges(taskId: Id<"tasks"> | undefined, limit?: number) {
+  return useQuery(api.fileChanges.byTaskSince, taskId ? { taskId, since: Date.now() - 3600000 } : "skip");
+}
+
+export function useConvexFileChangeStats(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.fileChanges.getStats, taskId ? { taskId } : "skip");
+}
+
+// Tool Logs hooks (sidecar Convex-native)
+export function useConvexToolLogs(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.toolLogs.byTask, taskId ? { taskId } : "skip");
+}
+
+export function useConvexRecentToolLogs(taskId: Id<"tasks"> | undefined, limit?: number) {
+  return useQuery(api.toolLogs.recentByTask, taskId ? { taskId, limit } : "skip");
+}
+
+export function useConvexRunningToolLogs(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.toolLogs.runningByTask, taskId ? { taskId } : "skip");
+}
+
+export function useConvexToolStats(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.toolLogs.getStats, taskId ? { taskId } : "skip");
+}
+
+// Terminal Output hooks (sidecar Convex-native)
+export function useConvexTerminalOutputByTask(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.terminalOutput.byTask, taskId ? { taskId } : "skip");
+}
+
+export function useConvexTerminalOutputByCommand(commandId: string | undefined) {
+  return useQuery(api.terminalOutput.byCommand, commandId ? { commandId } : "skip");
+}
+
+export function useConvexCombinedTerminalOutput(commandId: string | undefined) {
+  return useQuery(api.terminalOutput.getCombinedOutput, commandId ? { commandId } : "skip");
+}
+
+// Workspace Status hooks (sidecar Convex-native)
+export function useConvexWorkspaceStatus(taskId: Id<"tasks"> | undefined) {
+  return useQuery(api.tasks.getWorkspaceStatus, taskId ? { taskId } : "skip");
 }

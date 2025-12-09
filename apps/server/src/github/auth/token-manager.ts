@@ -1,17 +1,18 @@
-import { prisma } from "@repo/db";
 import { URLSearchParams } from "url";
 import config from "../../config";
+import { getGitHubAccount, updateAccountTokens, toConvexId } from "../../lib/convex-operations";
 
 import type { TokenRefreshResult, GitHubTokenResponse } from "../types";
 
 export class GitHubTokenManager {
   /**
    * Check if a token is expiring soon (within 5 minutes)
+   * @param expiresAt - Expiration timestamp in milliseconds
    */
-  private isTokenExpiringSoon(expiresAt: Date | null): boolean {
+  private isTokenExpiringSoon(expiresAt: number | null | undefined): boolean {
     if (!expiresAt) return false;
 
-    const fiveMinutesFromNow = new Date(Date.now() + 5 * 60 * 1000);
+    const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
     return expiresAt <= fiveMinutesFromNow;
   }
 
@@ -64,27 +65,23 @@ export class GitHubTokenManager {
   /**
    * Update account tokens in database
    */
-  private async updateAccountTokens(
+  private async updateAccountTokensInDb(
     accountId: string,
     tokenResponse: GitHubTokenResponse
   ): Promise<void> {
-    const now = new Date();
+    const now = Date.now();
 
     // expires_in is in seconds, so we need to convert to milliseconds
-    const expiresAt = new Date(now.getTime() + tokenResponse.expires_in * 1000);
-    const refreshTokenExpiresAt = new Date(
-      now.getTime() + tokenResponse.refresh_token_expires_in * 1000
-    );
+    const expiresAt = now + tokenResponse.expires_in * 1000;
+    const refreshTokenExpiresAt =
+      now + tokenResponse.refresh_token_expires_in * 1000;
 
-    await prisma.account.update({
-      where: { id: accountId },
-      data: {
-        accessToken: tokenResponse.access_token,
-        refreshToken: tokenResponse.refresh_token,
-        accessTokenExpiresAt: expiresAt,
-        refreshTokenExpiresAt: refreshTokenExpiresAt,
-        updatedAt: now,
-      },
+    await updateAccountTokens({
+      accountId: toConvexId<"accounts">(accountId),
+      accessToken: tokenResponse.access_token,
+      refreshToken: tokenResponse.refresh_token,
+      accessTokenExpiresAt: expiresAt,
+      refreshTokenExpiresAt: refreshTokenExpiresAt,
     });
   }
 
@@ -93,13 +90,8 @@ export class GitHubTokenManager {
    */
   async refreshUserTokens(userId: string): Promise<TokenRefreshResult> {
     try {
-      // Get user's GitHub account
-      const account = await prisma.account.findFirst({
-        where: {
-          userId,
-          providerId: "github",
-        },
-      });
+      // Get user's GitHub account via Convex
+      const account = await getGitHubAccount(toConvexId<"users">(userId));
 
       if (!account) {
         return {
@@ -115,10 +107,10 @@ export class GitHubTokenManager {
         };
       }
 
-      // Check if refresh token is expired
+      // Check if refresh token is expired (Convex stores timestamps as numbers)
       if (
         account.refreshTokenExpiresAt &&
-        account.refreshTokenExpiresAt <= new Date()
+        account.refreshTokenExpiresAt <= Date.now()
       ) {
         return {
           success: false,
@@ -144,8 +136,8 @@ export class GitHubTokenManager {
         account.refreshToken
       );
 
-      // Update database with new tokens
-      await this.updateAccountTokens(account.id, tokenResponse);
+      // Update database with new tokens (account._id is already the Convex ID)
+      await this.updateAccountTokensInDb(account._id, tokenResponse);
 
       console.log(
         `[TOKEN_MANAGER] Successfully refreshed tokens for user ${userId}`
@@ -173,20 +165,15 @@ export class GitHubTokenManager {
    */
   async getValidAccessToken(userId: string): Promise<string | null> {
     try {
-      // Get user's GitHub account
-      const account = await prisma.account.findFirst({
-        where: {
-          userId,
-          providerId: "github",
-        },
-      });
+      // Get user's GitHub account via Convex
+      const account = await getGitHubAccount(toConvexId<"users">(userId));
 
       if (!account || !account.accessToken) {
         console.log(`[TOKEN_MANAGER] No access token found for user ${userId}`);
         return null;
       }
 
-      // Check if token is expiring soon
+      // Check if token is expiring soon (Convex stores timestamps as numbers)
       if (this.isTokenExpiringSoon(account.accessTokenExpiresAt)) {
         console.log(
           `[TOKEN_MANAGER] Token expiring soon for user ${userId} (time: ${account.accessTokenExpiresAt}), attempting refresh`

@@ -1,23 +1,15 @@
 "use client";
 
 import { createContext, useContext, ReactNode } from "react";
-import { useTaskSocket } from "@/hooks/socket/use-task-socket";
-import type { 
-  AssistantMessagePart, 
-  AutoPRStatusEvent 
+import { useHybridTask, type HybridTaskData } from "@/hooks/convex";
+import type {
+  AssistantMessagePart,
+  AutoPRStatusEvent
 } from "@repo/types";
-interface TaskSocketContextValue {
-  isConnected: boolean;
-  streamingPartsMap: Map<string, AssistantMessagePart>;
-  streamingPartsOrder: string[];
-  isStreaming: boolean;
-  setIsStreaming: (isStreaming: boolean) => void;
-  isCompletionPending: boolean;
-  autoPRStatus: AutoPRStatusEvent | null;
-  sendMessage: (message: string, model: string, queue?: boolean) => void;
-  stopStream: () => void;
-  clearQueuedAction: () => void;
-  createStackedPR: (message: string, model: string, queue?: boolean) => void;
+import { Id } from "../../../convex/_generated/dataModel";
+
+interface TaskSocketContextValue extends HybridTaskData {
+  // Extended with Convex-native data
 }
 
 const TaskSocketContext = createContext<TaskSocketContextValue | null>(null);
@@ -28,10 +20,11 @@ interface TaskSocketProviderProps {
 }
 
 export function TaskSocketProvider({ taskId, children }: TaskSocketProviderProps) {
-  const socketState = useTaskSocket(taskId);
-  
+  // Use hybrid hook that combines Socket.IO (chat) + Convex (sidecar data)
+  const hybridState = useHybridTask(taskId);
+
   return (
-    <TaskSocketContext.Provider value={socketState}>
+    <TaskSocketContext.Provider value={hybridState}>
       {children}
     </TaskSocketContext.Provider>
   );

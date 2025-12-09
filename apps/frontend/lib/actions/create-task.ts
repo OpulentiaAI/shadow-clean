@@ -1,7 +1,6 @@
 "use server";
 
 import { auth } from "@/lib/auth/auth";
-import { MessageRole, prisma, Task } from "@repo/db";
 import { headers } from "next/headers";
 import { z, ZodIssue } from "zod";
 import { generateTaskTitleAndBranch } from "./generate-title-branch";
@@ -15,6 +14,15 @@ import {
   buildScratchpadRepoUrl,
 } from "@repo/types";
 import { makeBackendRequest } from "../make-backend-request";
+import {
+  createTask as createConvexTask,
+  countActiveTasks,
+  initiateTask as initiateConvexTask,
+  upsertUser,
+  appendMessage,
+  updateTask,
+} from "../convex/actions";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 // Dev user ID for local development without auth
 const DEV_USER_ID = "dev-local-user";
@@ -81,24 +89,17 @@ const createTaskSchema = z
   });
 
 export async function createTask(formData: FormData) {
-  let userId: string;
+  let userId: Id<"users">;
 
   if (BYPASS_AUTH) {
     // Use dev user for local development
-    userId = DEV_USER_ID;
-    // Ensure dev user exists in database
-    await prisma.user.upsert({
-      where: { id: DEV_USER_ID },
-      update: {},
-      create: {
-        id: DEV_USER_ID,
-        name: "Local Dev User",
-        email: "dev@localhost",
-        emailVerified: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+    const convexUserId = await upsertUser({
+      externalId: DEV_USER_ID,
+      name: "Local Dev User",
+      email: "dev@localhost",
+      emailVerified: true,
     });
+    userId = convexUserId;
   } else {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -106,8 +107,22 @@ export async function createTask(formData: FormData) {
     if (!session?.user?.id) {
       throw new Error("Unauthorized");
     }
-    userId = session.user.id;
+    const convexUserId = await upsertUser({
+      externalId: session.user.id,
+      name: session.user.name ?? "Authenticated User",
+      email: session.user.email ?? "unknown@user.local",
+      image: session.user.image ?? undefined,
+      emailVerified: session.user.emailVerified ?? false,
+    });
+    userId = convexUserId;
   }
+
+  const rawIsScratchpad = formData.get("isScratchpad");
+  const isScratchpadFlag =
+    rawIsScratchpad === "true" ||
+    rawIsScratchpad === "on" ||
+    rawIsScratchpad === "1" ||
+    rawIsScratchpad === "yes";
 
   const rawData = {
     message: formData.get("message"),
@@ -115,7 +130,7 @@ export async function createTask(formData: FormData) {
     repoFullName: formData.get("repoFullName") ?? undefined,
     repoUrl: formData.get("repoUrl") ?? undefined,
     baseBranch: formData.get("baseBranch") ?? undefined,
-    isScratchpad: formData.get("isScratchpad") === "true",
+    isScratchpad: isScratchpadFlag,
   };
   const validation = createTaskSchema.safeParse(rawData);
   if (!validation.success) {
@@ -127,15 +142,16 @@ export async function createTask(formData: FormData) {
 
   const { message, model, isScratchpad } = validation.data;
 
-  const taskId = generateTaskId();
+  // Generate a temporary ID for branch naming (Convex will generate the real task ID)
+  const tempTaskId = generateTaskId();
 
   let repoUrl: string;
   let repoFullName: string;
   let baseBranch = validation.data.baseBranch || "main";
 
   if (isScratchpad) {
-    repoUrl = buildScratchpadRepoUrl(taskId);
-    repoFullName = buildScratchpadRepoFullName(taskId);
+    repoUrl = buildScratchpadRepoUrl(tempTaskId);
+    repoFullName = buildScratchpadRepoFullName(tempTaskId);
     baseBranch = SCRATCHPAD_BASE_BRANCH;
   } else {
     if (!validation.data.repoUrl || !validation.data.repoFullName) {
@@ -150,68 +166,69 @@ export async function createTask(formData: FormData) {
 
   // Check task limit in production only
   if (process.env.NODE_ENV === "production") {
-    const activeTaskCount = await prisma.task.count({
-      where: {
-        userId: userId,
-        status: {
-          notIn: ["COMPLETED", "FAILED", "ARCHIVED"]
-        }
-      }
-    });
+    const activeTaskCount = await countActiveTasks(userId);
 
     if (activeTaskCount >= MAX_TASKS_PER_USER_PRODUCTION) {
-      throw new Error(`You have reached the maximum of ${MAX_TASKS_PER_USER_PRODUCTION} active tasks. Please complete or archive existing tasks to create new ones.`);
+      throw new Error(
+        `You have reached the maximum of ${MAX_TASKS_PER_USER_PRODUCTION} active tasks. Please complete or archive existing tasks to create new ones.`
+      );
     }
   }
 
-  let task: Task;
+  let taskId: Id<"tasks">;
 
   try {
+    console.log("[TASK_CREATION] Parsed payload", {
+      isScratchpad,
+      repoUrl: validation.data.repoUrl,
+      repoFullName: validation.data.repoFullName,
+      baseBranch,
+      tempTaskId,
+      model,
+    });
+
     // Generate a title for the task
     const { title, shadowBranch } = await generateTaskTitleAndBranch(
-      taskId,
+      tempTaskId,
       message
     );
 
-    // Create the task
-    task = await prisma.task.create({
-      data: {
-        id: taskId,
-        title,
-        repoFullName,
-        repoUrl,
-        baseBranch,
-        shadowBranch,
-        baseCommitSha: "pending",
-        status: "INITIALIZING",
-        isScratchpad,
-        user: {
-          connect: {
-            id: userId,
-          },
-        },
-        messages: {
-          create: {
-            content: message,
-            role: MessageRole.USER,
-            sequence: 1,
-            llmModel: model,
-          },
-        },
-      },
+    // Create the task in Convex
+    const createResult = await createConvexTask({
+      title,
+      repoFullName,
+      repoUrl,
+      userId,
+      isScratchpad,
+      baseBranch,
+      baseCommitSha: "pending",
+      shadowBranch,
+      mainModel: model,
+    });
+    taskId = createResult.taskId;
+
+    // Create the initial user message
+    await appendMessage({
+      taskId,
+      role: "USER",
+      content: message,
+      llmModel: model,
     });
 
     // Initiate the task immediately (synchronously) instead of using after()
     // This ensures workspace initialization begins right after task creation
     try {
-      console.log(`[TASK_CREATION] Initiating task ${task.id} immediately`);
+      console.log(`[TASK_CREATION] Initiating task ${taskId} immediately`, {
+        model,
+        isScratchpad,
+      });
 
       // Forward cookies from the original request
       const requestHeaders = await headers();
       const cookieHeader = requestHeaders.get("cookie");
 
       const response = await makeBackendRequest(
-        `/api/tasks/${task.id}/initiate`,
+        `/api/tasks/${taskId}/initiate`,
         {
           method: "POST",
           headers: {
@@ -228,29 +245,28 @@ export async function createTask(formData: FormData) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`[TASK_CREATION] Failed to initiate task ${task.id}:`, errorText);
+        console.error(
+          `[TASK_CREATION] Failed to initiate task ${taskId}: status=${response.status}`,
+          errorText
+        );
 
         // Update task status to failed if initialization fails
-        await prisma.task.update({
-          where: { id: task.id },
-          data: {
-            status: "FAILED",
-            initializationError: `Initialization failed: ${errorText}`,
-          },
+        await updateTask({
+          taskId,
+          status: "FAILED",
+          initializationError: `Initialization failed: ${errorText}`,
         });
       } else {
-        console.log(`[TASK_CREATION] Successfully initiated task ${task.id}`);
+        console.log(`[TASK_CREATION] Successfully initiated task ${taskId}`);
       }
     } catch (error) {
-      console.error(`[TASK_CREATION] Error initiating task ${task.id}:`, error);
+      console.error(`[TASK_CREATION] Error initiating task ${taskId}:`, error);
 
       // Update task status to failed if there's an error
-      await prisma.task.update({
-        where: { id: task.id },
-        data: {
-          status: "FAILED",
-          initializationError: `Initialization error: ${error instanceof Error ? error.message : String(error)}`,
-        },
+      await updateTask({
+        taskId,
+        status: "FAILED",
+        initializationError: `Initialization error: ${error instanceof Error ? error.message : String(error)}`,
       });
     }
   } catch (error) {
@@ -258,5 +274,5 @@ export async function createTask(formData: FormData) {
     throw new Error("Failed to create task");
   }
 
-  return task.id;
+  return taskId;
 }

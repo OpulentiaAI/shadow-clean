@@ -1,14 +1,9 @@
-import { prisma } from "@repo/db";
 import { githubTokenManager } from "./token-manager";
+import { getGitHubAccount as getGitHubAccountFromConvex, toConvexId } from "../../lib/convex-operations";
 
 export async function getGitHubAccount(userId: string) {
-  const account = await prisma.account.findFirst({
-    where: {
-      userId,
-      providerId: "github",
-    },
-  });
-
+  // Get GitHub account via Convex
+  const account = await getGitHubAccountFromConvex(toConvexId<"users">(userId));
   return account;
 }
 

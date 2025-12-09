@@ -13,12 +13,20 @@ export async function GET(
     if (error) return error;
 
     // Proxy request to backend server
-    const backendUrl = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:4000";
-    console.log(`[FILE_TREE] Proxying to backend: ${backendUrl}/api/tasks/${taskId}/files/tree`);
-    
+    const backendUrl =
+      process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:4000";
+    console.log(
+      `[FILE_TREE] Proxying to backend: ${backendUrl}/api/tasks/${taskId}/files/tree`
+    );
+
     const response = await makeBackendRequest(
       `/api/tasks/${taskId}/files/tree`
     );
+
+    if (response.status === 404) {
+      // Task not present in legacy backend (likely Convex-only scratchpad) - return empty tree
+      return NextResponse.json({ success: true, tree: [] });
+    }
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "no body");

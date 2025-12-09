@@ -1,6 +1,11 @@
-import { prisma } from "@repo/db";
 import { createWorkspaceManager, getAgentMode } from "../execution";
 import { MemoryCleanupService } from "./memory-cleanup";
+import {
+  listTasksScheduledForCleanup,
+  endAllTaskSessions,
+  updateTask,
+  toConvexId,
+} from "../lib/convex-operations";
 
 export class TaskCleanupService {
   private interval: NodeJS.Timeout | null = null;
@@ -55,20 +60,7 @@ export class TaskCleanupService {
    */
   private async processCleanupQueue(): Promise<void> {
     try {
-      const tasksToCleanup = await prisma.task.findMany({
-        where: {
-          scheduledCleanupAt: {
-            lte: new Date(),
-          },
-          NOT: {
-            scheduledCleanupAt: null,
-          },
-        },
-        select: {
-          id: true,
-          scheduledCleanupAt: true,
-        },
-      });
+      const tasksToCleanup = await listTasksScheduledForCleanup(Date.now());
 
       if (tasksToCleanup.length === 0) {
         return;
@@ -79,7 +71,7 @@ export class TaskCleanupService {
       );
 
       for (const task of tasksToCleanup) {
-        await this.cleanupTask(task.id);
+        await this.cleanupTask(task._id as string);
       }
     } catch (error) {
       console.error("[TASK_CLEANUP] Error processing cleanup queue:", error);
@@ -103,25 +95,14 @@ export class TaskCleanupService {
       await workspaceManager.cleanupWorkspace(taskId);
 
       // Update TaskSession to mark as inactive
-      await prisma.taskSession.updateMany({
-        where: {
-          taskId,
-          isActive: true,
-        },
-        data: {
-          isActive: false,
-          endedAt: new Date(),
-        },
-      });
+      await endAllTaskSessions(toConvexId<"tasks">(taskId));
 
       // Set initStatus to INACTIVE (VM spun down) and clear cleanup schedule
       // Keep original task status (COMPLETED/STOPPED) so user can resume later
-      await prisma.task.update({
-        where: { id: taskId },
-        data: {
-          initStatus: "INACTIVE",
-          scheduledCleanupAt: null,
-        },
+      await updateTask({
+        taskId: toConvexId<"tasks">(taskId),
+        initStatus: "INACTIVE",
+        scheduledCleanupAt: undefined,
       });
 
       console.log(`[TASK_CLEANUP] Successfully cleaned up task ${taskId}`);
@@ -130,19 +111,15 @@ export class TaskCleanupService {
 
       // Clear the cleanup schedule even if cleanup failed to prevent infinite retries
       // The task will remain in COMPLETED state but won't be retried
-      await prisma.task
-        .update({
-          where: { id: taskId },
-          data: {
-            scheduledCleanupAt: null,
-          },
-        })
-        .catch((updateError) => {
-          console.error(
-            `[TASK_CLEANUP] Failed to clear cleanup schedule for task ${taskId}:`,
-            updateError
-          );
-        });
+      await updateTask({
+        taskId: toConvexId<"tasks">(taskId),
+        scheduledCleanupAt: undefined,
+      }).catch((updateError) => {
+        console.error(
+          `[TASK_CLEANUP] Failed to clear cleanup schedule for task ${taskId}:`,
+          updateError
+        );
+      });
     }
   }
 }

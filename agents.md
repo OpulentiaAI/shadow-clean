@@ -3,38 +3,57 @@
 This doc captures the current agent execution flow, Convex integration, and workspace dependencies that power the real‑time terminal, shell, and file editor.
 
 ## High-level flow
-- **Frontend (Next.js, app router)**: Tasks page fetches task/todos/messages directly from Postgres (via `getTaskWithDetails`) and subscribes to Convex for live chat updates. Task IDs are validated as Convex IDs before any Convex calls (see `asConvexId`).
-- **Backend (apps/server)**: `/api/tasks/:taskId/initiate` drives task initialization via `TaskInitializationEngine` (workspace prep, git clone, services). Status moves `INITIALIZING → ACTIVE/RUNNING`; failures set `FAILED`.
-- **Convex**:
-  - **Chat actions**: `agent.streamText` and `messages.startStreaming/appendStreamDelta` require a Convex task ID. If no Convex ID, calls short‑circuit in the client hooks.
-  - **Task details action**: `tasks.getDetails` proxies file changes from the backend `/api/tasks/:taskId/file-changes`; returns empty when init is pending or workspace inactive.
+
+- **Frontend (Next.js, app router)**: Uses Convex reactive queries for messages. Chat can stream via Convex actions (`streamChat`, `streamChatWithTools`) through `useConvexChatStreaming`; legacy Socket.IO path is still present while UI migration finishes. Task IDs are validated via `asConvexId`.
+- **Backend (apps/server)**: `/api/tasks/:taskId/initiate` still runs `TaskInitializationEngine`. ChatService retains Socket.IO bridge for compatibility but Convex-native streaming is available.
+- **Convex**: Agent actions live in `convex/agent.ts`; streaming lives in `convex/streaming.ts`; tools are defined in `convex/agentTools.ts`; tool-call tracking for streaming in `agentTools` table; presence/activity in `presence` and `activities`; sidecar-native telemetry in `fileChanges`, `toolLogs`, `terminalOutput`, `workspaceStatus`.
 
 ## Chat & streaming
-- Frontend `TaskPageContent` derives `convexTaskId = asConvexId(task?.id ?? taskId)`.
-- `useSendMessage` appends the user message via Convex only when `convexTaskId` exists.
-- `useStreamText` calls `agent.streamText` with `taskId`; Convex handler no‑ops if `taskId` is missing.
-- Convex mutations:
-  - `messages.startStreaming` seeds an assistant message with `isStreaming` metadata.
-  - `messages.appendStreamDelta` accumulates deltas and marks final chunks.
+
+- **Convex-native (Phase 2)**: `convex/streaming.ts` actions write streaming text and tool-call metadata directly to `chatMessages` + `agentTools`. Frontend uses `useConvexChatStreaming` (now calling `startStreamWithTools` in the task UI) with `useStreamingMessage`/`useStreamingToolCalls` for live updates.
+- **Legacy Socket.IO bridge**: `convex-agent-bridge` still emits stream chunks and `tool-call-update`/`tool-call-history` events for existing UI until full migration. Socket path remains the default unless the Convex streaming flag is enabled.
+- Message parts (text/tool-call/tool-result/reasoning/error) are stored in Convex; tool calls also logged to `toolCalls` (server tools) and `agentTools` (streaming tool calls).
+- Streaming provider routing prefers OpenRouter first (with Anthropic/OpenAI fallbacks) and supports abortable cancellation via `cancelStream`; streaming tools are currently disabled and recorded as completed with a friendly message.
 
 ## Workspace initialization (backend)
-- Triggered synchronously right after task creation (`apps/frontend/lib/actions/create-task.ts` calls `/api/tasks/:id/initiate` immediately).
-- Server (`apps/server/src/app.ts`) validates GitHub access (for non‑local repos), builds model context, then runs `TaskInitializationEngine` steps:
-  - `PREPARE_WORKSPACE` (local) or `CREATE_VM`/`WAIT_VM_READY`/`VERIFY_VM_WORKSPACE` (remote)
-  - `START_BACKGROUND_SERVICES`, `INSTALL_DEPENDENCIES`, `COMPLETE_SHADOW_WIKI`
-- File data & diff stats: backend route `/api/tasks/:taskId/file-changes` returns workspace git changes. If status is `INITIALIZING` or workspace inactive, it returns empty so the UI renders without crashing.
+
+- Driven by `TaskInitializationEngine` (`/api/tasks/:taskId/initiate`).
+- File data/diff stats remain via backend routes; Convex holds task metadata, sessions, wiki/indexing state.
 
 ## Real-time terminal, shell, file editor
-- Require backend on **port 4000** and a prepared workspace path on the task.
-- File tree/content routes: `/api/tasks/:taskId/files/tree` and `/content` use the workspace executor; they short‑circuit with empty/400 if the workspace is still initializing or missing.
-- Socket events: server emits task status and chat history; frontend listens for room joins per task.
+
+- Backend port 4000, workspace path still required.
+- Sidecar supports Convex-native mode when `USE_CONVEX_NATIVE=true` and `CONVEX_URL` is set: writes file changes (`fileChanges`), tool logs (`toolLogs`), terminal output (`terminalOutput`), and workspace health (`workspaceStatus`) directly to Convex. Socket.IO remains as fallback.
+- Socket events: task status, chat history, tool-call updates; frontend listens per task room.
 
 ## Dev commands
+
 - **Start frontend + backend together**: `npm run dev:app` (frontend on 3000, backend on 4000).
 - **Standalone**: `npm run dev --filter=frontend` (apps/frontend), `npm run dev --filter=server` (apps/server).
+- **Convex codegen**: `npx convex dev --once` or `npx convex codegen` after schema/agent changes.
+
+### One-liner: local all-services (background)
+
+From repo root, start frontend+server and sidecar in the background (logs to /tmp):
+
+```bash
+sh -c 'npm run dev:app > /tmp/dev-app.log 2>&1 & npm run dev --filter=sidecar > /tmp/dev-sidecar.log 2>&1 &'
+```
+
+Services:
+
+- Frontend: <http://localhost:3000>
+- Backend: <http://localhost:4000>
+- Sidecar: <http://localhost:5003> (default)
 
 ## Notes / gotchas
-- Convex calls must receive Convex-shaped IDs; otherwise, client hooks skip the request.
-- If `/file-changes` fetch fails, ensure backend is running and the task workspace is initialized (status not `INITIALIZING`).
-- Monaco editor is required for the agent environment; frontend dev runs with webpack (no Turbopack) to keep Monaco chunks stable.
 
+- Convex IDs required; `asConvexId` guards client calls.
+- Enable Convex streaming on the frontend with `NEXT_PUBLIC_USE_CONVEX_REALTIME=true`; Socket.IO remains fallback. Sidecar Convex-native mode gated by `USE_CONVEX_NATIVE=true`, `CONVEX_URL`, `TASK_ID`.
+- Tool calls: logged to Convex `toolCalls` (server tools) and `toolLogs` (sidecar Convex-native); streaming tool-call metadata lives in `agentTools`.
+- Known gaps to close full nativity: wire real streaming tool execution (currently disabled), complete chat UI migration to `useConvexChatStreaming`, and remove remaining implicit `any` types in legacy realtime hooks.
+- Monaco editor required; frontend uses webpack (no Turbopack) for Monaco stability.
+
+## Background jobs
+
+- `convex/crons.ts` runs `cleanupStalePresence` every 2 minutes (30s heartbeats) to purge stale rows when tabs disconnect unexpectedly.

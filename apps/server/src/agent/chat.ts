@@ -1,17 +1,13 @@
 import { prisma } from "@repo/db";
 import {
-  AssistantMessagePart,
-  ErrorPart,
   Message,
   MessageMetadata,
   ModelType,
   ApiKeys,
   QueuedActionUI,
-  ReasoningPart,
-  RedactedReasoningPart,
   generateTaskId,
 } from "@repo/types";
-import { TextPart, ToolCallPart, ToolResultPart } from "ai";
+import { TextPart } from "ai";
 import { randomUUID } from "crypto";
 import { type ChatMessage } from "../../../../packages/db/src/client";
 import { LLMService } from "./llm";
@@ -74,6 +70,8 @@ type QueuedAction = QueuedMessageAction | QueuedStackedPRAction;
 export class ChatService {
   private llmService: LLMService;
   private activeStreams: Map<string, AbortController> = new Map();
+  private activeConvexMessageIds: Map<string, string> = new Map();
+  private convexTaskIdMap: Map<string, string> = new Map();
   private stopRequested: Set<string> = new Set();
   private queuedActions: Map<string, QueuedAction> = new Map();
 
@@ -92,6 +90,18 @@ export class ChatService {
       });
       return (lastMessage?.sequence || 0) + 1;
     });
+  }
+
+  /**
+   * Allow callers to provide a Convex taskId that differs from the Prisma taskId.
+   * Useful during migration when tasks are mirrored into Convex with generated IDs.
+   */
+  setConvexTaskId(taskId: string, convexTaskId: string): void {
+    this.convexTaskIdMap.set(taskId, convexTaskId);
+  }
+
+  private resolveConvexTaskId(taskId: string): string {
+    return this.convexTaskIdMap.get(taskId) ?? taskId;
   }
 
   // Helper method to atomically create any message with sequence generation
@@ -250,7 +260,9 @@ export class ChatService {
       }
 
       if (task.isScratchpad) {
-        console.log(`[CHAT] Task ${taskId} is a scratchpad workspace, skipping git commit`);
+        console.log(
+          `[CHAT] Task ${taskId} is a scratchpad workspace, skipping git commit`
+        );
         return false;
       }
 
@@ -394,7 +406,9 @@ export class ChatService {
       }
 
       if (task.isScratchpad) {
-        console.log(`[CHAT] Task ${taskId} is a scratchpad workspace, skipping PR creation`);
+        console.log(
+          `[CHAT] Task ${taskId} is a scratchpad workspace, skipping PR creation`
+        );
         return;
       }
 
@@ -588,7 +602,8 @@ export class ChatService {
         await updateTaskStatus(taskId, "INITIALIZING", "CHAT");
 
         const initializationEngine = new TaskInitializationEngine();
-        const initSteps = await initializationEngine.getDefaultStepsForTask(taskId);
+        const initSteps =
+          await initializationEngine.getDefaultStepsForTask(taskId);
         await initializationEngine.initializeTask(
           taskId,
           initSteps,
@@ -838,17 +853,10 @@ These are specific instructions from the user that should be followed throughout
     const abortController = new AbortController();
     this.activeStreams.set(taskId, abortController);
 
-    // Track structured assistant message parts in chronological order
-    let assistantSequence: number | null = null;
     let assistantMessageId: string | null = null;
-    const assistantParts: AssistantMessagePart[] = [];
     let usageMetadata: MessageMetadata["usage"];
     let finishReason: MessageMetadata["finishReason"];
-    let hasError = false;
-
-    // Track active reasoning parts for signature association
-    const activeReasoningParts: Map<number, ReasoningPart> = new Map();
-    let reasoningCounter = 0;
+    let responseText = "";
 
     // Create tools first so we can generate system prompt based on available tools
     let availableTools: ToolSet | undefined;
@@ -860,371 +868,84 @@ These are specific instructions from the user that should be followed throughout
     const taskSystemPrompt = await getSystemPrompt(availableTools);
 
     try {
-      for await (const chunk of this.llmService.createMessageStream(
-        taskSystemPrompt,
-        messages,
+      const { getConvexClient } =
+        (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
+      const { api } =
+        (await import("../../../../convex/_generated/api.js")) as typeof import("../../../../convex/_generated/api.js");
+      const { toConvexId } =
+        (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
+
+      const convexClient = getConvexClient();
+
+      console.log(`[CHAT] Starting Convex streaming for task ${taskId}`);
+
+      const convexTaskId = this.resolveConvexTaskId(taskId);
+
+      const streamResult = await convexClient.action(
+        api.streaming.streamChatWithTools,
+        {
+          taskId: toConvexId<"tasks">(convexTaskId),
+          prompt: userMessage,
+          model: context.getMainModel(),
+          systemPrompt: taskSystemPrompt,
+          llmModel: context.getMainModel(),
+          apiKeys: {
+            anthropic: context.getApiKeys().anthropic,
+            openai: context.getApiKeys().openai,
+            openrouter: context.getApiKeys().openrouter,
+          },
+        }
+      );
+
+      responseText = streamResult.text ?? "";
+      usageMetadata = streamResult.usage
+        ? {
+            promptTokens: streamResult.usage.promptTokens,
+            completionTokens: streamResult.usage.completionTokens,
+            totalTokens: streamResult.usage.totalTokens,
+          }
+        : undefined;
+      this.activeConvexMessageIds.set(taskId, streamResult.messageId);
+
+      // Persist assistant message to Prisma for history/PR flows
+      const assistantSequence = await this.getNextSequence(taskId);
+      const finalMetadata: MessageMetadata = {
+        usage: usageMetadata,
+        finishReason,
+        isStreaming: false,
+        parts: responseText
+          ? [
+              {
+                type: "text",
+                text: responseText,
+              } as TextPart,
+            ]
+          : [],
+      };
+
+      const assistantMsg = await this.saveAssistantMessage(
+        taskId,
+        responseText,
         context.getMainModel(),
-        context.getApiKeys(),
-        enableTools,
-        taskId, // Pass taskId to enable todo tool context
-        workspacePath, // Pass workspace path for tool operations
-        abortController.signal,
-        availableTools
-      )) {
-        if (this.stopRequested.has(taskId)) {
-          break;
-        }
+        assistantSequence,
+        finalMetadata
+      );
+      assistantMessageId = assistantMsg.id;
 
-        emitStreamChunk(chunk, taskId);
+      console.log(
+        `[CHAT] Convex streaming completed for task ${taskId}, messageId: ${assistantMessageId}`
+      );
 
-        // Handle text content chunks
-        if (chunk.type === "content" && chunk.content) {
-          // Add text part to assistant message
-          const textPart: TextPart = {
-            type: "text",
-            text: chunk.content,
-          };
-          assistantParts.push(textPart);
-
-          // Create assistant message on first content chunk
-          if (assistantSequence === null) {
-            assistantSequence = await this.getNextSequence(taskId);
-            const assistantMsg = await this.saveAssistantMessage(
-              taskId,
-              chunk.content, // Still store some content for backward compatibility
-              context.getMainModel(),
-              assistantSequence,
-              {
-                isStreaming: true,
-                parts: assistantParts,
-              }
-            );
-            assistantMessageId = assistantMsg.id;
-          } else {
-            // Schedule batched database update instead of immediate update
-            if (assistantMessageId) {
-              databaseBatchService.scheduleAssistantUpdate(taskId, {
-                messageId: assistantMessageId,
-                assistantParts: [...assistantParts], // Copy array
-                context,
-                usageMetadata,
-                finishReason,
-                lastUpdateTime: Date.now(),
-              });
-            }
-          }
-        }
-
-        // Handle reasoning content chunks
-        if (chunk.type === "reasoning" && chunk.reasoning) {
-          // Create new reasoning part or continue existing one
-          const currentReasoning = activeReasoningParts.get(
-            reasoningCounter
-          ) || {
-            type: "reasoning" as const,
-            text: "",
-          };
-
-          const updatedReasoning: ReasoningPart = {
-            ...currentReasoning,
-            text: currentReasoning.text + chunk.reasoning,
-          };
-
-          activeReasoningParts.set(reasoningCounter, updatedReasoning);
-
-          // Create assistant message on first reasoning chunk if not already created
-          if (assistantSequence === null) {
-            assistantSequence = await this.getNextSequence(taskId);
-            const assistantMsg = await this.saveAssistantMessage(
-              taskId,
-              chunk.reasoning, // Store some content for backward compatibility
-              context.getMainModel(),
-              assistantSequence,
-              {
-                isStreaming: true,
-                parts: assistantParts,
-              }
-            );
-            assistantMessageId = assistantMsg.id;
-          }
-        }
-
-        if (chunk.type === "reasoning-signature" && chunk.reasoningSignature) {
-          // Add signature to current reasoning part
-          const currentReasoning = activeReasoningParts.get(reasoningCounter);
-          if (currentReasoning) {
-            currentReasoning.signature = chunk.reasoningSignature;
-            // Finalize this reasoning part
-            assistantParts.push(currentReasoning);
-            // Remove from active parts to prevent duplication at stream end
-            activeReasoningParts.delete(reasoningCounter);
-            reasoningCounter++;
-
-            // Schedule batched update with finalized reasoning part
-            if (assistantMessageId) {
-              databaseBatchService.scheduleAssistantUpdate(taskId, {
-                messageId: assistantMessageId,
-                assistantParts: [...assistantParts], // Copy array
-                context,
-                usageMetadata,
-                finishReason,
-                lastUpdateTime: Date.now(),
-              });
-            }
-          }
-        }
-
-        if (
-          chunk.type === "redacted-reasoning" &&
-          chunk.redactedReasoningData
-        ) {
-          const redactedPart: RedactedReasoningPart = {
-            type: "redacted-reasoning" as const,
-            data: chunk.redactedReasoningData,
-          };
-          assistantParts.push(redactedPart);
-
-          // Create assistant message if not already created
-          if (assistantSequence === null) {
-            assistantSequence = await this.getNextSequence(taskId);
-            const assistantMsg = await this.saveAssistantMessage(
-              taskId,
-              "[Redacted reasoning]", // Store placeholder content
-              context.getMainModel(),
-              assistantSequence,
-              {
-                isStreaming: true,
-                parts: assistantParts,
-              }
-            );
-            assistantMessageId = assistantMsg.id;
-          } else if (assistantMessageId) {
-            // Schedule batched update with redacted reasoning part
-            databaseBatchService.scheduleAssistantUpdate(taskId, {
-              messageId: assistantMessageId,
-              assistantParts: [...assistantParts], // Copy array
-              context,
-              usageMetadata,
-              finishReason,
-              lastUpdateTime: Date.now(),
-            });
-          }
-        }
-
-        // Handle tool calls
-        if (chunk.type === "tool-call" && chunk.toolCall) {
-          // Add tool call part to assistant message
-          const toolCallPart: ToolCallPart = {
-            type: "tool-call",
-            toolCallId: chunk.toolCall.id,
-            toolName: chunk.toolCall.name,
-            args: chunk.toolCall.args,
-          };
-          assistantParts.push(toolCallPart);
-
-          // Schedule batched update with tool call part
-          if (assistantMessageId) {
-            databaseBatchService.scheduleAssistantUpdate(taskId, {
-              messageId: assistantMessageId,
-              assistantParts: [...assistantParts], // Copy array
-              context,
-              usageMetadata,
-              finishReason,
-              lastUpdateTime: Date.now(),
-            });
-          }
-        }
-
-        // Update tool results when they complete
-        if (chunk.type === "tool-result" && chunk.toolResult) {
-          // Add tool result part to assistant message
-          const toolResultPart: ToolResultPart = {
-            type: "tool-result",
-            toolCallId: chunk.toolResult.id,
-            toolName: "", // We'll need to find the tool name from the corresponding call
-            result: chunk.toolResult.result,
-          };
-
-          // Find the corresponding tool call to get the tool name
-          const correspondingCall = assistantParts.find(
-            (part) =>
-              part.type === "tool-call" &&
-              part.toolCallId === chunk.toolResult!.id
-          );
-          if (correspondingCall && correspondingCall.type === "tool-call") {
-            toolResultPart.toolName = correspondingCall.toolName;
-          }
-
-          assistantParts.push(toolResultPart);
-
-          // Schedule batched update with tool result part
-          if (assistantMessageId) {
-            databaseBatchService.scheduleAssistantUpdate(taskId, {
-              messageId: assistantMessageId,
-              assistantParts: [...assistantParts], // Copy array
-              context,
-              usageMetadata,
-              finishReason,
-              lastUpdateTime: Date.now(),
-            });
-          }
-        }
-
-        // Handle error chunks from LLM service
-        if (chunk.type === "error") {
-          console.error(
-            `[CHAT] Received error chunk for task ${taskId}:`,
-            chunk.error
-          );
-          finishReason = chunk.finishReason || "error";
-          hasError = true;
-
-          // Improve error messages for rate limits
-          let userFriendlyError = chunk.error || "Unknown error occurred";
-          if (
-            userFriendlyError.includes("Too Many Requests") ||
-            userFriendlyError.includes("rate limit")
-          ) {
-            userFriendlyError =
-              "The model is currently experiencing high demand. Please try again in a few moments or switch to a different model.";
-          } else if (userFriendlyError.includes("Failed after 3 attempts")) {
-            userFriendlyError =
-              "The model is temporarily unavailable. Please try again or switch to a different model.";
-          }
-
-          // Add error part to assistant message parts
-          const errorPart: ErrorPart = {
-            type: "error",
-            error: userFriendlyError,
-            finishReason: chunk.finishReason,
-          };
-          assistantParts.push(errorPart);
-
-          // Flush any pending updates and immediately update with error
-          if (assistantMessageId) {
-            // Clear pending timer and flush immediately on error
-            console.log(
-              `[CHAT] Error occurred, immediately flushing DB update for task ${taskId}`
-            );
-            databaseBatchService.clear(taskId);
-
-            const fullContent = assistantParts
-              .filter((part) => part.type === "text")
-              .map((part) => (part as TextPart).text)
-              .join("");
-
-            await prisma.chatMessage.update({
-              where: { id: assistantMessageId },
-              data: {
-                content: fullContent,
-                metadata: {
-                  isStreaming: false,
-                  parts: assistantParts,
-                  finishReason,
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                } as any,
-              },
-            });
-          }
-
-          // Update task status to failed
-          await updateTaskStatus(taskId, "FAILED", "CHAT", userFriendlyError);
-
-          // Clean up stream tracking
-          this.activeStreams.delete(taskId);
-          this.stopRequested.delete(taskId);
-          endStream(taskId);
-
-          // Clean up MCP manager for this task
-          try {
-            await stopMCPManager(taskId);
-          } catch (mcpError) {
-            console.error(
-              `[CHAT] Error stopping MCP manager for task ${taskId}:`,
-              mcpError
-            );
-          }
-
-          // Clear any queued actions (don't process them after error)
-          this.clearQueuedAction(taskId);
-
-          // Exit the streaming loop
-          break;
-        }
-
-        // Track usage information
-        if (chunk.type === "usage" && chunk.usage) {
-          usageMetadata = {
-            promptTokens: chunk.usage.promptTokens,
-            completionTokens: chunk.usage.completionTokens,
-            totalTokens: chunk.usage.totalTokens,
-          };
-        }
-      }
-
-      // Check if stream was stopped early
       const wasStoppedEarly = this.stopRequested.has(taskId);
 
-      // Finalize any remaining reasoning parts that didn't receive signatures
-      for (const reasoningPart of activeReasoningParts.values()) {
-        assistantParts.push(reasoningPart);
-      }
-      activeReasoningParts.clear();
-
-      // Flush any pending updates and perform final update with complete metadata
-      if (assistantMessageId) {
-        // Clear any pending timer and flush immediately for final update
-        console.log(
-          `[CHAT] Stream completed, performing final DB update for task ${taskId}`
-        );
-        databaseBatchService.clear(taskId);
-
-        if (usageMetadata) {
-          const fullContent = assistantParts
-            .filter((part) => part.type === "text")
-            .map((part) => (part as TextPart).text)
-            .join("");
-
-          const finalMetadata: MessageMetadata = {
-            usage: usageMetadata,
-            finishReason,
-            isStreaming: false,
-            parts: assistantParts,
-          };
-
-          await prisma.chatMessage.update({
-            where: { id: assistantMessageId },
-            data: {
-              content: fullContent,
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              metadata: finalMetadata as any,
-              promptTokens: usageMetadata.promptTokens,
-              completionTokens: usageMetadata.completionTokens,
-              totalTokens: usageMetadata.totalTokens,
-              finishReason: finishReason,
-            },
-          });
-        } else {
-          // If no usage metadata, just flush any pending updates
-          await databaseBatchService.flushAssistantUpdate(taskId);
-        }
-      }
-
-      // Update task status and schedule cleanup based on how stream ended
-      if (hasError) {
-        // Error already handled above, just ensure cleanup happens
-        await scheduleTaskCleanup(taskId, 15);
-      } else if (wasStoppedEarly) {
+      if (wasStoppedEarly) {
         await updateTaskStatus(taskId, "STOPPED", "CHAT");
         await scheduleTaskCleanup(taskId, 15);
       } else {
         await updateTaskStatus(taskId, "COMPLETED", "CHAT");
         await scheduleTaskCleanup(taskId, 15);
-
-        // Update task activity timestamp when assistant completes response
         await updateTaskActivity(taskId, "CHAT");
 
-        // Commit changes if there are any (only for successfully completed responses)
         try {
           const changesCommitted = await this.commitChangesIfAny(
             taskId,
@@ -1232,7 +953,6 @@ These are specific instructions from the user that should be followed throughout
             workspacePath
           );
 
-          // Create PR if changes were committed and user has auto-PR enabled
           if (changesCommitted && assistantMessageId) {
             await this.createPRIfUserEnabled(
               taskId,
@@ -1240,25 +960,22 @@ These are specific instructions from the user that should be followed throughout
               assistantMessageId,
               context
             );
-          }
 
-          // Create checkpoint after successful completion and commit
-          if (changesCommitted && assistantMessageId) {
             await checkpointService.createCheckpoint(
               taskId,
               assistantMessageId
             );
           }
-        } catch (error) {
+        } catch (commitError) {
           console.error(
             `[CHAT] Failed to commit changes for task ${taskId}:`,
-            error
+            commitError
           );
-          // Don't fail the entire response for git commit failures
         }
       }
 
       // Clean up stream tracking
+      this.activeConvexMessageIds.delete(taskId);
       this.activeStreams.delete(taskId);
       this.stopRequested.delete(taskId);
       endStream(taskId);
@@ -1295,6 +1012,7 @@ These are specific instructions from the user that should be followed throughout
       );
 
       // Clean up stream tracking on error
+      this.activeConvexMessageIds.delete(taskId);
       this.activeStreams.delete(taskId);
       this.stopRequested.delete(taskId);
       handleStreamError(error, taskId);
@@ -1418,6 +1136,30 @@ These are specific instructions from the user that should be followed throughout
     if (abortController) {
       abortController.abort();
       this.activeStreams.delete(taskId);
+    }
+
+    const convexMessageId = this.activeConvexMessageIds.get(taskId);
+    if (convexMessageId) {
+      try {
+        const { getConvexClient } =
+          (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
+        const { api } =
+          (await import("../../../../convex/_generated/api.js")) as typeof import("../../../../convex/_generated/api.js");
+        const { toConvexId } =
+          (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
+
+        const convexClient = getConvexClient();
+        await convexClient.action(api.streaming.cancelStream, {
+          messageId: toConvexId<"chatMessages">(convexMessageId),
+        });
+      } catch (convexCancelError) {
+        console.warn(
+          `[CHAT] Failed to cancel Convex stream for task ${taskId}:`,
+          convexCancelError
+        );
+      } finally {
+        this.activeConvexMessageIds.delete(taskId);
+      }
     }
 
     // Flush any pending database updates before stopping

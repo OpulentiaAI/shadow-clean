@@ -4,6 +4,7 @@ import { PRService } from "../github/pull-requests";
 import type { PRMetadata, CreatePROptions } from "../github/types";
 import { TaskModelContext } from "./task-model-context";
 import { emitToTask } from "../socket";
+import { getTask, toConvexId } from "../lib/convex-operations";
 
 export class PRManager {
   private prService: PRService;
@@ -249,12 +250,7 @@ export class PRManager {
       }
 
       // Get the PR number from task in database (updated during PR creation)
-      const task = await import("@repo/db").then((db) =>
-        db.prisma.task.findUnique({
-          where: { id: options.taskId },
-          select: { pullRequestNumber: true, repoUrl: true },
-        })
-      );
+      const task = await getTask(toConvexId<"tasks">(options.taskId));
 
       const finalPRNumber = prNumber || task?.pullRequestNumber;
       if (!finalPRNumber) {

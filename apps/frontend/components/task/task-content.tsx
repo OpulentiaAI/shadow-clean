@@ -10,6 +10,12 @@ import { useCallback, memo, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ModelType } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
+import { useConvexChatStreaming } from "@/hooks/convex";
+import { asConvexId } from "@/lib/convex/id";
+
+const USE_CONVEX_STREAMING =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
 
 function TaskPageContent() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -23,7 +29,19 @@ function TaskPageContent() {
 
   const sendMessageMutation = useSendMessage();
 
-  const [isStreaming, setIsStreaming] = useState(false);
+  const {
+    startStreamWithTools,
+    cancelStream,
+    isStreaming: convexStreaming,
+  } = useConvexChatStreaming();
+
+  const [legacyStreaming, setLegacyStreaming] = useState(false);
+  const convexTaskId = useMemo(
+    () => (taskId ? asConvexId<"tasks">(taskId) : null),
+    [taskId]
+  );
+
+  const isStreaming = USE_CONVEX_STREAMING ? convexStreaming : legacyStreaming;
 
   const handleSendMessage = useCallback(
     async (message: string, model: ModelType, queue: boolean) => {
@@ -33,13 +51,40 @@ function TaskPageContent() {
       // Optimistic user append
       sendMessageMutation.mutate({ taskId, message, model });
 
-      // Fire backend message processing via frontend API route (proxies to backend with auth)
-      setIsStreaming(true);
+      if (USE_CONVEX_STREAMING) {
+        if (!convexTaskId) {
+          console.warn("Convex task id missing; skipping Convex streaming");
+          return;
+        }
+
+        try {
+          await startStreamWithTools({
+            taskId: convexTaskId,
+            prompt: message,
+            model,
+            llmModel: model,
+            // Allow server to select all available tools via createAgentTools
+            tools: undefined,
+            apiKeys: {
+              // Prefer server-side keys; leave empty for server-side resolution.
+              anthropic: undefined,
+              openai: undefined,
+              openrouter: undefined,
+            },
+          });
+        } catch (error) {
+          console.error("[CONVEX_STREAMING] Error submitting message:", error);
+        }
+        return;
+      }
+
+      // Legacy Socket.IO / REST path
+      setLegacyStreaming(true);
       try {
         const response = await fetch(`/api/tasks/${taskId}/messages`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             message,
@@ -49,20 +94,31 @@ function TaskPageContent() {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to submit message');
+          throw new Error(errorData.error || "Failed to submit message");
         }
 
-        console.log(`[MESSAGE_SUBMIT] Message submitted successfully to task ${taskId}`);
+        console.log(
+          `[MESSAGE_SUBMIT] Message submitted successfully to task ${taskId}`
+        );
       } catch (error) {
         console.error(`[MESSAGE_SUBMIT] Error submitting message:`, error);
         // Revert optimistic update on error
-        queryClient.invalidateQueries({ queryKey: ['task-messages', taskId] });
+        queryClient.invalidateQueries({ queryKey: ["task-messages", taskId] });
       } finally {
-        setIsStreaming(false);
+        setLegacyStreaming(false);
       }
     },
-    [taskId, sendMessageMutation, queryClient]
+    [taskId, sendMessageMutation, queryClient, convexTaskId, startStreamWithTools]
   );
+
+  const handleStopStream = useCallback(async () => {
+    if (!USE_CONVEX_STREAMING) return;
+    try {
+      await cancelStream();
+    } catch (error) {
+      console.error("[CONVEX_STREAMING] Error cancelling stream:", error);
+    }
+  }, [cancelStream]);
 
   const displayMessages = useMemo(() => {
     // Messages from Convex include metadata.isStreaming; render as-is.
@@ -102,7 +158,7 @@ function TaskPageContent() {
           <PromptForm
             onSubmit={handleSendMessage}
             onCreateStackedPR={undefined}
-            onStopStream={undefined}
+            onStopStream={USE_CONVEX_STREAMING ? handleStopStream : undefined}
             isStreaming={isStreaming || sendMessageMutation.isPending}
             initialSelectedModel={task?.mainModel as ModelType | null}
             onFocus={() => {

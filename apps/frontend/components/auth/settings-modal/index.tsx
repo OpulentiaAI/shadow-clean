@@ -1,7 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { useModal } from "@/components/layout/modal-context";
 import { Box, CornerDownRight, ChevronLeft, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -105,6 +110,9 @@ export function SettingsModal() {
         className="max-w-2xl! h-full max-h-[600px] overflow-hidden p-0"
         description="User, model, and GitHub settings for Opulent OS."
       >
+        <DialogDescription className="sr-only">
+          User, model, and GitHub settings for Opulent OS.
+        </DialogDescription>
         <div className="flex max-h-full overflow-hidden">
           {/* Left sidebar */}
           <div className="bg-card w-40 shrink-0 border-r px-2 py-4">

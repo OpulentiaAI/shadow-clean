@@ -1,7 +1,13 @@
-import { prisma } from "@repo/db";
 import { TaskModelContext } from "../services/task-model-context";
 import { runShadowWiki } from "../indexing/shadowwiki/core";
 import { startBackgroundIndexing } from "./background-indexing";
+import {
+  getTask,
+  getCodebaseByRepo,
+  updateTask,
+  toConvexId,
+} from "../lib/convex-operations";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 interface BackgroundService {
   name: "shadowWiki" | "indexing";
@@ -105,16 +111,7 @@ export class BackgroundServiceManager {
 
     try {
       // Get task info
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          repoFullName: true,
-          repoUrl: true,
-          userId: true,
-          workspacePath: true,
-          codebaseUnderstandingId: true,
-        },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
@@ -125,16 +122,14 @@ export class BackgroundServiceManager {
       }
 
       // If a summary already exists for this repo, link it and skip generation
-      const existingForRepo = await prisma.codebaseUnderstanding.findUnique({
-        where: { repoFullName: task.repoFullName },
-        select: { id: true },
-      });
+      const existingForRepo = await getCodebaseByRepo(task.repoFullName);
 
       if (existingForRepo) {
         if (!task.codebaseUnderstandingId) {
-          await prisma.task.update({
-            where: { id: taskId },
-            data: { codebaseUnderstandingId: existingForRepo.id },
+          await updateTask({
+            taskId: toConvexId<"tasks">(taskId),
+            codebaseUnderstandingId:
+              existingForRepo._id as Id<"codebaseUnderstanding">,
           });
         }
         console.log(
@@ -182,10 +177,7 @@ export class BackgroundServiceManager {
   private async startIndexing(taskId: string): Promise<void> {
     try {
       // Get task info
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { repoFullName: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);

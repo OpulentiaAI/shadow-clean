@@ -240,6 +240,19 @@ export const listByUser = query({
   },
 });
 
+export const listScheduledForCleanup = query({
+  args: { now: v.number() },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("tasks")
+      .withIndex("by_scheduled_cleanup", (q) =>
+        q.lte("scheduledCleanupAt", args.now)
+      )
+      .filter((q) => q.gt(q.field("scheduledCleanupAt"), 0))
+      .collect();
+  },
+});
+
 export const listByUserExcludeArchived = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -262,6 +275,23 @@ export const countActiveByUser = query({
     return tasks.filter(
       (t) => t.status !== "ARCHIVED" && t.status !== "COMPLETED" && t.status !== "FAILED"
     ).length;
+  },
+});
+
+export const listByPrNumberAndRepo = query({
+  args: {
+    pullRequestNumber: v.number(),
+    repoFullName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get all tasks for this repo, then filter by PR number and non-archived status
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_repo", (q) => q.eq("repoFullName", args.repoFullName))
+      .collect();
+    return tasks.filter(
+      (t) => t.pullRequestNumber === args.pullRequestNumber && t.status !== "ARCHIVED"
+    );
   },
 });
 
@@ -297,7 +327,8 @@ export const getDetails: ReturnType<typeof action> = action({
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
       if (res.ok) {
-        fileData = await res.json();
+        const jsonData = (await res.json()) as typeof fileData;
+        fileData = jsonData;
       } else {
         // Gracefully degrade if backend rejects (e.g., auth); keep rest of payload.
         console.warn(`file-changes fetch failed (${res.status}): ${res.statusText}`);
@@ -327,9 +358,108 @@ export const createPullRequest = action({
       },
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(err.error || `Failed to create pull request (${res.status})`);
     }
     return res.json();
+  },
+});
+
+export const initiate = action({
+  args: {
+    taskId: v.id("tasks"),
+    message: v.string(),
+    model: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Verify task exists in Convex
+    const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    // Call backend to initialize workspace and start the task
+    const baseUrl = getBackendBaseUrl();
+    const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/initiate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: args.message,
+        model: args.model,
+        userId: args.userId,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || `Task initialization failed (${res.status})`);
+    }
+
+    return res.json();
+  },
+});
+
+/**
+ * Update workspace status from sidecar (Convex-native mode)
+ * Creates or updates the workspace status record for a task
+ */
+export const updateWorkspaceStatus = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    isHealthy: v.boolean(),
+    lastHeartbeat: v.number(),
+    activeProcessCount: v.optional(v.number()),
+    diskUsageBytes: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // Check if workspace status already exists for this task
+    const existing = await ctx.db
+      .query("workspaceStatus")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .unique();
+
+    if (existing) {
+      // Update existing record
+      await ctx.db.patch(existing._id, {
+        isHealthy: args.isHealthy,
+        lastHeartbeat: args.lastHeartbeat,
+        activeProcessCount: args.activeProcessCount,
+        diskUsageBytes: args.diskUsageBytes,
+        updatedAt: now,
+      });
+      return { statusId: existing._id };
+    } else {
+      // Create new record
+      const statusId = await ctx.db.insert("workspaceStatus", {
+        taskId: args.taskId,
+        isHealthy: args.isHealthy,
+        lastHeartbeat: args.lastHeartbeat,
+        activeProcessCount: args.activeProcessCount,
+        diskUsageBytes: args.diskUsageBytes,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { statusId };
+    }
+  },
+});
+
+/**
+ * Get workspace status for a task
+ */
+export const getWorkspaceStatus = query({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("workspaceStatus")
+      .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
+      .unique();
   },
 });

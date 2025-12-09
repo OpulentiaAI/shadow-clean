@@ -16,7 +16,7 @@ import { LocalGitService } from "./local/local-git-service";
 import { RemoteGitService } from "./remote/remote-git-service";
 import { GitService } from "./interfaces/git-service";
 import { GitManager } from "../services/git-manager";
-import { prisma } from "@repo/db";
+import { getTask, toConvexId } from "../lib/convex-operations";
 
 /**
  * Create a tool executor based on the configured agent mode
@@ -33,10 +33,7 @@ export async function createToolExecutor(
     // If workspacePath not provided, look it up from the task
     let resolvedWorkspacePath = workspacePath;
     if (!resolvedWorkspacePath) {
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { workspacePath: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
       resolvedWorkspacePath = task?.workspacePath || undefined;
     }
     
@@ -125,10 +122,7 @@ export async function createGitService(taskId: string): Promise<GitService> {
     return new RemoteGitService(toolExecutor as RemoteToolExecutor);
   } else {
     // For local mode, get workspace path and create GitManager
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { workspacePath: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task?.workspacePath) {
       throw new Error(`Task ${taskId} not found or has no workspace path`);

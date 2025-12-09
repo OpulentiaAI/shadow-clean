@@ -26,6 +26,7 @@ export interface StreamChunk {
     | "tool-call-start"
     | "tool-call-delta"
     | "tool-result"
+    | "tool-call-update"
     | "reasoning"
     | "reasoning-signature"
     | "redacted-reasoning"
@@ -130,6 +131,14 @@ export interface StreamChunk {
     action: "updated" | "replaced";
     totalTodos?: number;
     completedTodos?: number;
+  };
+
+  // For tool call status updates (from withToolLogging)
+  toolCallUpdate?: {
+    toolCallId: string;
+    status: "SUCCEEDED" | "FAILED";
+    result?: unknown;
+    error?: string;
   };
 }
 

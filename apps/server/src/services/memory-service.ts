@@ -1,4 +1,4 @@
-import { prisma } from "@repo/db";
+import { getTask, listMemoriesByUserRepo, toConvexId } from "../lib/convex-operations";
 
 export interface MemoryContext {
   memories: Array<{
@@ -16,40 +16,25 @@ export class MemoryService {
   async getMemoriesForTask(taskId: string): Promise<MemoryContext | null> {
     try {
       // Get task info
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { repoFullName: true, userId: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         console.warn(`[MEMORY_SERVICE] Task ${taskId} not found`);
         return null;
       }
 
-      // Get repository-specific memories
-      const memories = await prisma.memory.findMany({
-        where: {
-          userId: task.userId,
-          repoFullName: task.repoFullName,
-        },
-        orderBy: [
-          { category: "asc" },
-          { createdAt: "desc" },
-        ],
-        select: {
-          id: true,
-          content: true,
-          category: true,
-          createdAt: true,
-        },
-      });
+      // Get repository-specific memories from Convex
+      const memories = await listMemoriesByUserRepo(
+        task.userId,
+        task.repoFullName
+      );
 
       return {
         memories: memories.map((m) => ({
-          id: m.id,
+          id: m._id as string,
           content: m.content,
           category: m.category,
-          createdAt: m.createdAt,
+          createdAt: new Date(m.createdAt),
         })),
       };
     } catch (error) {

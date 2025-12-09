@@ -29,14 +29,26 @@ export interface AutoPRStatusEvent {
   taskId: string;
   messageId: string;
   status: "in-progress" | "completed" | "failed";
-  
+
   // Present when status === "completed"
   snapshot?: Pick<PullRequestSnapshot, "title" | "description" | "filesChanged" | "linesAdded" | "linesRemoved" | "commitSha" | "status">;
   prNumber?: number;
   prUrl?: string;
-  
+
   // Present when status === "failed"
   error?: string;
+}
+
+export interface ToolCallUpdateEvent {
+  taskId: string;
+  toolCallId: string;
+  toolName: string;
+  status: "REQUESTED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+  argsJson?: string;
+  resultJson?: string;
+  error?: string;
+  startedAt?: number;
+  completedAt?: number;
 }
 
 export interface ServerToClientEvents {
@@ -90,6 +102,14 @@ export interface ServerToClientEvents {
     title?: string;
     newTaskId?: string;
   }) => void;
+
+  // Tool call events for real-time tool execution tracking
+  "tool-call-update": (data: ToolCallUpdateEvent) => void;
+  "tool-call-history": (data: {
+    taskId: string;
+    toolCalls: ToolCallUpdateEvent[];
+  }) => void;
+  "tool-call-history-error": (data: { error: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -122,6 +142,9 @@ export interface ClientToServerEvents {
 
   "get-terminal-history": (data: { taskId: string }) => void;
   "clear-terminal": (data: { taskId: string }) => void;
+
+  // Tool call history request
+  "get-tool-call-history": (data: { taskId: string }) => void;
 
   heartbeat: () => void;
 }

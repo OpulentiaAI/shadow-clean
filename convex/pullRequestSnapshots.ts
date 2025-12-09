@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { PullRequestStatus } from "./schema";
+import type { Doc } from "./_generated/dataModel";
 
 export const create = mutation({
   args: {
@@ -112,5 +113,38 @@ export const removeByMessage = mutation({
       await ctx.db.delete(snapshot._id);
     }
     return { success: true };
+  },
+});
+
+export const getLatestByTask = query({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    // Get all messages for the task
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .collect();
+
+    if (messages.length === 0) {
+      return null;
+    }
+
+    // Find all snapshots for these messages
+    let latestSnapshot: Doc<"pullRequestSnapshots"> | null = null;
+    let latestCreatedAt = 0;
+
+    for (const message of messages) {
+      const snapshot = await ctx.db
+        .query("pullRequestSnapshots")
+        .withIndex("by_message", (q) => q.eq("messageId", message._id))
+        .first();
+
+      if (snapshot && snapshot.createdAt > latestCreatedAt) {
+        latestSnapshot = snapshot;
+        latestCreatedAt = snapshot.createdAt;
+      }
+    }
+
+    return latestSnapshot;
   },
 });

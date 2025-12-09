@@ -3,9 +3,9 @@ import { LocalWorkspaceManager } from "@/execution/local/local-workspace-manager
 import { runShadowWiki } from "./core";
 import { CodebaseUnderstandingStorage } from "./db-storage";
 import fs from "fs";
-import { db } from "@repo/db";
 import { ModelType } from "@repo/types";
 import { modelContextService } from "@/services/model-context-service";
+import { getTask, getCodebaseUnderstanding, toConvexId } from "@/lib/convex-operations";
 
 const shadowWikiRouter = express.Router();
 
@@ -18,21 +18,17 @@ shadowWikiRouter.post("/generate/:taskId", async (req, res, next) => {
   const { forceRefresh = false, model, modelMini } = req.body;
 
   try {
-    // Get task details first
-    const task = await db.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        userId: true,
-        repoFullName: true,
-        repoUrl: true,
-        codebaseUnderstanding: true,
-      },
-    });
+    // Get task details first via Convex
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       return res.status(404).json({ error: "Task not found" });
     }
+
+    // Get codebase understanding if task has one
+    const codebaseUnderstanding = task.codebaseUnderstandingId
+      ? await getCodebaseUnderstanding(task.codebaseUnderstandingId)
+      : null;
 
     // Get or create model context for this task
     const modelContext = await modelContextService.refreshContext(
@@ -69,7 +65,7 @@ shadowWikiRouter.post("/generate/:taskId", async (req, res, next) => {
       return res.json({
         message: "Summary already exists. Use forceRefresh=true to regenerate.",
         taskId,
-        codebaseUnderstandingId: task.codebaseUnderstanding?.id,
+        codebaseUnderstandingId: codebaseUnderstanding?._id,
       });
     }
 

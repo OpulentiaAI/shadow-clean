@@ -53,6 +53,24 @@ export const PullRequestStatus = v.union(
   v.literal("UPDATED")
 );
 
+export const FileOperation = v.union(
+  v.literal("CREATE"),
+  v.literal("UPDATE"),
+  v.literal("DELETE"),
+  v.literal("RENAME")
+);
+
+export const ToolLogStatus = v.union(
+  v.literal("RUNNING"),
+  v.literal("COMPLETED"),
+  v.literal("FAILED")
+);
+
+export const StreamType = v.union(
+  v.literal("stdout"),
+  v.literal("stderr")
+);
+
 export default defineSchema({
   users: defineTable({
     externalId: v.optional(v.string()),
@@ -134,7 +152,8 @@ export default defineSchema({
     .index("by_repo", ["repoFullName"])
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])
-    .index("by_user_repo", ["userId", "repoFullName"]),
+    .index("by_user_repo", ["userId", "repoFullName"])
+    .index("by_scheduled_cleanup", ["scheduledCleanupAt"]),
 
   taskSessions: defineTable({
     podName: v.optional(v.string()),
@@ -178,6 +197,30 @@ export default defineSchema({
     messageId: v.id("chatMessages"),
     createdAt: v.number(),
   }).index("by_message", ["messageId"]),
+
+  toolCalls: defineTable({
+    taskId: v.id("tasks"),
+    threadId: v.optional(v.string()), // reserved for agent threads
+    messageId: v.optional(v.id("chatMessages")), // optional - may not have message context during tool execution
+    toolCallId: v.string(), // LLM/tool invocation identifier
+    toolName: v.string(),
+    argsJson: v.string(),
+    status: v.union(
+      v.literal("REQUESTED"),
+      v.literal("RUNNING"),
+      v.literal("SUCCEEDED"),
+      v.literal("FAILED")
+    ),
+    resultJson: v.optional(v.string()),
+    error: v.optional(v.string()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task", ["taskId", "createdAt"])
+    .index("by_message", ["messageId", "createdAt"])
+    .index("by_status", ["status", "createdAt"]),
 
   todos: defineTable({
     content: v.string(),
@@ -237,4 +280,126 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"]),
+
+  // File changes tracked by sidecar (Convex-native mode)
+  fileChanges: defineTable({
+    taskId: v.id("tasks"),
+    filePath: v.string(),
+    operation: FileOperation,
+    additions: v.number(),
+    deletions: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId", "createdAt"])
+    .index("by_task_path", ["taskId", "filePath"]),
+
+  // Tool execution logs from sidecar (Convex-native mode)
+  toolLogs: defineTable({
+    taskId: v.id("tasks"),
+    toolName: v.string(),
+    argsJson: v.string(),
+    status: ToolLogStatus,
+    resultJson: v.optional(v.string()),
+    error: v.optional(v.string()),
+    durationMs: v.optional(v.number()),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_task", ["taskId", "createdAt"])
+    .index("by_status", ["status", "createdAt"]),
+
+  // Terminal output streaming from sidecar (Convex-native mode)
+  terminalOutput: defineTable({
+    taskId: v.id("tasks"),
+    commandId: v.string(),
+    content: v.string(),
+    streamType: StreamType,
+    timestamp: v.number(),
+  })
+    .index("by_task", ["taskId", "timestamp"])
+    .index("by_command", ["commandId", "timestamp"]),
+
+  // Workspace status tracking (Convex-native mode)
+  workspaceStatus: defineTable({
+    taskId: v.id("tasks"),
+    isHealthy: v.boolean(),
+    lastHeartbeat: v.number(),
+    activeProcessCount: v.optional(v.number()),
+    diskUsageBytes: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task", ["taskId"]),
+
+  // Real-time presence for collaborative editing
+  presence: defineTable({
+    taskId: v.id("tasks"),
+    userId: v.id("users"),
+    userName: v.string(),
+    userImage: v.optional(v.string()),
+    cursor: v.optional(
+      v.object({
+        x: v.number(),
+        y: v.number(),
+      })
+    ),
+    selection: v.optional(
+      v.object({
+        start: v.number(),
+        end: v.number(),
+        filePath: v.optional(v.string()),
+      })
+    ),
+    activity: v.union(
+      v.literal("viewing"),
+      v.literal("typing"),
+      v.literal("editing-file"),
+      v.literal("running-command"),
+      v.literal("idle")
+    ),
+    lastSeenAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_task_user", ["taskId", "userId"]),
+
+  // Activity broadcasting for real-time collaboration
+  activities: defineTable({
+    taskId: v.id("tasks"),
+    userId: v.id("users"),
+    activityType: v.union(
+      v.literal("user-joined"),
+      v.literal("user-left"),
+      v.literal("file-opened"),
+      v.literal("file-saved"),
+      v.literal("command-started"),
+      v.literal("command-completed")
+    ),
+    metadata: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index("by_task", ["taskId", "timestamp"]),
+
+  // Agent tool calls during streaming (separate from toolCalls for streaming context)
+  agentTools: defineTable({
+    messageId: v.id("chatMessages"),
+    taskId: v.id("tasks"),
+    toolName: v.string(),
+    args: v.any(),
+    toolCallId: v.string(),
+    result: v.optional(v.any()),
+    status: v.union(
+      v.literal("PENDING"),
+      v.literal("RUNNING"),
+      v.literal("COMPLETED"),
+      v.literal("FAILED")
+    ),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_message", ["messageId"])
+    .index("by_task", ["taskId"])
+    .index("by_tool_call_id", ["toolCallId"]),
 });

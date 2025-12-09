@@ -1,7 +1,7 @@
-import { prisma } from "@repo/db";
 import { ApiKeys, ModelType } from "@repo/types";
 import { TaskModelContext } from "./task-model-context";
 import { parseApiKeysFromCookies } from "../utils/cookie-parser";
+import { getTask, updateTask, toConvexId } from "../lib/convex-operations";
 
 /**
  * Singleton service for creating and managing task model contexts.
@@ -70,10 +70,7 @@ export class ModelContextService {
       return cached;
     }
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { mainModel: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task?.mainModel) {
       return null;
@@ -99,9 +96,9 @@ export class ModelContextService {
     taskId: string,
     newModel: ModelType
   ): Promise<void> {
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { mainModel: newModel },
+    await updateTask({
+      taskId: toConvexId<"tasks">(taskId),
+      mainModel: newModel,
     });
   }
 
@@ -112,10 +109,7 @@ export class ModelContextService {
     taskId: string,
     cookieHeader: string | undefined
   ): Promise<TaskModelContext | null> {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { mainModel: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task?.mainModel) {
       return null;

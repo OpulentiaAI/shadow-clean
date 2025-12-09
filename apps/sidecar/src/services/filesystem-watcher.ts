@@ -3,23 +3,32 @@ import { logger } from "../utils/logger";
 import { SocketClient } from "./socket-client";
 import type { FileSystemEvent } from "@repo/types";
 import { GitignoreChecker } from "../utils/gitignore-parser";
+import {
+  recordFileChange,
+  isConvexNativeEnabled
+} from "./convex-client";
 
 /**
- * FileSystemWatcher monitors filesystem changes and sends events to the server via Socket.IO
+ * FileSystemWatcher monitors filesystem changes and sends events
+ * Supports both Socket.IO (legacy) and Convex-native mode
  */
 export class FileSystemWatcher {
   private watcher: FSWatcher | null = null;
-  private socketClient: SocketClient;
+  private socketClient: SocketClient | null;
   private taskId: string;
   private changeBuffer = new Map<string, FileSystemEvent>();
   private flushTimer: NodeJS.Timeout | null = null;
   private readonly debounceMs = 100; // Debounce rapid changes
   private gitignoreChecker: GitignoreChecker | null = null;
   private isPaused = false;
+  private useConvexNative: boolean;
 
-  constructor(taskId: string, socketClient: SocketClient) {
+  constructor(taskId: string, socketClient: SocketClient | null) {
     this.taskId = taskId;
     this.socketClient = socketClient;
+    this.useConvexNative = isConvexNativeEnabled();
+
+    logger.info(`[FS_WATCHER] Initialized with mode: ${this.useConvexNative ? 'Convex-native' : 'Socket.IO'}`);
   }
 
   /**
@@ -124,9 +133,9 @@ export class FileSystemWatcher {
   }
 
   /**
-   * Flush buffered changes to the server
+   * Flush buffered changes to the server (Socket.IO or Convex)
    */
-  private flushChanges(): void {
+  private async flushChanges(): Promise<void> {
     if (this.changeBuffer.size === 0) {
       return;
     }
@@ -137,11 +146,25 @@ export class FileSystemWatcher {
     logger.info(`[FS_WATCHER] Flushing ${changes.length} filesystem changes`, {
       taskId: this.taskId,
       changes: changes.map((c) => `${c.type}:${c.path}`),
+      mode: this.useConvexNative ? 'Convex-native' : 'Socket.IO',
     });
 
     // Send each change to the server
     for (const change of changes) {
-      this.socketClient.emitFileSystemChange(change);
+      if (this.useConvexNative) {
+        // Convex-native mode: write directly to Convex
+        try {
+          await recordFileChange(change);
+        } catch (error) {
+          logger.error(`[FS_WATCHER] Failed to record file change via Convex`, {
+            error: error instanceof Error ? error.message : String(error),
+            change,
+          });
+        }
+      } else if (this.socketClient) {
+        // Legacy Socket.IO mode
+        this.socketClient.emitFileSystemChange(change);
+      }
     }
   }
 

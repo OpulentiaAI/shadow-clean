@@ -35,14 +35,15 @@
     "schema": "packages/db/prisma/schema.prisma"
   },
   "devDependencies": {
-    "@convex-dev/agent": "0.3.2",
-    "@openrouter/ai-sdk-provider": "^0.7.3",
+    "@convex-dev/agent": "^0.3.2",
     "@next/swc-wasm-nodejs": "^15.4.6",
-    "openai": "^4.28.0",
-    "convex-helpers": "^0.1.104",
+    "@openrouter/ai-sdk-provider": "^0.7.3",
     "ai": "5.0.82",
     "convex": "1.30.0",
+    "convex-helpers": "^0.1.104",
+    "openai": "^4.28.0",
     "prettier": "^3.6.2",
+    "puppeteer": "^24.32.1",
     "turbo": "^2.6.1",
     "typescript": "5.8.3"
   },

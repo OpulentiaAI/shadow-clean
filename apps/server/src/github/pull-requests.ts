@@ -1,6 +1,12 @@
-import { prisma } from "@repo/db";
 import { GitHubApiClient } from "./github-api";
 import type { PRMetadata, CreatePROptions, PROperationResult } from "./types";
+import {
+  getTask,
+  updateTask,
+  createPRSnapshot,
+  getLatestPRSnapshotByTask,
+  toConvexId,
+} from "../lib/convex-operations";
 
 export class PRService {
   private apiClient: GitHubApiClient;
@@ -31,24 +37,22 @@ export class PRService {
         options.userId
       );
 
-      // Update task with PR number
-      await prisma.task.update({
-        where: { id: options.taskId },
-        data: { pullRequestNumber: result.number },
+      // Update task with PR number via Convex
+      await updateTask({
+        taskId: toConvexId<"tasks">(options.taskId),
+        pullRequestNumber: result.number,
       });
 
-      // Create snapshot record
-      await prisma.pullRequestSnapshot.create({
-        data: {
-          messageId: options.messageId,
-          status: "CREATED",
-          title: metadata.title,
-          description: metadata.description,
-          filesChanged: result.changed_files,
-          linesAdded: result.additions,
-          linesRemoved: result.deletions,
-          commitSha,
-        },
+      // Create snapshot record via Convex
+      await createPRSnapshot({
+        messageId: toConvexId<"chatMessages">(options.messageId),
+        status: "CREATED",
+        title: metadata.title,
+        description: metadata.description,
+        filesChanged: result.changed_files,
+        linesAdded: result.additions,
+        linesRemoved: result.deletions,
+        commitSha,
       });
 
       console.log(
@@ -96,28 +100,21 @@ export class PRService {
         options.userId
       );
 
-      // Get title from most recent snapshot
-      const latestSnapshot = await prisma.pullRequestSnapshot.findFirst({
-        where: {
-          message: {
-            taskId: options.taskId,
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
+      // Get title from most recent snapshot via Convex
+      const latestSnapshot = await getLatestPRSnapshotByTask(
+        toConvexId<"tasks">(options.taskId)
+      );
 
-      // Create new snapshot record
-      await prisma.pullRequestSnapshot.create({
-        data: {
-          messageId: options.messageId,
-          status: "UPDATED",
-          title: latestSnapshot?.title || options.taskTitle,
-          description: newDescription,
-          filesChanged: prStats.changed_files,
-          linesAdded: prStats.additions,
-          linesRemoved: prStats.deletions,
-          commitSha,
-        },
+      // Create new snapshot record via Convex
+      await createPRSnapshot({
+        messageId: toConvexId<"chatMessages">(options.messageId),
+        status: "UPDATED",
+        title: latestSnapshot?.title || options.taskTitle,
+        description: newDescription,
+        filesChanged: prStats.changed_files,
+        linesAdded: prStats.additions,
+        linesRemoved: prStats.deletions,
+        commitSha,
       });
 
       console.log(
@@ -144,10 +141,8 @@ export class PRService {
    * Check if a task already has a PR
    */
   async getExistingPRNumber(taskId: string): Promise<number | null> {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-    });
-
+    // Get task via Convex
+    const task = await getTask(toConvexId<"tasks">(taskId));
     return task?.pullRequestNumber || null;
   }
 
@@ -155,13 +150,7 @@ export class PRService {
    * Get the most recent PR snapshot for a task
    */
   async getLatestSnapshot(taskId: string) {
-    return await prisma.pullRequestSnapshot.findFirst({
-      where: {
-        message: {
-          taskId,
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    // Get latest snapshot via Convex
+    return await getLatestPRSnapshotByTask(toConvexId<"tasks">(taskId));
   }
 }

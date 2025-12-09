@@ -170,7 +170,7 @@ export class RepositoryService {
       }
 
       // Get repo info to check size limits
-      let repoInfo = null;
+      let repoInfo: Awaited<ReturnType<typeof this.apiClient.getRepoInfo>> | null = null;
       try {
         repoInfo = await this.apiClient.getRepoInfo(repoFullName, userId);
 

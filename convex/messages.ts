@@ -327,10 +327,9 @@ export const byTask = query({
           .query("pullRequestSnapshots")
           .withIndex("by_message", (q) => q.eq("messageId", msg._id))
           .first();
-        let stackedTask = null;
-        if (msg.stackedTaskId) {
-          stackedTask = await ctx.db.get(msg.stackedTaskId);
-        }
+        const stackedTask = msg.stackedTaskId
+          ? await ctx.db.get(msg.stackedTaskId)
+          : null;
         return {
           ...msg,
           pullRequestSnapshot,

@@ -1,7 +1,6 @@
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { z } from "zod";
-import { prisma, TodoStatus, MemoryCategory } from "@repo/db";
 import { tool } from "ai";
 import {
   TodoWriteParamsSchema,
@@ -18,7 +17,7 @@ import {
 } from "@repo/types";
 import { createToolExecutor, isLocalMode } from "../../execution";
 import { LocalFileSystemWatcher } from "../../services/local-filesystem-watcher";
-import { emitTerminalOutput, emitStreamChunk } from "../../socket";
+import { emitTerminalOutput, emitStreamChunk, emitToolCallUpdate } from "../../socket";
 import { isIndexingComplete } from "../../initialization/background-indexing";
 import type { TerminalEntry } from "@repo/types";
 import { MCPManager } from "../mcp/mcp-manager";
@@ -27,6 +26,22 @@ import {
   type MCPToolMeta,
   type MCPToolWrapper,
 } from "@repo/types";
+import {
+  getTask,
+  listTodosByTask,
+  createTodo,
+  updateTodo,
+  deleteTodosByTask,
+  createMemory,
+  listMemoriesByUserRepo,
+  deleteMemory,
+  getMemory,
+  toConvexId,
+  logToolCallRequest,
+  markToolCallRunning,
+  logToolCallResult,
+} from "../../lib/convex-operations";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 
 const MAX_CONTEXT7_TOKENS = 4000;
 
@@ -40,6 +55,7 @@ const activeMCPManagers = new Map<string, MCPManager>();
 
 /**
  * Create a type-safe MCP tool wrapper for AI SDK compatibility
+ * Now includes tool call logging to Convex toolCalls table
  */
 function createMCPToolWrapper(
   originalName: string,
@@ -47,7 +63,8 @@ function createMCPToolWrapper(
     execute: (params: Record<string, unknown>) => Promise<unknown>;
     description: string;
     parameters: unknown;
-  }
+  },
+  taskId: string
 ): MCPToolWrapper {
   const transformedName = transformMCPToolName(originalName);
   const [serverName, toolName] = originalName.includes(":")
@@ -66,7 +83,7 @@ function createMCPToolWrapper(
 
   return {
     ...mcpTool,
-    execute: async (params: Record<string, unknown>) => {
+    execute: async (params: Record<string, unknown>, metadata?: unknown) => {
       console.log(
         `[MCP_TOOL] Executing ${originalName} (transformed from ${transformedName})`
       );
@@ -84,12 +101,21 @@ function createMCPToolWrapper(
         }
       }
 
-      try {
-        return await mcpTool.execute(modifiedParams);
-      } catch (error) {
-        console.error(`[MCP_TOOL] Error executing ${originalName}:`, error);
-        throw error;
-      }
+      // Wrap MCP tool execution with Convex tool logging
+      return withToolLogging(
+        taskId,
+        `mcp:${originalName}`, // Prefix with mcp: to distinguish from native tools
+        modifiedParams,
+        metadata,
+        async () => {
+          try {
+            return await mcpTool.execute(modifiedParams);
+          } catch (error) {
+            console.error(`[MCP_TOOL] Error executing ${originalName}:`, error);
+            throw error;
+          }
+        }
+      );
     },
     meta,
   };
@@ -155,6 +181,172 @@ function readDescription(toolName: string): string {
   return readFileSync(descriptionPath, "utf-8").trim();
 }
 
+const TODO_STATUS_MAP = {
+  pending: "PENDING",
+  in_progress: "IN_PROGRESS",
+  completed: "COMPLETED",
+  cancelled: "CANCELLED",
+} as const;
+
+type TodoStatusKey = keyof typeof TODO_STATUS_MAP;
+type ConvexTodoStatus = (typeof TODO_STATUS_MAP)[TodoStatusKey];
+
+type MemoryCategoryValue =
+  | "INFRA"
+  | "SETUP"
+  | "STYLES"
+  | "ARCHITECTURE"
+  | "TESTING"
+  | "PATTERNS"
+  | "BUGS"
+  | "PERFORMANCE"
+  | "CONFIG"
+  | "GENERAL";
+
+function toConvexTodoStatus(status: string): ConvexTodoStatus {
+  const key = status as TodoStatusKey;
+  return TODO_STATUS_MAP[key] ?? "PENDING";
+}
+
+function getMessageId(metadata: unknown): string | undefined {
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    "messageId" in metadata &&
+    typeof (metadata as { messageId?: unknown }).messageId === "string"
+  ) {
+    const id = (metadata as { messageId: string }).messageId;
+    // Return undefined for invalid IDs to skip messageId association
+    if (id && id !== "unknown-message" && id.length > 0) {
+      return id;
+    }
+  }
+  return undefined;
+}
+
+async function startToolLogging({
+  taskId,
+  toolName,
+  args,
+  metadata,
+}: {
+  taskId: string;
+  toolName: string;
+  args: unknown;
+  metadata: unknown;
+}) {
+  const messageId = getMessageId(metadata);
+  const toolCallExternalId = `${taskId}-${toolName}-${Date.now()}`;
+  const argsJson = JSON.stringify(args);
+  const startedAt = Date.now();
+
+  const request = await logToolCallRequest({
+    taskId: toConvexId<"tasks">(taskId),
+    // Only pass messageId if it's a valid Convex ID
+    ...(messageId ? { messageId: toConvexId<"chatMessages">(messageId) } : {}),
+    toolCallId: toolCallExternalId,
+    toolName,
+    argsJson,
+  });
+  await markToolCallRunning(request.toolCallId);
+
+  // Emit tool-call-update event for RUNNING status
+  emitToolCallUpdate(taskId, {
+    taskId,
+    toolCallId: request.toolCallId as string,
+    toolName,
+    status: "RUNNING",
+    argsJson,
+    startedAt,
+  });
+
+  return {
+    messageId,
+    toolCallId: request.toolCallId,
+    externalId: toolCallExternalId,
+  };
+}
+
+async function finishToolLogging(params: {
+  taskId: string;
+  toolCallId: ReturnType<typeof toConvexId<"toolCalls">>;
+  toolName: string;
+  status: "SUCCEEDED" | "FAILED";
+  result?: unknown;
+  error?: string;
+}) {
+  const { taskId, toolCallId, toolName, status, result, error } = params;
+  const resultJson = result !== undefined ? JSON.stringify(result) : undefined;
+  const completedAt = Date.now();
+
+  await logToolCallResult({
+    toolCallId,
+    status,
+    resultJson,
+    error,
+  });
+
+  // Emit dedicated tool-call-update event
+  emitToolCallUpdate(taskId, {
+    taskId,
+    toolCallId: toolCallId as string,
+    toolName,
+    status,
+    resultJson,
+    error,
+    completedAt,
+  });
+
+  // Also emit via stream-chunk for backwards compatibility
+  emitStreamChunk(
+    {
+      type: "tool-call-update",
+      toolCallUpdate: {
+        toolCallId: toolCallId as string,
+        status,
+        result,
+        error,
+      },
+    },
+    taskId
+  );
+}
+
+async function withToolLogging<T>(
+  taskId: string,
+  toolName: string,
+  args: unknown,
+  metadata: unknown,
+  fn: () => Promise<T>
+): Promise<T> {
+  const logging = await startToolLogging({
+    taskId,
+    toolName,
+    args,
+    metadata,
+  });
+  try {
+    const result = await fn();
+    await finishToolLogging({
+      taskId,
+      toolCallId: logging.toolCallId,
+      toolName,
+      status: "SUCCEEDED",
+      result,
+    });
+    return result;
+  } catch (error) {
+    await finishToolLogging({
+      taskId,
+      toolCallId: logging.toolCallId,
+      toolName,
+      status: "FAILED",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+    throw error;
+  }
+}
+
 // Factory function to create tools with task context using abstraction layer
 export async function createTools(taskId: string, workspacePath?: string) {
   console.log(
@@ -211,10 +403,7 @@ export async function createTools(taskId: string, workspacePath?: string) {
   // Check if semantic search should be available
   let includeSemanticSearch = false;
   try {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { repoUrl: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (task) {
       const repoMatch = task.repoUrl.match(/github\.com\/([^/]+\/[^/]+)/);
@@ -236,261 +425,365 @@ export async function createTools(taskId: string, workspacePath?: string) {
   const baseTools = {
     todo_write: tool({
       description: readDescription("todo_write"),
-      parameters: TodoWriteParamsSchema,
-      execute: async ({ merge, todos, explanation }) => {
-        try {
-          console.log(`[TODO_WRITE] ${explanation}`);
+      inputSchema: TodoWriteParamsSchema,
+      execute: async ({ merge, todos, explanation }, metadata) => {
+        console.log(`[TODO_WRITE] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "todo_write",
+          { merge, todos },
+          metadata,
+          async () => {
+            const convexTaskId = toConvexId<"tasks">(taskId);
 
-          if (!merge) {
-            // Replace: delete existing todos for this task
-            await prisma.todo.deleteMany({
-              where: { taskId },
-            });
-          }
+            // Load existing todos when merging; otherwise start from scratch
+            let existingTodos = merge
+              ? await listTodosByTask(convexTaskId)
+              : [];
 
-          // Process todos in order
-          const results = [];
-          for (let i = 0; i < todos.length; i++) {
-            const todo = todos[i];
-            if (!todo) continue; // Skip undefined items
-
-            // Check if todo exists (by id within the task)
-            const existingTodo = await prisma.todo.findFirst({
-              where: {
-                taskId,
-                id: todo.id,
-              },
-            });
-
-            if (existingTodo) {
-              // Update existing todo
-              await prisma.todo.update({
-                where: { taskId_id: { taskId, id: todo.id } },
-                data: {
-                  content: todo.content,
-                  status: todo.status.toUpperCase() as TodoStatus,
-                  sequence: i,
-                },
-              });
-              results.push({
-                action: "updated",
-                id: todo.id,
-                content: todo.content,
-                status: todo.status,
-              });
-            } else {
-              // Create new todo
-              await prisma.todo.create({
-                data: {
-                  id: todo.id,
-                  content: todo.content,
-                  status: todo.status.toUpperCase() as TodoStatus,
-                  sequence: i,
-                  taskId,
-                },
-              });
-              results.push({
-                action: "created",
-                id: todo.id,
-                content: todo.content,
-                status: todo.status,
-              });
+            if (!merge) {
+              await deleteTodosByTask(convexTaskId);
+              existingTodos = [];
             }
-          }
 
-          const totalTodos = merge
-            ? await prisma.todo.count({ where: { taskId } })
-            : todos.length;
-          const completedTodos = merge
-            ? await prisma.todo.count({
-                where: {
-                  taskId,
-                  status: "COMPLETED",
-                },
-              })
-            : todos.filter((t) => t.status === "completed").length;
+            // Process todos in order
+            const results: Array<{
+              action: string;
+              id: string;
+              content: string;
+              status: string;
+            }> = [];
 
-          const summary = `${merge ? "Merged" : "Replaced"} todos: ${results
-            .map((r) => `${r.action} "${r.content}" (${r.status})`)
-            .join(", ")}`;
+            for (let i = 0; i < todos.length; i++) {
+              const todo = todos[i];
+              if (!todo) continue; // Skip undefined items
 
-          // Emit WebSocket event for real-time todo updates
-          emitStreamChunk(
-            {
-              type: "todo-update",
-              todoUpdate: {
-                todos: todos.map((todo, index: number) => ({
+              const status = toConvexTodoStatus(todo.status);
+              const existing = merge ? existingTodos[i] : undefined;
+
+              if (merge && existing) {
+                await updateTodo({
+                  todoId: existing._id as Id<"todos">,
+                  content: todo.content,
+                  status,
+                  sequence: i,
+                });
+                results.push({
+                  action: "updated",
                   id: todo.id,
                   content: todo.content,
-                  status: todo.status as
-                    | "pending"
-                    | "in_progress"
-                    | "completed"
-                    | "cancelled",
-                  sequence: index,
-                })),
-                action: merge ? "updated" : "replaced",
-                totalTodos,
-                completedTodos,
-              },
-            },
-            taskId
-          );
+                  status: todo.status,
+                });
+              } else {
+                await createTodo({
+                  taskId: convexTaskId,
+                  content: todo.content,
+                  status,
+                  sequence: i,
+                });
+                results.push({
+                  action: "created",
+                  id: todo.id,
+                  content: todo.content,
+                  status: todo.status,
+                });
+              }
+            }
 
-          return {
-            success: true,
-            message: summary,
-            todos: results,
-            count: results.length,
-            totalTodos,
-            completedTodos,
-          };
-        } catch (error) {
-          console.error(`[TODO_WRITE_ERROR]`, error);
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
-            message: "Failed to manage todos",
-          };
-        }
+            const updatedTodos = await listTodosByTask(convexTaskId);
+            const totalTodos = updatedTodos.length;
+            const completedTodos = updatedTodos.filter(
+              (t) => t.status === "COMPLETED"
+            ).length;
+
+            const summary = `${merge ? "Merged" : "Replaced"} todos: ${results
+              .map((r) => `${r.action} "${r.content}" (${r.status})`)
+              .join(", ")}`;
+
+            // Emit WebSocket event for real-time todo updates
+            emitStreamChunk(
+              {
+                type: "todo-update",
+                todoUpdate: {
+                  todos: todos.map((todo, index: number) => ({
+                    id: todo.id,
+                    content: todo.content,
+                    status: todo.status as
+                      | "pending"
+                      | "in_progress"
+                      | "completed"
+                      | "cancelled",
+                    sequence: index,
+                  })),
+                  action: merge ? "updated" : "replaced",
+                  totalTodos,
+                  completedTodos,
+                },
+              },
+              taskId
+            );
+
+            return {
+              success: true,
+              message: summary,
+              todos: results,
+              count: results.length,
+              totalTodos,
+              completedTodos,
+            };
+          }
+        );
       },
     }),
 
     read_file: tool({
       description: readDescription("read_file"),
-      parameters: ReadFileParamsSchema,
-      execute: async ({
-        target_file,
-        should_read_entire_file,
-        start_line_one_indexed,
-        end_line_one_indexed_inclusive,
-        explanation,
-      }) => {
+      inputSchema: ReadFileParamsSchema,
+      execute: async (
+        {
+          target_file,
+          should_read_entire_file,
+          start_line_one_indexed,
+          end_line_one_indexed_inclusive,
+          explanation,
+        },
+        metadata
+      ) => {
         console.log(`[READ_FILE] ${explanation}`);
-        const result = await executor.readFile(target_file, {
-          shouldReadEntireFile: should_read_entire_file,
-          startLineOneIndexed: start_line_one_indexed,
-          endLineOneIndexedInclusive: end_line_one_indexed_inclusive,
+        return withToolLogging(
+          taskId,
+          "read_file",
+          {
+            target_file,
+            should_read_entire_file,
+            start_line_one_indexed,
+            end_line_one_indexed_inclusive,
+          },
+          metadata,
+          async () =>
+            executor.readFile(target_file, {
+              shouldReadEntireFile: should_read_entire_file,
+              startLineOneIndexed: start_line_one_indexed,
+              endLineOneIndexedInclusive: end_line_one_indexed_inclusive,
+            })
+        ).catch((error) => {
+          console.error(`[READ_FILE_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to read file",
+          };
         });
-        return result;
       },
     }),
 
     run_terminal_cmd: tool({
       description: readDescription("run_terminal_cmd"),
-      parameters: RunTerminalCmdParamsSchema,
-      execute: async ({ command, is_background, explanation }) => {
+      inputSchema: RunTerminalCmdParamsSchema,
+      execute: async ({ command, is_background, explanation }, metadata) => {
         console.log(`[TERMINAL_CMD] ${explanation}`);
 
-        // Emit the command being executed to the terminal
-        createAndEmitTerminalEntry(taskId, "command", command);
+        return withToolLogging(
+          taskId,
+          "run_terminal_cmd",
+          { command, is_background },
+          metadata,
+          async () => {
+            // Emit the command being executed to the terminal
+            createAndEmitTerminalEntry(taskId, "command", command);
 
-        const result = await executor.executeCommand(command, {
-          isBackground: is_background,
+            const result = await executor.executeCommand(command, {
+              isBackground: is_background,
+            });
+
+            // Emit stdout output if present
+            if (result.success && result.stdout) {
+              createAndEmitTerminalEntry(taskId, "stdout", result.stdout);
+            }
+
+            // Emit stderr output if present
+            if (result.stderr) {
+              createAndEmitTerminalEntry(taskId, "stderr", result.stderr);
+            }
+
+            return result;
+          }
+        ).catch((error) => {
+          console.error(`[TERMINAL_CMD_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to execute terminal command",
+          };
         });
-
-        // Emit stdout output if present
-        if (result.success && result.stdout) {
-          createAndEmitTerminalEntry(taskId, "stdout", result.stdout);
-        }
-
-        // Emit stderr output if present
-        if (result.stderr) {
-          createAndEmitTerminalEntry(taskId, "stderr", result.stderr);
-        }
-
-        return result;
       },
     }),
 
     list_dir: tool({
       description: readDescription("list_dir"),
-      parameters: ListDirParamsSchema,
-      execute: async ({ relative_workspace_path, explanation }) => {
+      inputSchema: ListDirParamsSchema,
+      execute: async ({ relative_workspace_path, explanation }, metadata) => {
         console.log(`[LIST_DIR] ${explanation}`);
-        const result = await executor.listDirectory(relative_workspace_path);
-        return result;
+        try {
+          return await withToolLogging(
+            taskId,
+            "list_dir",
+            { relative_workspace_path },
+            metadata,
+            async () => executor.listDirectory(relative_workspace_path)
+          );
+        } catch (error) {
+          console.error(`[LIST_DIR_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to list directory",
+          };
+        }
       },
     }),
 
     grep_search: tool({
       description: readDescription("grep_search"),
-      parameters: GrepSearchParamsSchema,
+      inputSchema: GrepSearchParamsSchema,
       execute: async ({
         query,
         include_pattern,
         exclude_pattern,
         case_sensitive = false,
         explanation,
-      }) => {
+      },
+      metadata
+    ) => {
         console.log(`[GREP_SEARCH] ${explanation}`);
-        const result = await executor.grepSearch(query, {
-          includePattern: include_pattern,
-          excludePattern: exclude_pattern,
-          caseSensitive: case_sensitive,
-        });
-        return result;
+        try {
+          return await withToolLogging(
+            taskId,
+            "grep_search",
+            { query, include_pattern, exclude_pattern, case_sensitive },
+            metadata,
+            async () =>
+              executor.grepSearch(query, {
+                includePattern: include_pattern,
+                excludePattern: exclude_pattern,
+                caseSensitive: case_sensitive,
+              })
+          );
+        } catch (error) {
+          console.error(`[GREP_SEARCH_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to search",
+          };
+        }
       },
     }),
 
     edit_file: tool({
       description: readDescription("edit_file"),
-      parameters: EditFileParamsSchema,
-      execute: async ({
-        target_file,
-        instructions,
-        code_edit,
-        is_new_file,
-      }) => {
+      inputSchema: EditFileParamsSchema,
+      execute: async (
+        { target_file, instructions, code_edit, is_new_file },
+        metadata
+      ) => {
         console.log(`[EDIT_FILE] ${instructions}`);
-        const result = await executor.writeFile(
-          target_file,
-          code_edit,
-          instructions,
-          is_new_file
-        );
-        return result;
+        return withToolLogging(
+          taskId,
+          "edit_file",
+          { target_file, instructions, code_edit, is_new_file },
+          metadata,
+          async () =>
+            executor.writeFile(
+              target_file,
+              code_edit,
+              instructions,
+              is_new_file
+            )
+        ).catch((error) => {
+          console.error(`[EDIT_FILE_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to edit file",
+          };
+        });
       },
     }),
 
     search_replace: tool({
       description: readDescription("search_replace"),
-      parameters: SearchReplaceParamsSchema,
-      execute: async ({ file_path, old_string, new_string, is_new_file }) => {
+      inputSchema: SearchReplaceParamsSchema,
+      execute: async (
+        { file_path, old_string, new_string, is_new_file },
+        metadata
+      ) => {
         console.log(`[SEARCH_REPLACE] Replacing text in ${file_path}`);
-        const result = await executor.searchReplace(
-          file_path,
-          old_string,
-          new_string,
-          is_new_file
-        );
-        return result;
+        return withToolLogging(
+          taskId,
+          "search_replace",
+          { file_path, old_string, new_string, is_new_file },
+          metadata,
+          async () =>
+            executor.searchReplace(file_path, old_string, new_string, is_new_file)
+        ).catch((error) => {
+          console.error(`[SEARCH_REPLACE_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to search/replace",
+          };
+        });
       },
     }),
 
     file_search: tool({
       description: readDescription("file_search"),
-      parameters: FileSearchParamsSchema,
-      execute: async ({ query, explanation }) => {
+      inputSchema: FileSearchParamsSchema,
+      execute: async ({ query, explanation }, metadata) => {
         console.log(`[FILE_SEARCH] ${explanation}`);
-        const result = await executor.searchFiles(query);
-        return result;
+        return withToolLogging(
+          taskId,
+          "file_search",
+          { query },
+          metadata,
+          async () => executor.searchFiles(query)
+        ).catch((error) => {
+          console.error(`[FILE_SEARCH_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to search files",
+          };
+        });
       },
     }),
 
     delete_file: tool({
       description: readDescription("delete_file"),
-      parameters: DeleteFileParamsSchema,
-      execute: async ({ target_file, explanation }) => {
+      inputSchema: DeleteFileParamsSchema,
+      execute: async ({ target_file, explanation }, metadata) => {
         console.log(`[DELETE_FILE] ${explanation}`);
-        const result = await executor.deleteFile(target_file);
-        return result;
+        return withToolLogging(
+          taskId,
+          "delete_file",
+          { target_file },
+          metadata,
+          async () => executor.deleteFile(target_file)
+        ).catch((error) => {
+          console.error(`[DELETE_FILE_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to delete file",
+          };
+        });
       },
     }),
 
     add_memory: tool({
       description: readDescription("add_memory"),
-      parameters: z.object({
+      inputSchema: z.object({
         content: z.string().describe("Concise memory content to store"),
         category: z
           .enum([
@@ -512,57 +805,59 @@ export async function createTools(taskId: string, workspacePath?: string) {
             "One sentence explanation for why this memory is being added"
           ),
       }),
-      execute: async ({ content, category, explanation }) => {
-        try {
-          console.log(`[ADD_MEMORY] ${explanation}`);
+      execute: async ({ content, category, explanation }, metadata) => {
+        console.log(`[ADD_MEMORY] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "add_memory",
+          { content, category },
+          metadata,
+          async () => {
+            // Get task info for repository context
+            const task = await getTask(toConvexId<"tasks">(taskId));
 
-          // Get task info for repository context
-          const task = await prisma.task.findUnique({
-            where: { id: taskId },
-            select: { repoFullName: true, repoUrl: true, userId: true },
-          });
+            if (!task) {
+              throw new Error(`Task ${taskId} not found`);
+            }
 
-          if (!task) {
-            throw new Error(`Task ${taskId} not found`);
-          }
-
-          // Create repository-specific memory
-          const memory = await prisma.memory.create({
-            data: {
+            // Create repository-specific memory
+            const result = await createMemory({
               content,
-              category: category as MemoryCategory,
+              category: category as MemoryCategoryValue,
               repoFullName: task.repoFullName,
               repoUrl: task.repoUrl,
               userId: task.userId,
-              taskId,
-            },
-          });
+              taskId: toConvexId<"tasks">(taskId),
+            });
+            const memoryDoc = await getMemory(result.memoryId as Id<"memories">);
 
-          return {
-            success: true,
-            memory: {
-              id: memory.id,
-              content: memory.content,
-              category: memory.category,
-              repoFullName: memory.repoFullName,
-              createdAt: memory.createdAt,
-            },
-            message: `Added repository memory: ${content}`,
-          };
-        } catch (error) {
+            return {
+              success: true,
+              memory: {
+                id: (memoryDoc?._id || result.memoryId) as string,
+                content: memoryDoc?.content ?? content,
+                category: (memoryDoc?.category ??
+                  (category as MemoryCategoryValue)) as MemoryCategoryValue,
+                repoFullName: memoryDoc?.repoFullName ?? task.repoFullName,
+                createdAt: memoryDoc?.createdAt ?? Date.now(),
+              },
+              message: `Added repository memory: ${content}`,
+            };
+          }
+        ).catch((error) => {
           console.error(`[ADD_MEMORY_ERROR]`, error);
           return {
             success: false,
             error: error instanceof Error ? error.message : "Unknown error",
             message: "Failed to add memory",
           };
-        }
+        });
       },
     }),
 
     list_memories: tool({
       description: readDescription("list_memories"),
-      parameters: z.object({
+      inputSchema: z.object({
         category: z
           .enum([
             "INFRA",
@@ -584,80 +879,67 @@ export async function createTools(taskId: string, workspacePath?: string) {
             "One sentence explanation for why memories are being listed"
           ),
       }),
-      execute: async ({ category, explanation }) => {
-        try {
-          console.log(`[LIST_MEMORIES] ${explanation}`);
+      execute: async ({ category, explanation }, metadata) => {
+        console.log(`[LIST_MEMORIES] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "list_memories",
+          { category },
+          metadata,
+          async () => {
+            // Get task info
+            const task = await getTask(toConvexId<"tasks">(taskId));
 
-          // Get task info
-          const task = await prisma.task.findUnique({
-            where: { id: taskId },
-            select: { repoFullName: true, userId: true },
-          });
+            if (!task) {
+              throw new Error(`Task ${taskId} not found`);
+            }
 
-          if (!task) {
-            throw new Error(`Task ${taskId} not found`);
+            const memories = await listMemoriesByUserRepo(
+              task.userId,
+              task.repoFullName
+            );
+
+            const filteredMemories = category
+              ? memories.filter(
+                  (memory) =>
+                    memory.category === (category as MemoryCategoryValue)
+                )
+              : memories;
+
+            // Group by category for better organization
+            const memoriesByCategory = filteredMemories.reduce(
+              (acc, memory) => {
+                if (!acc[memory.category]) {
+                  acc[memory.category] = [];
+                }
+                acc[memory.category]!.push(memory);
+                return acc;
+              },
+              {} as Record<string, typeof memories>
+            );
+
+            return {
+              success: true,
+              memories: filteredMemories,
+              memoriesByCategory,
+              totalCount: filteredMemories.length,
+              message: `Found ${filteredMemories.length} memories`,
+            };
           }
-
-          // Build filter conditions
-          const whereConditions: {
-            userId: string;
-            repoFullName: string;
-            category?: MemoryCategory;
-          } = {
-            userId: task.userId,
-            repoFullName: task.repoFullName,
-          };
-
-          if (category) {
-            whereConditions.category = category as MemoryCategory;
-          }
-
-          // Get memories
-          const memories = await prisma.memory.findMany({
-            where: whereConditions,
-            orderBy: [{ category: "asc" }, { createdAt: "desc" }],
-            select: {
-              id: true,
-              content: true,
-              category: true,
-              repoFullName: true,
-              createdAt: true,
-            },
-          });
-
-          // Group by category for better organization
-          const memoriesByCategory = memories.reduce(
-            (acc, memory) => {
-              if (!acc[memory.category]) {
-                acc[memory.category] = [];
-              }
-              acc[memory.category]!.push(memory);
-              return acc;
-            },
-            {} as Record<string, typeof memories>
-          );
-
-          return {
-            success: true,
-            memories,
-            memoriesByCategory,
-            totalCount: memories.length,
-            message: `Found ${memories.length} memories`,
-          };
-        } catch (error) {
+        ).catch((error) => {
           console.error(`[LIST_MEMORIES_ERROR]`, error);
           return {
             success: false,
             error: error instanceof Error ? error.message : "Unknown error",
             message: "Failed to list memories",
           };
-        }
+        });
       },
     }),
 
     remove_memory: tool({
       description: readDescription("remove_memory"),
-      parameters: z.object({
+      inputSchema: z.object({
         memoryId: z.string().describe("ID of the memory to remove"),
         explanation: z
           .string()
@@ -665,69 +947,76 @@ export async function createTools(taskId: string, workspacePath?: string) {
             "One sentence explanation for why this memory is being removed"
           ),
       }),
-      execute: async ({ memoryId, explanation }) => {
-        try {
-          console.log(`[REMOVE_MEMORY] ${explanation}`);
+      execute: async ({ memoryId, explanation }, metadata) => {
+        console.log(`[REMOVE_MEMORY] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "remove_memory",
+          { memoryId },
+          metadata,
+          async () => {
+            // Get task info
+            const task = await getTask(toConvexId<"tasks">(taskId));
 
-          // Get task info
-          const task = await prisma.task.findUnique({
-            where: { id: taskId },
-            select: { userId: true },
-          });
+            if (!task) {
+              throw new Error(`Task ${taskId} not found`);
+            }
 
-          if (!task) {
-            throw new Error(`Task ${taskId} not found`);
-          }
+            // Get memory to verify ownership
+            const memory = await getMemory(toConvexId<"memories">(memoryId));
 
-          // Get memory to verify ownership
-          const memory = await prisma.memory.findFirst({
-            where: {
-              id: memoryId,
-              userId: task.userId,
-            },
-          });
+            if (!memory || memory.userId !== task.userId) {
+              return {
+                success: false,
+                error: "Memory not found or access denied",
+                message:
+                  "Cannot remove memory that doesn't exist or belong to you",
+              };
+            }
 
-          if (!memory) {
+            // Delete the memory
+            await deleteMemory(memory._id as Id<"memories">);
+
             return {
-              success: false,
-              error: "Memory not found or access denied",
-              message:
-                "Cannot remove memory that doesn't exist or belong to you",
+              success: true,
+              removedMemory: {
+                id: memory._id as string,
+                content: memory.content,
+                category: memory.category,
+              },
+              message: `Removed memory: ${memory.content}`,
             };
           }
-
-          // Delete the memory
-          await prisma.memory.delete({
-            where: { id: memoryId },
-          });
-
-          return {
-            success: true,
-            removedMemory: {
-              id: memory.id,
-              content: memory.content,
-              category: memory.category,
-            },
-            message: `Removed memory: ${memory.content}`,
-          };
-        } catch (error) {
+        ).catch((error) => {
           console.error(`[REMOVE_MEMORY_ERROR]`, error);
           return {
             success: false,
             error: error instanceof Error ? error.message : "Unknown error",
             message: "Failed to remove memory",
           };
-        }
+        });
       },
     }),
 
     warp_grep: tool({
       description: readDescription("warp_grep"),
-      parameters: WarpGrepParamsSchema,
-      execute: async ({ query, explanation }) => {
+      inputSchema: WarpGrepParamsSchema,
+      execute: async ({ query, explanation }, metadata) => {
         console.log(`[WARP_GREP] ${explanation}`);
-        const result = await executor.warpGrep(query);
-        return result;
+        return withToolLogging(
+          taskId,
+          "warp_grep",
+          { query },
+          metadata,
+          async () => executor.warpGrep(query)
+        ).catch((error) => {
+          console.error(`[WARP_GREP_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to execute warp_grep",
+          };
+        });
       },
     }),
   };
@@ -752,7 +1041,8 @@ export async function createTools(taskId: string, workspacePath?: string) {
             execute: (params: Record<string, unknown>) => Promise<unknown>;
             description: string;
             parameters: unknown;
-          }
+          },
+          taskId
         );
 
         mcpTools[transformedName] = wrappedTool;
@@ -776,65 +1066,82 @@ export async function createTools(taskId: string, workspacePath?: string) {
       ...baseTools,
       semantic_search: tool({
         description: readDescription("semantic_search"),
-        parameters: SemanticSearchParamsSchema,
-        execute: async ({ query, explanation }) => {
+        inputSchema: SemanticSearchParamsSchema,
+        execute: async ({ query, explanation }, metadata) => {
           console.log(`[SEMANTIC_SEARCH] ${explanation}`);
 
-          const task = await prisma.task.findUnique({
-            where: { id: taskId },
-            select: { repoUrl: true },
-          });
+          try {
+            return await withToolLogging(
+              taskId,
+              "semantic_search",
+              { query },
+              metadata,
+              async () => {
+                const task = await getTask(toConvexId<"tasks">(taskId));
 
-          if (!task) {
-            throw new Error(`Task ${taskId} not found`);
-          }
+                if (!task) {
+                  throw new Error(`Task ${taskId} not found`);
+                }
 
-          // eslint-disable-next-line no-useless-escape
-          const repoMatch = task.repoUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
-          const repo = repoMatch ? repoMatch[1] : task.repoUrl;
-          if (!repo) {
-            console.warn(
-              `[SEMANTIC_SEARCH] No repo found for task ${taskId}, falling back to grep_search`
+                // eslint-disable-next-line no-useless-escape
+                const repoMatch = task.repoUrl.match(/github\.com\/([^\/]+\/[^\/]+)/);
+                const repo = repoMatch ? repoMatch[1] : task.repoUrl;
+                if (!repo) {
+                  console.warn(
+                    `[SEMANTIC_SEARCH] No repo found for task ${taskId}, falling back to grep_search`
+                  );
+                  const grepResult = await executor.grepSearch(query);
+
+                  // Convert GrepResult to SemanticSearchToolResult format
+                  const results =
+                    grepResult.detailedMatches?.map((match, i) => ({
+                      id: i + 1,
+                      content: match.content,
+                      relevance: 0.8,
+                      filePath: match.file,
+                      lineStart: match.lineNumber,
+                      lineEnd: match.lineNumber,
+                      language: "",
+                      kind: "",
+                    })) ||
+                    (grepResult.matches || []).map((match, i) => ({
+                      id: i + 1,
+                      content: match,
+                      relevance: 0.8,
+                      filePath: "",
+                      lineStart: 0,
+                      lineEnd: 0,
+                      language: "",
+                      kind: "",
+                    }));
+
+                  return {
+                    success: grepResult.success,
+                    results,
+                    query: query,
+                    searchTerms: query
+                      .split(/\s+/)
+                      .filter((term) => term.length > 0),
+                    message:
+                      (grepResult.message || "Failed to search") +
+                      " (fallback to grep)",
+                    error: grepResult.error,
+                  };
+                } else {
+                  console.log(`[SEMANTIC_SEARCH] Using repo: ${repo}`);
+                  const result = await executor.semanticSearch(query, repo);
+                  return result;
+                }
+              }
             );
-            const grepResult = await executor.grepSearch(query);
-
-            // Convert GrepResult to SemanticSearchToolResult format
-            const results =
-              grepResult.detailedMatches?.map((match, i) => ({
-                id: i + 1,
-                content: match.content,
-                relevance: 0.8,
-                filePath: match.file,
-                lineStart: match.lineNumber,
-                lineEnd: match.lineNumber,
-                language: "",
-                kind: "",
-              })) ||
-              (grepResult.matches || []).map((match, i) => ({
-                id: i + 1,
-                content: match,
-                relevance: 0.8,
-                filePath: "",
-                lineStart: 0,
-                lineEnd: 0,
-                language: "",
-                kind: "",
-              }));
-
+          } catch (error) {
+            console.error(`[SEMANTIC_SEARCH_ERROR]`, error);
             return {
-              success: grepResult.success,
-              results,
-              query: query,
-              searchTerms: query.split(/\s+/).filter((term) => term.length > 0),
-              message:
-                (grepResult.message || "Failed to search") +
-                " (fallback to grep)",
-              error: grepResult.error,
+              success: false,
+              error: error instanceof Error ? error.message : "Unknown error",
+              results: [],
+              message: "Failed to perform semantic search",
             };
-          } else {
-            console.log(`[SEMANTIC_SEARCH] Using repo: ${repo}`);
-            const result = await executor.semanticSearch(query, repo);
-            return result;
           }
         },
       }),
@@ -927,7 +1234,7 @@ export async function stopAllMCPManagers(): Promise<void> {
  * Get statistics about active filesystem watchers
  */
 export function getFileSystemWatcherStats() {
-  const stats = [];
+  const stats: Array<{ taskId: string; watchedPath: string; isWatching: boolean; isPaused: boolean; pendingChanges: number }> = [];
   for (const [_taskId, watcher] of Array.from(
     activeFileSystemWatchers.entries()
   )) {

@@ -1,6 +1,11 @@
-import { prisma } from "@repo/db";
 import indexRepo from "../indexing/indexer";
 import { IndexRepoOptions } from "@repo/types";
+import {
+  getTask,
+  getRepositoryIndex,
+  upsertRepositoryIndex,
+  toConvexId,
+} from "../lib/convex-operations";
 
 // Global tracking of active indexing operations
 const activeIndexingJobs = new Map<string, Promise<void>>();
@@ -24,10 +29,7 @@ export async function startBackgroundIndexing(
   }
 
   // Get current task's commit SHA for smart duplicate detection
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { baseCommitSha: true }
-  });
+  const task = await getTask(toConvexId<"tasks">(taskId));
 
   if (!task) {
     console.error(`[BACKGROUND_INDEXING] Task ${taskId} not found, proceeding with indexing anyway`);
@@ -35,9 +37,7 @@ export async function startBackgroundIndexing(
 
   // Check if we've already indexed this exact commit (unless forced)
   if (!options.force && task?.baseCommitSha) {
-    const repositoryIndex = await prisma.repositoryIndex.findUnique({
-      where: { repoFullName }
-    });
+    const repositoryIndex = await getRepositoryIndex(repoFullName);
 
     if (repositoryIndex?.lastCommitSha === task.baseCommitSha) {
       console.log(`[BACKGROUND_INDEXING] Repository ${repoFullName} already indexed for commit ${task.baseCommitSha}, skipping`);
@@ -69,18 +69,10 @@ export async function startBackgroundIndexing(
       
       try {
         // Update or create repository index record with commit SHA
-        await prisma.repositoryIndex.upsert({
-          where: { repoFullName },
-          update: { 
-            lastIndexedAt: new Date(),
-            lastCommitSha: task?.baseCommitSha || null,
-          },
-          create: {
-            repoFullName,
-            lastIndexedAt: new Date(),
-            lastCommitSha: task?.baseCommitSha || null,
-          }
-        });
+        await upsertRepositoryIndex(
+          repoFullName,
+          task?.baseCommitSha || undefined
+        );
         if (task?.baseCommitSha) {
           console.log(`[BACKGROUND_INDEXING] Updated repository index for ${repoFullName} with commit ${task.baseCommitSha}`);
         } else {
@@ -110,9 +102,7 @@ export async function isIndexingComplete(repoFullName: string): Promise<boolean>
   }
   
   // Check if we have a completed index in database
-  const repositoryIndex = await prisma.repositoryIndex.findUnique({
-    where: { repoFullName }
-  });
+  const repositoryIndex = await getRepositoryIndex(repoFullName);
   
   return !!repositoryIndex?.lastIndexedAt;
 }

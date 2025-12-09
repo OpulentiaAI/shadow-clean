@@ -13,58 +13,63 @@ import { asConvexId } from "@/lib/convex/id";
 
 function mapTask(doc: any): Task {
   return {
-    id: doc._id,
-    title: doc.title,
-    status: doc.status,
-    repoFullName: doc.repoFullName,
-    repoUrl: doc.repoUrl,
-    isScratchpad: doc.isScratchpad,
+    id: (doc._id ?? "").toString(),
+    title: doc.title ?? "",
+    status: doc.status ?? "INITIALIZING",
+    repoFullName: doc.repoFullName ?? "",
+    repoUrl: doc.repoUrl ?? "",
+    isScratchpad: !!doc.isScratchpad,
     mainModel: doc.mainModel ?? null,
     workspacePath: doc.workspacePath ?? null,
-    initStatus: doc.initStatus,
+    initStatus: doc.initStatus ?? "INACTIVE",
     scheduledCleanupAt: doc.scheduledCleanupAt ?? null,
     initializationError: doc.initializationError ?? null,
     errorMessage: doc.errorMessage ?? null,
     workspaceCleanedUp: doc.workspaceCleanedUp ?? false,
     hasBeenInitialized: doc.hasBeenInitialized ?? false,
-    createdAt: new Date(doc.createdAt),
-    updatedAt: new Date(doc.updatedAt),
-    userId: doc.userId,
-    baseBranch: doc.baseBranch,
-    baseCommitSha: doc.baseCommitSha,
+    createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(0),
+    updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(0),
+    userId: (doc.userId ?? "").toString(),
+    baseBranch: doc.baseBranch ?? "main",
+    baseCommitSha: doc.baseCommitSha ?? "",
     shadowBranch: doc.shadowBranch ?? null,
     pullRequestNumber: doc.pullRequestNumber ?? null,
     githubIssueId: doc.githubIssueId ?? null,
-    codebaseUnderstandingId: doc.codebaseUnderstandingId ?? null,
+    codebaseUnderstandingId: doc.codebaseUnderstandingId
+      ? doc.codebaseUnderstandingId.toString()
+      : null,
   };
 }
 
 function mapTodo(doc: any): Todo {
   return {
-    id: doc._id,
-    content: doc.content,
-    status: doc.status,
-    sequence: doc.sequence,
-    createdAt: new Date(doc.createdAt),
-    updatedAt: new Date(doc.updatedAt),
-    taskId: doc.taskId,
+    id: (doc._id ?? "").toString(),
+    content: doc.content ?? "",
+    status: doc.status ?? "PENDING",
+    sequence: doc.sequence ?? 0,
+    createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(0),
+    updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(0),
+    taskId: (doc.taskId ?? "").toString(),
   };
 }
 
 function mapMessage(doc: any): Message {
   return {
-    id: doc._id,
-    role: doc.role.toLowerCase(),
-    content: doc.content,
+    id: (doc._id ?? "").toString(),
+    role: (doc.role?.toLowerCase?.() ?? "assistant") as
+      | "user"
+      | "assistant"
+      | "system",
+    content: doc.content ?? "",
     llmModel: doc.llmModel ?? "",
     createdAt: new Date(doc.createdAt).toISOString(),
     metadata: doc.metadataJson ? JSON.parse(doc.metadataJson) : undefined,
     pullRequestSnapshot: doc.pullRequestSnapshot ?? undefined,
-    stackedTaskId: doc.stackedTaskId ?? undefined,
+    stackedTaskId: doc.stackedTaskId ? doc.stackedTaskId.toString() : undefined,
     stackedTask: doc.stackedTask
       ? {
-          id: doc.stackedTask.id,
-          title: doc.stackedTask.title,
+          id: doc.stackedTask.id?.toString?.() ?? doc.stackedTask.id,
+          title: doc.stackedTask.title ?? "",
           shadowBranch: doc.stackedTask.shadowBranch ?? undefined,
           status: doc.stackedTask.status ?? undefined,
         }

@@ -1,5 +1,5 @@
 import type { Task, Todo } from "@repo/db";
-import { db } from "@repo/db";
+import { getConvexClient, api } from "../convex/client";
 import { makeBackendRequest } from "../make-backend-request";
 
 export interface FileChange {
@@ -58,17 +58,59 @@ export async function getTaskWithDetails(
   taskId: string
 ): Promise<TaskWithDetails> {
   try {
-    // Fetch all data in parallel for better performance
-    const [task, todos, { fileChanges, diffStats }] = await Promise.all([
-      db.task.findUnique({
-        where: { id: taskId },
-      }),
-      db.todo.findMany({
-        where: { taskId },
-        orderBy: { sequence: "asc" },
-      }),
+    const client = getConvexClient();
+    const convexTaskId = taskId as any;
+
+    const [convexDetails, { fileChanges, diffStats }] = await Promise.all([
+      client.query(api.tasks.getWithDetails, { taskId: convexTaskId }),
       fetchFileChanges(taskId),
     ]);
+
+    const taskDoc = convexDetails?.task;
+    const todosDocs = convexDetails?.todos ?? [];
+
+    const task: Task | null = taskDoc
+      ? ({
+          id: (taskDoc._id ?? "").toString(),
+          title: taskDoc.title ?? "",
+          status: taskDoc.status ?? "INITIALIZING",
+          repoFullName: taskDoc.repoFullName ?? "",
+          repoUrl: taskDoc.repoUrl ?? "",
+          isScratchpad: !!taskDoc.isScratchpad,
+          baseBranch: taskDoc.baseBranch ?? "main",
+          baseCommitSha: taskDoc.baseCommitSha ?? "",
+          shadowBranch: taskDoc.shadowBranch ?? "",
+          mainModel: taskDoc.mainModel ?? null,
+          initStatus: taskDoc.initStatus ?? "INACTIVE",
+          scheduledCleanupAt: taskDoc.scheduledCleanupAt ?? null,
+          initializationError: taskDoc.initializationError ?? null,
+          errorMessage: taskDoc.errorMessage ?? null,
+          workspaceCleanedUp: !!taskDoc.workspaceCleanedUp,
+          hasBeenInitialized: !!taskDoc.hasBeenInitialized,
+          createdAt: taskDoc.createdAt
+            ? new Date(taskDoc.createdAt)
+            : new Date(0),
+          updatedAt: taskDoc.updatedAt
+            ? new Date(taskDoc.updatedAt)
+            : new Date(0),
+          userId: (taskDoc.userId ?? "").toString(),
+          pullRequestNumber: taskDoc.pullRequestNumber ?? null,
+          githubIssueId: taskDoc.githubIssueId ?? null,
+          codebaseUnderstandingId: taskDoc.codebaseUnderstandingId
+            ? taskDoc.codebaseUnderstandingId.toString()
+            : null,
+        } as Task)
+      : null;
+
+    const todos: Todo[] = todosDocs.map((t: any) => ({
+      id: (t._id ?? "").toString(),
+      content: t.content ?? "",
+      status: (t.status as Todo["status"]) ?? "PENDING",
+      sequence: t.sequence ?? 0,
+      taskId: (t.taskId ?? "").toString(),
+      createdAt: t.createdAt ? new Date(t.createdAt) : new Date(0),
+      updatedAt: t.updatedAt ? new Date(t.updatedAt) : new Date(0),
+    }));
 
     return {
       task,

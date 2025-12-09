@@ -23,6 +23,16 @@ export async function createTask(input: {
   return client.mutation(api.tasks.create, input);
 }
 
+export async function initiateTask(input: {
+  taskId: Id<"tasks">;
+  message: string;
+  model: string;
+  userId: Id<"users">;
+}) {
+  const client = getConvexClient();
+  return client.action(api.tasks.initiate, input);
+}
+
 export async function updateTask(input: {
   taskId: Id<"tasks">;
   title?: string;
@@ -390,4 +400,198 @@ export async function agentExplainError(input: {
 }) {
   const client = getConvexClient();
   return client.action(api.agent.explainError, input);
+}
+
+export async function executeTaskWithTools(input: {
+  taskId: Id<"tasks">;
+  message: string;
+  model?: string;
+  threadId?: string;
+}) {
+  const client = getConvexClient();
+  return client.action(api.agent.executeTaskWithTools, input);
+}
+
+export async function streamTaskWithTools(input: {
+  taskId: Id<"tasks">;
+  message: string;
+  model?: string;
+  threadId?: string;
+}) {
+  const client = getConvexClient();
+  return client.action(api.agent.streamTaskWithTools, input);
+}
+
+// File Changes (sidecar Convex-native)
+export async function listFileChanges(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.fileChanges.byTask, { taskId });
+}
+
+export async function listFileChangesSince(taskId: Id<"tasks">, since: number) {
+  const client = getConvexClient();
+  return client.query(api.fileChanges.byTaskSince, { taskId, since });
+}
+
+export async function getFileChangeStats(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.fileChanges.getStats, { taskId });
+}
+
+// Tool Logs (sidecar Convex-native)
+export async function listToolLogs(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.toolLogs.byTask, { taskId });
+}
+
+export async function listRecentToolLogs(taskId: Id<"tasks">, limit?: number) {
+  const client = getConvexClient();
+  return client.query(api.toolLogs.recentByTask, { taskId, limit });
+}
+
+export async function listRunningToolLogs(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.toolLogs.runningByTask, { taskId });
+}
+
+export async function getToolLogStats(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.toolLogs.getStats, { taskId });
+}
+
+// Terminal Output (sidecar Convex-native)
+export async function listTerminalOutputByTask(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.terminalOutput.byTask, { taskId });
+}
+
+export async function listTerminalOutputByCommand(commandId: string) {
+  const client = getConvexClient();
+  return client.query(api.terminalOutput.byCommand, { commandId });
+}
+
+export async function getCombinedTerminalOutput(commandId: string) {
+  const client = getConvexClient();
+  return client.query(api.terminalOutput.getCombinedOutput, { commandId });
+}
+
+// Workspace Status
+export async function getWorkspaceStatus(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.tasks.getWorkspaceStatus, { taskId });
+}
+
+// Streaming Actions (Phase 2)
+export async function streamChat(input: {
+  taskId: Id<"tasks">;
+  prompt: string;
+  model: string;
+  systemPrompt?: string;
+  llmModel?: string;
+  apiKeys: {
+    anthropic?: string;
+    openai?: string;
+    openrouter?: string;
+  };
+}) {
+  const client = getConvexClient();
+  return client.action(api.streaming.streamChat, input);
+}
+
+export async function streamChatWithTools(input: {
+  taskId: Id<"tasks">;
+  prompt: string;
+  model: string;
+  systemPrompt?: string;
+  llmModel?: string;
+  tools?: Array<{
+    name: string;
+    description: string;
+    parameters: any;
+  }>;
+  apiKeys: {
+    anthropic?: string;
+    openai?: string;
+    openrouter?: string;
+  };
+}) {
+  const client = getConvexClient();
+  return client.action(api.streaming.streamChatWithTools, input);
+}
+
+export async function cancelStream(messageId: Id<"chatMessages">) {
+  const client = getConvexClient();
+  return client.action(api.streaming.cancelStream, { messageId });
+}
+
+export async function resumeStream(input: {
+  taskId: Id<"tasks">;
+  fromMessageId: Id<"chatMessages">;
+  prompt: string;
+  model: string;
+  systemPrompt?: string;
+  llmModel?: string;
+  apiKeys: {
+    anthropic?: string;
+    openai?: string;
+    openrouter?: string;
+  };
+}) {
+  const client = getConvexClient();
+  return client.action(api.streaming.resumeStream, input);
+}
+
+// Presence Actions (Phase 2)
+export async function updatePresence(input: {
+  taskId: Id<"tasks">;
+  userId: Id<"users">;
+  userName: string;
+  userImage?: string;
+  cursor?: { x: number; y: number };
+  selection?: { start: number; end: number; filePath?: string };
+  activity?: "viewing" | "typing" | "editing-file" | "running-command" | "idle";
+}) {
+  const client = getConvexClient();
+  return client.mutation(api.presence.updatePresence, input);
+}
+
+export async function getActiveUsers(taskId: Id<"tasks">, timeoutMs?: number) {
+  const client = getConvexClient();
+  return client.query(api.presence.getActiveUsers, { taskId, timeoutMs });
+}
+
+export async function removePresence(taskId: Id<"tasks">, userId: Id<"users">) {
+  const client = getConvexClient();
+  return client.mutation(api.presence.removePresence, { taskId, userId });
+}
+
+export async function broadcastActivity(input: {
+  taskId: Id<"tasks">;
+  userId: Id<"users">;
+  activityType: "user-joined" | "user-left" | "file-opened" | "file-saved" | "command-started" | "command-completed";
+  metadata?: any;
+}) {
+  const client = getConvexClient();
+  return client.mutation(api.presence.broadcastActivity, input);
+}
+
+export async function getRecentActivities(taskId: Id<"tasks">, limit?: number) {
+  const client = getConvexClient();
+  return client.query(api.presence.getRecentActivities, { taskId, limit });
+}
+
+// Tool Call Tracking (Phase 2)
+export async function listToolCallsByMessage(messageId: Id<"chatMessages">) {
+  const client = getConvexClient();
+  return client.query(api.toolCallTracking.byMessage, { messageId });
+}
+
+export async function listToolCallsByTask(taskId: Id<"tasks">) {
+  const client = getConvexClient();
+  return client.query(api.toolCallTracking.byTask, { taskId });
+}
+
+export async function getToolCallById(toolCallId: string) {
+  const client = getConvexClient();
+  return client.query(api.toolCallTracking.byToolCallId, { toolCallId });
 }

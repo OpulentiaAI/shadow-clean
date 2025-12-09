@@ -1,8 +1,12 @@
-import { prisma } from "@repo/db";
 import { createToolExecutor, getAgentMode } from "../execution";
 import { TaskInitializationEngine } from "../initialization";
 import { TaskModelContext } from "../services/task-model-context";
 import { getStepsForMode } from "@repo/types";
+import {
+  getActiveTaskSession,
+  endAllTaskSessions,
+  toConvexId,
+} from "../lib/convex-operations";
 
 /**
  * Ensures task infrastructure exists and is healthy
@@ -25,18 +29,9 @@ export async function ensureTaskInfrastructureExists(
 
   try {
     // Step 1: Check if we have an active TaskSession
-    const activeSession = await prisma.taskSession.findFirst({
-      where: {
-        taskId,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        podName: true,
-        podNamespace: true,
-        createdAt: true,
-      },
-    });
+    const activeSession = await getActiveTaskSession(
+      toConvexId<"tasks">(taskId)
+    );
 
     if (!activeSession) {
       console.log(
@@ -92,16 +87,7 @@ async function triggerReinitialization(
 ): Promise<void> {
   console.log(`[INFRA_CHECK] ${taskId}: Starting re-initialization`);
 
-  await prisma.taskSession.updateMany({
-    where: {
-      taskId,
-      isActive: true,
-    },
-    data: {
-      isActive: false,
-      endedAt: new Date(),
-    },
-  });
+  await endAllTaskSessions(toConvexId<"tasks">(taskId));
 
   // Use TaskInitializationEngine with re-init optimized steps
   const initEngine = new TaskInitializationEngine();

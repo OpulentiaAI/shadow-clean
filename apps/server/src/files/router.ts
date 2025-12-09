@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { prisma } from "@repo/db";
 import { FILE_SIZE_LIMITS, isLocalRepoFullName, isScratchpadRepoFullName } from "@repo/types";
+import { getTask, toConvexId } from "../lib/convex-operations";
 import { createWorkspaceManager, createGitService } from "../execution";
 import { getGitHubFileChanges } from "../utils/github-file-changes";
 import { buildFileTree } from "./build-tree";
@@ -12,14 +12,7 @@ router.get("/:taskId/files/tree", async (req, res) => {
   try {
     const { taskId } = req.params;
 
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        status: true,
-        workspacePath: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       return res.status(404).json({
@@ -67,14 +60,7 @@ router.get("/:taskId/files/content", async (req, res) => {
     }
 
     // Verify task exists
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        status: true,
-        workspacePath: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       return res.status(404).json({
@@ -160,19 +146,7 @@ router.get("/:taskId/file-changes", async (req, res) => {
     const { taskId } = req.params;
 
     // Validate task exists and get full status
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        workspacePath: true,
-        status: true,
-        baseBranch: true,
-        shadowBranch: true,
-        repoFullName: true,
-        initStatus: true,
-        userId: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       return res.status(404).json({

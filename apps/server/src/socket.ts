@@ -1,4 +1,4 @@
-import { prisma, InitStatus } from "@repo/db";
+import { InitStatus } from "@repo/db";
 import {
   StreamChunk,
   ServerToClientEvents,
@@ -7,7 +7,9 @@ import {
   TerminalHistoryResponse,
   ModelType,
   ApiKeys,
+  ToolCallUpdateEvent,
 } from "@repo/types";
+import { getTask, toConvexId, listToolCallsByTask } from "./lib/convex-operations";
 import http from "http";
 import { Server, Socket } from "socket.io";
 import { chatService } from "./app";
@@ -53,10 +55,7 @@ function cleanupTaskStreamState(taskId: string): void {
 
 async function getTerminalHistory(taskId: string): Promise<TerminalEntry[]> {
   try {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { workspacePath: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       throw new Error(`Task ${taskId} not found`);
@@ -101,10 +100,7 @@ async function getTerminalHistory(taskId: string): Promise<TerminalEntry[]> {
 
 async function clearTerminal(taskId: string): Promise<void> {
   try {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { workspacePath: true },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       throw new Error(`Task ${taskId} not found`);
@@ -158,10 +154,7 @@ function startTerminalPolling(taskId: string) {
 
   const interval = setInterval(async () => {
     try {
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { workspacePath: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         stopTerminalPolling(taskId);
@@ -231,9 +224,7 @@ async function verifyTaskAccess(
   try {
     // For now, just check if task exists
     // TODO: Add proper user authentication and authorization
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
     return !!task;
   } catch (error) {
     console.error(`[SOCKET] Error verifying task access:`, error);
@@ -394,10 +385,7 @@ export function createSocketServer(
         }
 
         // Get task workspace path and user info from database
-        const task = await prisma.task.findUnique({
-          where: { id: data.taskId },
-          select: { workspacePath: true, userId: true },
-        });
+        const task = await getTask(toConvexId<"tasks">(data.taskId));
 
         if (!task) {
           socket.emit("message-error", { error: "Task not found" });
@@ -413,7 +401,7 @@ export function createSocketServer(
 
         await ensureTaskInfrastructureExists(
           data.taskId,
-          task.userId,
+          task.userId as string,
           modelContext
         );
 
@@ -466,10 +454,7 @@ export function createSocketServer(
           return;
         }
 
-        const parentTask = await prisma.task.findUnique({
-          where: { id: data.taskId },
-          select: { userId: true },
-        });
+        const parentTask = await getTask(toConvexId<"tasks">(data.taskId));
 
         if (!parentTask) {
           socket.emit("message-error", { error: "Parent task not found" });
@@ -480,7 +465,7 @@ export function createSocketServer(
           parentTaskId: data.taskId,
           message: data.message,
           model: data.llmModel as ModelType,
-          userId: parentTask.userId,
+          userId: parentTask.userId as string,
           queue: data.queue || false,
           socket: socket,
           newTaskId: data.newTaskId,
@@ -502,10 +487,7 @@ export function createSocketServer(
         }
 
         // Get task workspace path and user info from database
-        const task = await prisma.task.findUnique({
-          where: { id: data.taskId },
-          select: { workspacePath: true, userId: true },
-        });
+        const task = await getTask(toConvexId<"tasks">(data.taskId));
 
         if (!task) {
           socket.emit("message-error", { error: "Task not found" });
@@ -522,7 +504,7 @@ export function createSocketServer(
         // Ensure task infrastructure exists before proceeding
         await ensureTaskInfrastructureExists(
           data.taskId,
-          task.userId,
+          task.userId as string,
           modelContext
         );
 
@@ -665,6 +647,46 @@ export function createSocketServer(
       }
     });
 
+    // Handle tool call history request
+    socket.on("get-tool-call-history", async (data) => {
+      try {
+        const hasAccess = await verifyTaskAccess(connectionId, data.taskId);
+        if (!hasAccess) {
+          socket.emit("tool-call-history-error", {
+            error: "Access denied to task",
+          });
+          return;
+        }
+
+        const toolCalls = await listToolCallsByTask(
+          toConvexId<"tasks">(data.taskId)
+        );
+
+        // Transform to ToolCallUpdateEvent format
+        const toolCallEvents: ToolCallUpdateEvent[] = toolCalls.map((tc) => ({
+          taskId: data.taskId,
+          toolCallId: tc._id as string,
+          toolName: tc.toolName,
+          status: tc.status as "REQUESTED" | "RUNNING" | "SUCCEEDED" | "FAILED",
+          argsJson: tc.argsJson,
+          resultJson: tc.resultJson,
+          error: tc.error,
+          startedAt: tc.startedAt,
+          completedAt: tc.completedAt,
+        }));
+
+        socket.emit("tool-call-history", {
+          taskId: data.taskId,
+          toolCalls: toolCallEvents,
+        });
+      } catch (error) {
+        console.error("Error getting tool call history:", error);
+        socket.emit("tool-call-history-error", {
+          error: "Failed to get tool call history",
+        });
+      }
+    });
+
     socket.on("heartbeat", () => {
       const state = connectionStates.get(connectionId);
       if (state) {
@@ -778,10 +800,7 @@ export async function emitTaskStatusUpdate(
 
     if (!currentInitStatus || status === "FAILED") {
       try {
-        const task = await prisma.task.findUnique({
-          where: { id: taskId },
-          select: { initStatus: true, errorMessage: true },
-        });
+        const task = await getTask(toConvexId<"tasks">(taskId));
         currentInitStatus = currentInitStatus || task?.initStatus;
         errorMessage = task?.errorMessage || undefined;
       } catch (error) {
@@ -825,6 +844,12 @@ export function emitStreamChunk(chunk: StreamChunk, taskId: string) {
 export function emitTerminalOutput(taskId: string, entry: TerminalEntry) {
   if (io) {
     emitToTask(taskId, "terminal-output", { taskId, entry });
+  }
+}
+
+export function emitToolCallUpdate(taskId: string, update: ToolCallUpdateEvent) {
+  if (io) {
+    emitToTask(taskId, "tool-call-update", update);
   }
 }
 

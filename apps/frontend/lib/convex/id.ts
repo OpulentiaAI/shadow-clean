@@ -22,3 +22,18 @@ export function asConvexId<TableName extends TableNames>(
   return trimmed as Id<TableName>;
 }
 
+/**
+ * Convert string to Convex ID, throwing error if invalid
+ * Use this when you expect a valid Convex ID
+ */
+export function toConvexId<TableName extends TableNames>(
+  tableName: TableName,
+  value: string
+): Id<TableName> {
+  const id = asConvexId<TableName>(value);
+  if (!id) {
+    throw new Error(`Invalid Convex ID for table ${tableName}: ${value}`);
+  }
+  return id;
+}
+

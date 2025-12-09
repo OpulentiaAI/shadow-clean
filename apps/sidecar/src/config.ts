@@ -15,6 +15,11 @@ const configSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
   CORS_ORIGIN: z.string().default("*"),
+  // Convex configuration
+  CONVEX_URL: z.string().optional(),
+  TASK_ID: z.string().optional(),
+  // Feature flags
+  USE_CONVEX_NATIVE: z.string().transform(v => v === "true").default("false"),
 });
 
 const parsed = configSchema.safeParse(process.env);
@@ -36,6 +41,10 @@ export const config = {
   corsOrigin: parsed.data.CORS_ORIGIN,
   isDevelopment: parsed.data.NODE_ENV === "development",
   isProduction: parsed.data.NODE_ENV === "production",
+  // Convex configuration
+  convexUrl: parsed.data.CONVEX_URL,
+  taskId: parsed.data.TASK_ID,
+  useConvexNative: parsed.data.USE_CONVEX_NATIVE,
 };
 
 export default config;

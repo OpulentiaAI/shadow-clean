@@ -1,4 +1,4 @@
-import { InitStatus, prisma } from "@repo/db";
+import { InitStatus } from "@repo/db";
 import { getStepsForMode, getScratchpadSteps, InitializationProgress } from "@repo/types";
 import { emitStreamChunk } from "../socket";
 import { createWorkspaceManager, getAgentMode } from "../execution";
@@ -11,6 +11,13 @@ import {
 } from "../utils/task-status";
 import { BackgroundServiceManager } from "./background-service-manager";
 import { TaskModelContext } from "../services/task-model-context";
+import {
+  getTask,
+  updateTask,
+  createTaskSession,
+  getUserSettings,
+  toConvexId,
+} from "../lib/convex-operations";
 
 // Helper for async delays
 const delay = (ms: number) =>
@@ -173,16 +180,7 @@ export class TaskInitializationEngine {
     }
 
     // Get task info
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        repoFullName: true,
-        repoUrl: true,
-        baseBranch: true,
-        shadowBranch: true,
-        isScratchpad: true,
-      },
-    });
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
       throw new Error(`Task ${taskId} not found`);
@@ -207,9 +205,9 @@ export class TaskInitializationEngine {
     }
 
     // Update task with workspace path
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { workspacePath: workspaceResult.workspacePath },
+    await updateTask({
+      taskId: toConvexId<"tasks">(taskId),
+      workspacePath: workspaceResult.workspacePath,
     });
   }
 
@@ -227,16 +225,7 @@ export class TaskInitializationEngine {
 
     try {
       // Get task info
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          repoFullName: true,
-          repoUrl: true,
-          baseBranch: true,
-          shadowBranch: true,
-          isScratchpad: true,
-        },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
@@ -258,21 +247,16 @@ export class TaskInitializationEngine {
       }
 
       if (workspaceInfo.podName && workspaceInfo.podNamespace) {
-        await prisma.taskSession.create({
-          data: {
-            taskId,
-            podName: workspaceInfo.podName,
-            podNamespace: workspaceInfo.podNamespace,
-            isActive: true,
-          },
+        await createTaskSession({
+          taskId: toConvexId<"tasks">(taskId),
+          podName: workspaceInfo.podName,
+          podNamespace: workspaceInfo.podNamespace,
         });
       }
 
-      await prisma.task.update({
-        where: { id: taskId },
-        data: {
-          workspacePath: workspaceInfo.workspacePath,
-        },
+      await updateTask({
+        taskId: toConvexId<"tasks">(taskId),
+        workspacePath: workspaceInfo.workspacePath,
       });
     } catch (error) {
       console.error(`[TASK_INIT] ${taskId}: Failed to create VM:`, error);
@@ -334,10 +318,7 @@ export class TaskInitializationEngine {
   ): Promise<void> {
     try {
       // Get task info
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { repoUrl: true, baseBranch: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         throw new Error(`Task not found: ${taskId}`);
@@ -490,14 +471,8 @@ export class TaskInitializationEngine {
     try {
       // Get user settings to determine which services to start
       const [userSettings, task] = await Promise.all([
-        prisma.userSettings.findUnique({
-          where: { userId },
-          select: { enableShadowWiki: true, enableIndexing: true },
-        }),
-        prisma.task.findUnique({
-          where: { id: taskId },
-          select: { isScratchpad: true },
-        }),
+        getUserSettings(toConvexId<"users">(userId)),
+        getTask(toConvexId<"tasks">(taskId)),
       ]);
 
       if (task?.isScratchpad) {
@@ -575,10 +550,7 @@ export class TaskInitializationEngine {
   async getDefaultStepsForTask(taskId?: string): Promise<InitStatus[]> {
     // Check if this is a scratchpad task - use minimal initialization
     if (taskId) {
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { isScratchpad: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
       
       if (task?.isScratchpad) {
         console.log(`[TASK_INIT] ${taskId}: Scratchpad task - using minimal initialization`);

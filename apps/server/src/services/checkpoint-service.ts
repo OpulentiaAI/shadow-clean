@@ -1,14 +1,33 @@
-import { prisma } from "@repo/db";
 import {
   CheckpointData,
   MessageMetadata,
 } from "@repo/types";
-import type { Todo } from "@repo/db";
 import { emitStreamChunk } from "../socket";
+import {
+  getTask,
+  getMessage,
+  updateMessage,
+  listTodosByTask,
+  deleteTodosByTask,
+  bulkCreateTodos,
+  listMessagesByTask,
+  toConvexId,
+} from "../lib/convex-operations";
 import { createToolExecutor, createGitService } from "../execution";
 import { getFileSystemWatcher } from "../agent/tools";
 import { buildTreeFromEntries } from "../files/build-tree";
 import config from "../config";
+
+// Type for todo items in checkpoints (matching @repo/db Todo type)
+interface TodoSnapshot {
+  id: string;
+  content: string;
+  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  sequence: number;
+  taskId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /**
  * CheckpointService handles creating and restoring message-level checkpoints
@@ -52,12 +71,11 @@ export class CheckpointService {
       }
 
       // 3. Get existing message metadata
-      const existingMessage = await prisma.chatMessage.findUnique({
-        where: { id: messageId },
-        select: { metadata: true },
-      });
+      const existingMessage = await getMessage(toConvexId<"chatMessages">(messageId));
 
-      const existingMetadata = existingMessage?.metadata || {};
+      const existingMetadata = existingMessage?.metadataJson
+        ? JSON.parse(existingMessage.metadataJson)
+        : {};
 
       // 4. Store checkpoint in message metadata
       const checkpointData: CheckpointData = {
@@ -70,14 +88,11 @@ export class CheckpointService {
       const metadata = {
         ...(existingMetadata as MessageMetadata),
         checkpoint: checkpointData,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
+      };
 
-      await prisma.chatMessage.update({
-        where: { id: messageId },
-        data: {
-          metadata,
-        },
+      await updateMessage({
+        messageId: toConvexId<"chatMessages">(messageId),
+        metadataJson: JSON.stringify(metadata),
       });
 
       console.log(
@@ -192,11 +207,17 @@ export class CheckpointService {
   /**
    * Get a snapshot of the current todo state
    */
-  private async getTodoSnapshot(taskId: string): Promise<Todo[]> {
-    return await prisma.todo.findMany({
-      where: { taskId },
-      orderBy: { sequence: "asc" },
-    });
+  private async getTodoSnapshot(taskId: string): Promise<TodoSnapshot[]> {
+    const todos = await listTodosByTask(toConvexId<"tasks">(taskId));
+    return todos.map((t) => ({
+      id: t._id as string,
+      content: t.content,
+      status: t.status as TodoSnapshot["status"],
+      sequence: t.sequence,
+      taskId: t.taskId as string,
+      createdAt: new Date(t.createdAt),
+      updatedAt: new Date(t.updatedAt || t.createdAt),
+    }));
   }
 
   /**
@@ -204,50 +225,44 @@ export class CheckpointService {
    */
   private async restoreTodoState(
     taskId: string,
-    snapshot: Todo[]
+    snapshot: TodoSnapshot[]
   ): Promise<void> {
     console.log(
-      `[CHECKPOINT] 💾 Starting database transaction to restore todos...`
+      `[CHECKPOINT] 💾 Starting todo restoration for task ${taskId}...`
     );
 
-    await prisma.$transaction(async (tx) => {
-      // Delete current todos
-      console.log(
-        `[CHECKPOINT] 🗑️ Deleting current todos for task ${taskId}...`
-      );
-      const deleteResult = await tx.todo.deleteMany({ where: { taskId } });
-      console.log(
-        `[CHECKPOINT] ✅ Deleted ${deleteResult.count} existing todos`
-      );
+    // Delete current todos
+    console.log(
+      `[CHECKPOINT] 🗑️ Deleting current todos for task ${taskId}...`
+    );
+    await deleteTodosByTask(toConvexId<"tasks">(taskId));
+    console.log(
+      `[CHECKPOINT] ✅ Deleted existing todos`
+    );
 
-      // Recreate from snapshot
-      if (snapshot.length > 0) {
-        console.log(
-          `[CHECKPOINT] ➕ Creating ${snapshot.length} todos from snapshot...`
-        );
-        await tx.todo.createMany({
-          data: snapshot.map((todo) => ({
-            id: todo.id,
-            content: todo.content,
-            status: todo.status,
-            sequence: todo.sequence,
-            taskId, // Ensure correct task association
-            createdAt: todo.createdAt,
-            updatedAt: new Date(), // Update timestamp
-          })),
-        });
-        console.log(
-          `[CHECKPOINT] ✅ Successfully created ${snapshot.length} todos from snapshot`
-        );
-      } else {
-        console.log(
-          `[CHECKPOINT] 📝 No todos in snapshot, task will have empty todo list`
-        );
-      }
-    });
+    // Recreate from snapshot
+    if (snapshot.length > 0) {
+      console.log(
+        `[CHECKPOINT] ➕ Creating ${snapshot.length} todos from snapshot...`
+      );
+      await bulkCreateTodos(
+        toConvexId<"tasks">(taskId),
+        snapshot.map((todo) => ({
+          content: todo.content,
+          status: todo.status as "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
+        }))
+      );
+      console.log(
+        `[CHECKPOINT] ✅ Successfully created ${snapshot.length} todos from snapshot`
+      );
+    } else {
+      console.log(
+        `[CHECKPOINT] 📝 No todos in snapshot, task will have empty todo list`
+      );
+    }
 
     console.log(
-      `[CHECKPOINT] ✅ Database transaction completed - restored ${snapshot.length} todos from snapshot`
+      `[CHECKPOINT] ✅ Todo restoration completed - restored ${snapshot.length} todos from snapshot`
     );
   }
 
@@ -261,10 +276,7 @@ export class CheckpointService {
       );
 
       // Get task details for workspace path and base branch
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { workspacePath: true, baseBranch: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task?.workspacePath) {
         console.warn(
@@ -335,7 +347,7 @@ export class CheckpointService {
   /**
    * Emit todo update to frontend via WebSocket
    */
-  private emitTodoUpdate(taskId: string, todos: Todo[]): void {
+  private emitTodoUpdate(taskId: string, todos: TodoSnapshot[]): void {
     try {
       const todoUpdate = {
         todos: todos.map((todo, index) => ({
@@ -383,10 +395,7 @@ export class CheckpointService {
 
     try {
       // Get task's initial commit SHA
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: { baseCommitSha: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task?.baseCommitSha) {
         console.warn(
@@ -451,36 +460,44 @@ export class CheckpointService {
     taskId: string,
     targetMessageId: string
   ): Promise<{ id: string; metadata: MessageMetadata } | null> {
-    // Get the sequence number of the target message
-    const targetMessage = await prisma.chatMessage.findUnique({
-      where: { id: targetMessageId },
-      select: { sequence: true },
-    });
+    // Get the target message
+    const targetMessage = await getMessage(toConvexId<"chatMessages">(targetMessageId));
 
     if (!targetMessage) {
       console.warn(`[CHECKPOINT] Target message ${targetMessageId} not found`);
       return null;
     }
 
-    // Find the most recent assistant message strictly before this sequence with checkpoint data
-    const checkpointMessage = await prisma.chatMessage.findFirst({
-      where: {
-        taskId,
-        role: "ASSISTANT",
-        sequence: { lt: targetMessage.sequence },
-        metadata: {
-          path: ["checkpoint"],
-          not: "null",
-        },
-      },
-      orderBy: { sequence: "desc" },
-      select: { id: true, metadata: true },
-    });
+    // Get all messages for the task
+    const allMessages = await listMessagesByTask(toConvexId<"tasks">(taskId));
 
-    return checkpointMessage as {
-      id: string;
-      metadata: MessageMetadata;
-    } | null;
+    // Filter to find assistant messages before target with checkpoint data
+    const checkpointMessages = allMessages
+      .filter((msg) => {
+        if (msg.role !== "ASSISTANT") return false;
+        if (msg.sequence >= targetMessage.sequence) return false;
+
+        // Check if metadata contains checkpoint data
+        if (!msg.metadataJson) return false;
+        try {
+          const metadata = JSON.parse(msg.metadataJson);
+          return metadata.checkpoint != null;
+        } catch {
+          return false;
+        }
+      })
+      .sort((a, b) => b.sequence - a.sequence); // Descending by sequence
+
+    // Get the most recent one
+    const checkpointMessage = checkpointMessages[0];
+    if (!checkpointMessage) {
+      return null;
+    }
+
+    return {
+      id: checkpointMessage._id as string,
+      metadata: JSON.parse(checkpointMessage.metadataJson || "{}") as MessageMetadata,
+    };
   }
 
   /**

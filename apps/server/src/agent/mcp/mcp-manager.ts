@@ -1,4 +1,7 @@
-import { experimental_createMCPClient } from "ai";
+// MCP Manager - Temporarily disabled pending @ai-sdk/mcp integration
+// The experimental_createMCPClient was removed in AI SDK v5
+// MCP will be re-enabled once @ai-sdk/mcp package is properly integrated
+
 import type { ToolSet } from "ai";
 import type { MCPServerConfig, MCPClientWrapper } from "./types";
 
@@ -17,184 +20,48 @@ const MCP_SERVERS: MCPServerConfig[] = [
 
 export class MCPManager {
   private clients: Map<string, MCPClientWrapper> = new Map();
-  private isShuttingDown: boolean = false;
 
   async initializeConnections(): Promise<void> {
-    const connectionPromises = MCP_SERVERS.map(async (config) => {
-      try {
-        await this.connectToServer(config);
-      } catch (error) {
-        console.error(
-          `[MCP_MANAGER] Failed to connect to ${config.name}:`,
-          error
-        );
-        // Store failed connection for status tracking
-        this.clients.set(config.name, {
-          serverName: config.name,
-          client: null,
-          connected: false,
-          lastError: error instanceof Error ? error.message : "Unknown error",
-        });
-      }
-    });
+    // MCP client creation is temporarily disabled
+    // This will be re-enabled once @ai-sdk/mcp is integrated
+    console.log("[MCP_MANAGER] MCP connections disabled pending @ai-sdk/mcp integration");
 
-    await Promise.allSettled(connectionPromises);
-  }
-
-  /**
-   * Connect to a specific MCP server
-   */
-  private async connectToServer(config: MCPServerConfig): Promise<void> {
-    if (this.isShuttingDown) {
-      throw new Error("MCP Manager is shutting down");
-    }
-
-    try {
-      let client;
-
-      switch (config.transport) {
-        case "sse":
-          if (!config.url) {
-            throw new Error(
-              `SSE transport requires URL for server ${config.name}`
-            );
-          }
-          client = await experimental_createMCPClient({
-            transport: {
-              type: "sse",
-              url: config.url,
-              headers: config.headers,
-            },
-          });
-          break;
-
-        case "stdio":
-          if (!config.command) {
-            throw new Error(
-              `Stdio transport requires command for server ${config.name}`
-            );
-          }
-          // Note: stdio transport would require additional import
-          // import { Experimental_StdioMCPTransport as StdioMCPTransport } from 'ai/mcp-stdio';
-          throw new Error("Stdio transport not implemented yet");
-
-        case "http":
-          if (!config.url) {
-            throw new Error(
-              `HTTP transport requires URL for server ${config.name}`
-            );
-          }
-          // HTTP transport currently uses SSE endpoint
-          client = await experimental_createMCPClient({
-            transport: {
-              type: "sse",
-              url: config.url,
-              headers: config.headers,
-            },
-          });
-          break;
-
-        default:
-          throw new Error(`Unsupported transport type: ${config.transport}`);
-      }
-
-      // Store successful connection
-      this.clients.set(config.name, {
-        serverName: config.name,
-        client,
-        connected: true,
-        lastConnected: new Date(),
-        lastError: undefined,
-      });
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error(
-        `[MCP_MANAGER] Connection failed for ${config.name}:`,
-        errorMessage
-      );
-
-      // Store failed connection
+    for (const config of MCP_SERVERS) {
       this.clients.set(config.name, {
         serverName: config.name,
         client: null,
         connected: false,
-        lastError: errorMessage,
+        lastError: "MCP temporarily disabled - pending @ai-sdk/mcp integration",
       });
-
-      throw error;
     }
   }
 
   /**
    * Get all available tools from connected MCP servers
+   * Currently returns empty toolset while MCP is disabled
    */
-  async getAvailableTools(serverName?: string): Promise<ToolSet> {
-    const toolSet: ToolSet = {};
-    const clientsToProcess = serverName
-      ? [this.clients.get(serverName)].filter(Boolean)
-      : Array.from(this.clients.values()).filter((c) => c.connected);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getAvailableTools(_serverName?: string): Promise<ToolSet> {
+    // Return empty toolset while MCP is disabled
+    return {};
+  }
 
-    if (clientsToProcess.length === 0) {
-      return toolSet;
-    }
-
-    for (const clientWrapper of clientsToProcess) {
-      if (!clientWrapper || !clientWrapper.connected || !clientWrapper.client) {
-        continue;
-      }
-
-      try {
-        // Get tools from MCP client
-        const serverTools = await clientWrapper.client.tools();
-
-        if (serverTools && typeof serverTools === "object") {
-          // Prefix tool names with server name to avoid conflicts
-          for (const [toolName, toolDefinition] of Object.entries(
-            serverTools
-          )) {
-            const prefixedName = `${clientWrapper.serverName}:${toolName}`;
-            toolSet[prefixedName] = toolDefinition as any; // Type assertion for MCP tools
-          }
-        }
-      } catch (error) {
-        console.error(
-          `[MCP_MANAGER] Failed to get tools from ${clientWrapper.serverName}:`,
-          error
-        );
-
-        // Mark client as disconnected
-        clientWrapper.connected = false;
-        clientWrapper.lastError =
-          error instanceof Error ? error.message : "Unknown error";
-      }
-    }
-
-    return toolSet;
+  /**
+   * Get connection status for all MCP servers
+   */
+  getConnectionStatus(): Array<{ name: string; connected: boolean; error?: string }> {
+    return Array.from(this.clients.entries()).map(([name, wrapper]) => ({
+      name,
+      connected: wrapper.connected,
+      error: wrapper.lastError,
+    }));
   }
 
   /**
    * Close all MCP connections
    */
   async closeAllConnections(): Promise<void> {
-    this.isShuttingDown = true;
-
-    const closePromises = Array.from(this.clients.values()).map(
-      async (clientWrapper) => {
-        if (clientWrapper.connected && clientWrapper.client) {
-          try {
-            await clientWrapper.client.close();
-          } catch (error) {
-            console.error(
-              `[MCP_MANAGER] Error closing ${clientWrapper.serverName}:`,
-              error
-            );
-          }
-        }
-      }
-    );
-
-    await Promise.allSettled(closePromises);
     this.clients.clear();
+    console.log("[MCP_MANAGER] All MCP connections closed");
   }
 }

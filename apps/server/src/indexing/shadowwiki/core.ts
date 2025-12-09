@@ -2,7 +2,6 @@ import { createHash } from "crypto";
 import path from "path";
 import Parser from "tree-sitter";
 import JavaScript from "tree-sitter-javascript";
-import { prisma, Prisma } from "@repo/db";
 import { CodebaseUnderstandingStorage } from "./db-storage";
 import TS from "tree-sitter-typescript";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -13,6 +12,11 @@ import { CoreMessage, generateText, LanguageModel } from "ai";
 import { TaskModelContext } from "@/services/task-model-context";
 import { braintrustService } from "../../agent/llm/observability/braintrust-service";
 import { createWorkspaceManager, type ToolExecutor } from "@/execution";
+import {
+  getCodebaseByRepo,
+  updateTask,
+  toConvexId,
+} from "@/lib/convex-operations";
 
 // Configuration
 const TEMP = 0.15;
@@ -835,7 +839,8 @@ async function summarizeFile(
   }
 
   // Only use tree-sitter for supported languages
-  let langSpec = null;
+  type LanguageSpec = (typeof LANGUAGES)[keyof typeof LANGUAGES];
+  let langSpec: LanguageSpec | null = null;
   for (const [_key, lang] of Object.entries(LANGUAGES)) {
     if (lang.extensions.includes(fileExt)) {
       langSpec = lang;
@@ -1256,21 +1261,18 @@ export async function runShadowWiki(
 ): Promise<{ codebaseUnderstandingId: string; stats: ProcessingStats }> {
   // Skip regeneration if a summary already exists for this repository
   try {
-    const existing = await prisma.codebaseUnderstanding.findUnique({
-      where: { repoFullName },
-      select: { id: true },
-    });
+    const existing = await getCodebaseByRepo(repoFullName);
     if (existing) {
       // Ensure task is linked to existing summary
-      await prisma.task.update({
-        where: { id: taskId },
-        data: { codebaseUnderstandingId: existing.id },
+      await updateTask({
+        taskId: toConvexId<"tasks">(taskId),
+        codebaseUnderstandingId: existing._id,
       });
       console.log(
         `[SHADOW-WIKI] Summary already exists for ${repoFullName}. Skipping regeneration.`
       );
       return {
-        codebaseUnderstandingId: existing.id,
+        codebaseUnderstandingId: existing._id as string,
         stats: { filesProcessed: 0, directoriesProcessed: 0, totalTokens: 0 },
       };
     }
@@ -1574,9 +1576,7 @@ export async function runShadowWiki(
       generatedAt: new Date().toISOString(),
     },
   };
-  const contentJson: Prisma.InputJsonValue = JSON.parse(
-    JSON.stringify(summaryContent)
-  );
+  const contentJson = JSON.parse(JSON.stringify(summaryContent));
 
   console.log(`[SHADOW-WIKI] Storing analysis results in database`);
   // Use shared storage helper to create/update and link to task
