@@ -109,7 +109,7 @@ export function RealtimeMonitor() {
           <CardContent>
             <div className="max-h-32 overflow-y-auto">
               <div className="space-y-2">
-                {runningTools.map((tool) => (
+                {runningTools.map((tool: { _id: string; toolName: string }) => (
                   <div
                     key={tool._id}
                     className="flex items-center justify-between p-2 rounded-md bg-muted/50"
@@ -143,7 +143,14 @@ export function RealtimeMonitor() {
           <CardContent>
             <div className="max-h-48 overflow-y-auto">
               <div className="space-y-1">
-                {fileChanges.slice(0, 20).map((change) => (
+                {fileChanges.slice(0, 20).map(
+                  (change: {
+                    _id: string;
+                    operation: "CREATE" | "UPDATE" | "DELETE" | "RENAME";
+                    filePath: string;
+                    additions: number;
+                    deletions: number;
+                  }) => (
                   <div
                     key={change._id}
                     className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 transition-colors"
@@ -198,19 +205,19 @@ export function RealtimeMonitor() {
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
                 <div className="text-2xl font-bold">
-                  {toolLogs.filter((t) => t.status === "COMPLETED").length}
+                  {toolLogs.filter((t: { status: string }) => t.status === "COMPLETED").length}
                 </div>
                 <div className="text-xs text-muted-foreground">Completed</div>
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {toolLogs.filter((t) => t.status === "RUNNING").length}
+                  {toolLogs.filter((t: { status: string }) => t.status === "RUNNING").length}
                 </div>
                 <div className="text-xs text-muted-foreground">Running</div>
               </div>
               <div>
                 <div className="text-2xl font-bold">
-                  {toolLogs.filter((t) => t.status === "FAILED").length}
+                  {toolLogs.filter((t: { status: string }) => t.status === "FAILED").length}
                 </div>
                 <div className="text-xs text-muted-foreground">Failed</div>
               </div>
