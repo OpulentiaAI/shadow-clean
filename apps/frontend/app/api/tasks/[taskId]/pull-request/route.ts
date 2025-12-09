@@ -10,8 +10,14 @@ export async function POST(
   try {
     const { taskId } = await params;
 
-    const { error, user: user } = await verifyTaskOwnership(taskId);
+    const { error, user } = await verifyTaskOwnership(taskId);
     if (error) return error;
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
 
     // Forward request to backend
     const requestHeaders = await headers();
