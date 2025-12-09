@@ -264,6 +264,22 @@ export async function getGitHubAccount(userId: Id<"users">) {
   return client.query(api.auth.getGitHubAccount, { userId });
 }
 
+export async function syncGitHubAccount(input: {
+  userId: Id<"users">;
+  accountId: string;
+  providerId: string;
+  accessToken: string;
+  refreshToken?: string;
+  accessTokenExpiresAt?: number;
+  refreshTokenExpiresAt?: number;
+  scope?: string;
+  githubInstallationId?: string;
+  githubAppConnected?: boolean;
+}) {
+  const client = getConvexClient();
+  return client.mutation(api.auth.createAccount, input);
+}
+
 export async function updateGitHubInstallation(input: {
   userId: Id<"users">;
   githubInstallationId?: string;
