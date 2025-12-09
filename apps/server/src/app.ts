@@ -403,9 +403,11 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
-    // Allow messages once a task has reached RUNNING or has been initialized before
+    // Allow messages in more states for hosted/Convex flow (Railway may mark tasks as INITIALIZING)
     const isActiveStatus =
       prismaTask.status === "RUNNING" ||
+      prismaTask.status === "INITIALIZING" ||
+      prismaTask.status === "COMPLETED" || // allow follow-ups
       prismaTask.hasBeenInitialized === true ||
       prismaTask.initStatus === "ACTIVE";
     if (!isActiveStatus) {
