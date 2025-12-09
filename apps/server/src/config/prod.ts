@@ -18,8 +18,10 @@ if (!process.env.VM_IMAGE_REGISTRY) {
  */
 const prodConfigSchema = sharedConfigSchema.extend({
   // === CORS CONFIGURATION ===
-  // Production CORS origins
-  CORS_ORIGINS: z.string().default("https://www.shadowrealm.ai"),
+  // Production CORS origins (comma-separated)
+  CORS_ORIGINS: z
+    .string()
+    .default("https://www.shadowrealm.ai,https://code.opulentia.ai"),
 
   // === EXECUTION MODE ===
   // Controls how agent code executes - 'remote' for VM isolation, 'local' for direct execution
