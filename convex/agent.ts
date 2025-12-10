@@ -274,7 +274,7 @@ export const continueThread = action({
     const agent = args.model
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          languageModel: openrouter.chat(args.model as any),
+          languageModel: openrouter.chat(args.model as any) as any,
         })
       : shadowAgent;
     const result = await agent.generateText(
@@ -394,12 +394,12 @@ export const chat: ReturnType<typeof action> = action({
     const agent = args.model
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          languageModel: openrouter.chat(args.model as any),
+          languageModel: openrouter.chat(args.model as any) as any,
           instructions: `You are Shadow, an AI coding assistant working on the repository: ${task.repoFullName}. Help the user with their coding tasks.`,
         })
       : new Agent(components.agent, {
           name: "ShadowAgent",
-          languageModel: openrouter.chat("anthropic/claude-3.5-sonnet"),
+          languageModel: openrouter.chat("anthropic/claude-3.5-sonnet") as any,
           instructions: `You are Shadow, an AI coding assistant working on the repository: ${task.repoFullName}. Help the user with their coding tasks.`,
         });
     const result = await agent.generateText(
@@ -426,7 +426,7 @@ function createTaskAgent(ctx: ActionCtx, taskId: Id<"tasks">, model?: string) {
 
   return new Agent(components.agent, {
     name: "ShadowTaskAgent",
-    languageModel: openrouter.chat((model as any) || "anthropic/claude-3.5-sonnet"),
+    languageModel: (openrouter.chat((model as any) || "anthropic/claude-3.5-sonnet") as any),
     instructions: `You are Shadow, an AI coding assistant with access to tools for file operations, code search, and task management.
 
 CRITICAL RULES:
