@@ -48,6 +48,7 @@ import {
   createTask,
   getUserSettings,
   getUserByExternalId,
+  getUser,
 } from "../lib/convex-operations";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { TaskInitializationEngine } from "@/initialization";
@@ -245,6 +246,9 @@ export class ChatService {
         `[CHAT] Generated commit message for task ${taskId}: "${commitMessage}"`
       );
 
+      // Fetch user for co-author info
+      const user = await getUser(task.userId);
+
       // Commit changes with Shadow as author and user as co-author
       const commitResult = await gitService.commitChanges({
         user: {
@@ -252,8 +256,8 @@ export class ChatService {
           email: getGitHubAppEmail(config),
         },
         coAuthor: {
-          name: task.user.name,
-          email: task.user.email,
+          name: user?.name || "Unknown",
+          email: user?.email || "unknown@example.com",
         },
         message: commitMessage,
       });
@@ -707,7 +711,7 @@ export class ChatService {
       }
 
       // Add Rules section if available
-      const userRules = task?.user.userSettings?.rules;
+      const userRules = userSettings?.rules;
       if (userRules && userRules.trim()) {
         const rulesContent = `
 <rules>
