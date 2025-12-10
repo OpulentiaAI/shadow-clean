@@ -521,8 +521,16 @@ export class LocalToolExecutor implements ToolExecutor {
           }
         }
       } catch (error) {
-        console.error(`Failed to walk directory: ${currentPath}`, error);
-        // Continue walking other directories even if one fails
+        const isNotFound =
+          error instanceof Error &&
+          (error as NodeJS.ErrnoException).code === "ENOENT";
+        if (isNotFound) {
+          console.log(
+            `[FILE_TREE] Directory does not exist: ${currentPath} - returning empty tree`
+          );
+        } else {
+          console.error(`[FILE_TREE] Failed to walk directory: ${currentPath}`, error);
+        }
       }
     };
 
