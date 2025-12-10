@@ -99,16 +99,8 @@ export class ConvexAgentBridge {
       // Stop polling
       this.stopPolling(taskId);
 
-      // Emit final message content
-      if (result.response) {
-        emitStreamChunk(
-          {
-            type: "content",
-            content: result.response,
-          },
-          taskId
-        );
-      }
+      // NOTE: Don't emit final content here - polling already emitted all content incrementally.
+      // Emitting the full response again causes duplicate messages in the UI.
 
       // Emit usage information if available
       if (result.usage) {

@@ -21,6 +21,7 @@ Sets up isolated execution environments for AI agents to work on GitHub reposito
 
 ### Code Generation & Understanding
 - Multi-provider LLM support (Anthropic, OpenAI, OpenRouter)
+  - OpenRouter models: Grok Code Fast, Kimi K2, Codestral, **Devstral 2 (FREE)**, DeepSeek R1, Qwen3 Coder
 - Streaming chat interface with real-time responses
 - Tool execution with file operations, terminal commands, and code search
 - Memory system for repository-specific knowledge retention
