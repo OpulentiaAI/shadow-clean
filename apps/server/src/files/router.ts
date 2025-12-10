@@ -29,6 +29,15 @@ router.get("/:taskId/files/tree", async (req, res) => {
     }
 
     const workspaceManager = createWorkspaceManager();
+
+    const workspaceExists = await workspaceManager.workspaceExists(taskId);
+    if (!workspaceExists) {
+      return res.json({
+        success: true,
+        tree: [],
+      });
+    }
+
     const executor = await workspaceManager.getExecutor(taskId);
 
     const tree = await buildFileTree(executor);
