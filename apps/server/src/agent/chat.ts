@@ -39,6 +39,7 @@ import {
 } from "../utils/task-status";
 import { createGitService } from "../execution";
 import { memoryService } from "../services/memory-service";
+import { getTask, toConvexId } from "../lib/convex-operations";
 import { TaskInitializationEngine } from "@/initialization";
 import { databaseBatchService } from "../services/database-batch-service";
 import { ChatSummarizationService } from "../services/chat-summarization-service";
@@ -580,12 +581,7 @@ export class ChatService {
       // Always cancel any scheduled cleanup when user sends follow-up message
       await cancelTaskCleanup(taskId);
 
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        select: {
-          initStatus: true,
-        },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         console.warn(`[CHAT] Task not found for follow-up logic: ${taskId}`);
@@ -689,14 +685,11 @@ export class ChatService {
     workspacePath?: string;
     queue?: boolean;
   }) {
-    // Get task info for follow-up logic
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: { userId: true },
-    });
+    // Get task info for follow-up logic (use Convex as source of truth)
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
-      throw new Error(`Task ${taskId} not found`);
+      throw new Error(`Task ${taskId} not found in Convex`);
     }
 
     // Handle follow-up logic for COMPLETED tasks
