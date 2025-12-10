@@ -1,4 +1,3 @@
-import { prisma } from "@repo/db";
 import {
   Message,
   MessageMetadata,
@@ -9,7 +8,6 @@ import {
 } from "@repo/types";
 import { TextPart } from "ai";
 import { randomUUID } from "crypto";
-import { type ChatMessage } from "../../../../packages/db/src/client";
 import { LLMService } from "./llm";
 import { getSystemPrompt, getShadowWikiMessage } from "./system-prompt";
 import { createTools, stopMCPManager } from "./tools";
@@ -20,7 +18,6 @@ import { modelContextService } from "../services/model-context-service";
 import { TaskModelContext } from "../services/task-model-context";
 import { checkpointService } from "../services/checkpoint-service";
 import { generateTaskTitleAndBranch } from "../utils/title-generation";
-import { MessageRole } from "@repo/db";
 import {
   emitStreamChunk,
   emitToTask,
@@ -39,7 +36,20 @@ import {
 } from "../utils/task-status";
 import { createGitService } from "../execution";
 import { memoryService } from "../services/memory-service";
-import { getTask, toConvexId } from "../lib/convex-operations";
+import {
+  getTask,
+  toConvexId,
+  appendMessage,
+  listMessagesByTask,
+  getMessage,
+  editMessage,
+  removeMessagesAfterSequence,
+  getLatestMessageSequence,
+  createTask,
+  getUserSettings,
+  getUserByExternalId,
+} from "../lib/convex-operations";
+import type { Id } from "../../../../../convex/_generated/dataModel";
 import { TaskInitializationEngine } from "@/initialization";
 import { databaseBatchService } from "../services/database-batch-service";
 import { ChatSummarizationService } from "../services/chat-summarization-service";
@@ -81,21 +91,13 @@ export class ChatService {
   }
 
   private async getNextSequence(taskId: string): Promise<number> {
-    // Use a short transaction to atomically get the next sequence
-    // This prevents race conditions when multiple operations need sequences
-    return await prisma.$transaction(async (tx) => {
-      const lastMessage = await tx.chatMessage.findFirst({
-        where: { taskId },
-        orderBy: { sequence: "desc" },
-        select: { sequence: true },
-      });
-      return (lastMessage?.sequence || 0) + 1;
-    });
+    const lastSequence = await getLatestMessageSequence(toConvexId<"tasks">(taskId));
+    return lastSequence + 1;
   }
 
   /**
-   * Allow callers to provide a Convex taskId that differs from the Prisma taskId.
-   * Useful during migration when tasks are mirrored into Convex with generated IDs.
+   * Allow callers to provide a Convex taskId that differs from the string taskId.
+   * Useful when tasks have different identifiers.
    */
   setConvexTaskId(taskId: string, convexTaskId: string): void {
     this.convexTaskIdMap.set(taskId, convexTaskId);
@@ -105,7 +107,6 @@ export class ChatService {
     return this.convexTaskIdMap.get(taskId) ?? taskId;
   }
 
-  // Helper method to atomically create any message with sequence generation
   private async createMessageWithAtomicSequence(
     taskId: string,
     messageData: {
@@ -117,34 +118,22 @@ export class ChatService {
       promptTokens?: number;
       completionTokens?: number;
       totalTokens?: number;
+      stackedTaskId?: string;
     }
-  ): Promise<ChatMessage> {
-    return await prisma.$transaction(async (tx) => {
-      // Atomically get next sequence within transaction
-      const lastMessage = await tx.chatMessage.findFirst({
-        where: { taskId },
-        orderBy: { sequence: "desc" },
-        select: { sequence: true },
-      });
-      const sequence = (lastMessage?.sequence || 0) + 1;
-
-      // Create message with the atomic sequence
-      return await tx.chatMessage.create({
-        data: {
-          taskId,
-          content: messageData.content,
-          role: messageData.role,
-          sequence,
-          llmModel: messageData.llmModel,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          metadata: (messageData.metadata as any) || undefined,
-          promptTokens: messageData.promptTokens,
-          completionTokens: messageData.completionTokens,
-          totalTokens: messageData.totalTokens,
-          finishReason: messageData.finishReason,
-        },
-      });
+  ): Promise<{ id: string; sequence: number }> {
+    const result = await appendMessage({
+      taskId: toConvexId<"tasks">(taskId),
+      role: messageData.role,
+      content: messageData.content,
+      llmModel: messageData.llmModel,
+      metadataJson: messageData.metadata ? JSON.stringify(messageData.metadata) : undefined,
+      promptTokens: messageData.promptTokens,
+      completionTokens: messageData.completionTokens,
+      totalTokens: messageData.totalTokens,
+      finishReason: messageData.finishReason,
+      stackedTaskId: messageData.stackedTaskId ? toConvexId<"tasks">(messageData.stackedTaskId) : undefined,
     });
+    return { id: result.messageId, sequence: result.sequence };
   }
 
   async saveUserMessage(
@@ -152,18 +141,14 @@ export class ChatService {
     content: string,
     llmModel: string,
     metadata?: MessageMetadata
-  ): Promise<ChatMessage> {
-    // Use atomic sequence generation to prevent race conditions
+  ): Promise<{ id: string; sequence: number }> {
     const message = await this.createMessageWithAtomicSequence(taskId, {
       content,
       role: "USER",
       llmModel,
       metadata,
     });
-
-    // Update task activity timestamp when user sends a message
     await updateTaskActivity(taskId, "MESSAGE");
-
     return message;
   }
 
@@ -173,40 +158,17 @@ export class ChatService {
     llmModel: string,
     sequence?: number,
     metadata?: MessageMetadata
-  ): Promise<ChatMessage> {
-    // If no sequence provided, generate atomically
-    if (sequence === undefined) {
-      const usage = metadata?.usage;
-      return await this.createMessageWithAtomicSequence(taskId, {
-        content,
-        role: "ASSISTANT",
-        llmModel,
-        metadata,
-        promptTokens: usage?.promptTokens,
-        completionTokens: usage?.completionTokens,
-        totalTokens: usage?.totalTokens,
-        finishReason: metadata?.finishReason,
-      });
-    }
-
-    // Extract usage info for denormalized storage
+  ): Promise<{ id: string; sequence: number }> {
     const usage = metadata?.usage;
-
-    return await prisma.chatMessage.create({
-      data: {
-        taskId,
-        content,
-        role: "ASSISTANT",
-        llmModel,
-        sequence,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata: (metadata as any) || undefined,
-        // Denormalized usage fields for easier querying
-        promptTokens: usage?.promptTokens,
-        completionTokens: usage?.completionTokens,
-        totalTokens: usage?.totalTokens,
-        finishReason: metadata?.finishReason,
-      },
+    return await this.createMessageWithAtomicSequence(taskId, {
+      content,
+      role: "ASSISTANT",
+      llmModel,
+      metadata,
+      promptTokens: usage?.promptTokens,
+      completionTokens: usage?.completionTokens,
+      totalTokens: usage?.totalTokens,
+      finishReason: metadata?.finishReason,
     });
   }
 
@@ -216,27 +178,12 @@ export class ChatService {
     llmModel: string,
     sequence?: number,
     metadata?: MessageMetadata
-  ): Promise<ChatMessage> {
-    // If no sequence provided, generate atomically
-    if (sequence === undefined) {
-      return await this.createMessageWithAtomicSequence(taskId, {
-        content,
-        role: "SYSTEM",
-        llmModel,
-        metadata,
-      });
-    }
-
-    return await prisma.chatMessage.create({
-      data: {
-        taskId,
-        content,
-        role: "SYSTEM",
-        llmModel,
-        sequence,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        metadata: (metadata as any) || undefined,
-      },
+  ): Promise<{ id: string; sequence: number }> {
+    return await this.createMessageWithAtomicSequence(taskId, {
+      content,
+      role: "SYSTEM",
+      llmModel,
+      metadata,
     });
   }
 
@@ -249,11 +196,7 @@ export class ChatService {
     _workspacePath?: string
   ): Promise<boolean> {
     try {
-      // Get task info including user and workspace details
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        include: { user: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         console.warn(`[CHAT] Task not found for git commit: ${taskId}`);
@@ -396,10 +339,7 @@ export class ChatService {
     context?: TaskModelContext
   ): Promise<void> {
     try {
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        include: { user: true },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         console.warn(`[CHAT] Task not found for PR creation: ${taskId}`);
@@ -474,24 +414,15 @@ export class ChatService {
     context?: TaskModelContext
   ): Promise<void> {
     try {
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        include: {
-          user: {
-            include: {
-              userSettings: true,
-            },
-          },
-        },
-      });
+      const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         console.warn(`[CHAT] Task not found for PR creation: ${taskId}`);
         return;
       }
 
-      // Check if user has auto-PR enabled (default to true if no settings exist)
-      const autoPREnabled = task.user.userSettings?.autoPullRequest ?? true;
+      const userSettings = await getUserSettings(task.userId);
+      const autoPREnabled = userSettings?.autoPullRequest ?? true;
 
       if (!autoPREnabled) {
         return;
@@ -537,32 +468,15 @@ export class ChatService {
   }
 
   async getChatHistory(taskId: string): Promise<Message[]> {
-    const dbMessages = await prisma.chatMessage.findMany({
-      where: { taskId },
-      include: {
-        pullRequestSnapshot: true,
-        stackedTask: {
-          select: {
-            id: true,
-            title: true,
-            shadowBranch: true,
-            status: true,
-          },
-        },
-      },
-      orderBy: [
-        { sequence: "asc" }, // Primary ordering by sequence
-        { createdAt: "asc" }, // Fallback ordering by timestamp
-      ],
-    });
+    const dbMessages = await listMessagesByTask(toConvexId<"tasks">(taskId));
 
     return dbMessages.map((msg) => ({
-      id: msg.id,
+      id: msg._id,
       role: msg.role.toLowerCase() as Message["role"],
       content: msg.content,
-      llmModel: msg.llmModel,
-      createdAt: msg.createdAt.toISOString(),
-      metadata: msg.metadata as MessageMetadata | undefined,
+      llmModel: msg.llmModel || undefined,
+      createdAt: new Date(msg.createdAt).toISOString(),
+      metadata: msg.metadataJson ? JSON.parse(msg.metadataJson) as MessageMetadata : undefined,
       pullRequestSnapshot: msg.pullRequestSnapshot || undefined,
       stackedTaskId: msg.stackedTaskId || undefined,
       stackedTask: msg.stackedTask || undefined,
@@ -764,18 +678,9 @@ export class ChatService {
         });
       }
 
-      const task = await prisma.task.findUnique({
-        where: { id: taskId },
-        include: {
-          user: {
-            include: {
-              userSettings: true,
-            },
-          },
-        },
-      });
-
-      const memoriesEnabled = task?.user.userSettings?.memoriesEnabled ?? true;
+      const task = await getTask(toConvexId<"tasks">(taskId));
+      const userSettings = task ? await getUserSettings(task.userId) : null;
+      const memoriesEnabled = userSettings?.memoriesEnabled ?? true;
 
       if (memoriesEnabled) {
         const memoryContext = await memoryService.getMemoriesForTask(taskId);
@@ -1195,43 +1100,24 @@ These are specific instructions from the user that should be followed throughout
     }
     this.clearQueuedAction(taskId);
 
-    // Update the message in database
-    await prisma.chatMessage.update({
-      where: { id: messageId },
-      data: {
-        content: newContent,
-        llmModel: newModel,
-        editedAt: new Date(),
-      },
+    await editMessage({
+      messageId: toConvexId<"chatMessages">(messageId),
+      content: newContent,
+      llmModel: newModel,
     });
 
-    // Update task activity timestamp when user edits a message
     await updateTaskActivity(taskId, "MESSAGE");
 
-    // Get the sequence of the edited message
-    const editedMessage = await prisma.chatMessage.findUnique({
-      where: { id: messageId },
-      select: { sequence: true },
-    });
+    const editedMessage = await getMessage(toConvexId<"chatMessages">(messageId));
 
     if (!editedMessage) {
       throw new Error("Edited message not found");
     }
 
     await checkpointService.restoreCheckpoint(taskId, messageId);
-    console.log(
-      `[CHAT] ✅ Checkpoint restoration completed for message editing`
-    );
+    console.log(`[CHAT] ✅ Checkpoint restoration completed for message editing`);
 
-    // Delete all messages that come after the edited message
-    await prisma.chatMessage.deleteMany({
-      where: {
-        taskId,
-        sequence: {
-          gt: editedMessage.sequence,
-        },
-      },
-    });
+    await removeMessagesAfterSequence(toConvexId<"tasks">(taskId), editedMessage.sequence);
 
     // Start streaming from the edited message
     // Update context with new model if it has changed
@@ -1335,22 +1221,16 @@ These are specific instructions from the user that should be followed throughout
     newTaskId?: string;
   }): Promise<void> {
     try {
-      // Get parent task details
-      const parentTask = await prisma.task.findUnique({
-        where: { id: parentTaskId },
-        select: {
-          repoFullName: true,
-          repoUrl: true,
-          shadowBranch: true,
-          userId: true,
-        },
-      });
+      // Get parent task details from Convex
+      const parentTask = await getTask(toConvexId<"tasks">(parentTaskId));
 
       if (!parentTask) {
         throw new Error("Parent task not found");
       }
 
-      if (parentTask.userId !== userId) {
+      // Get the Convex user for authorization check
+      const convexUser = await getUserByExternalId(userId);
+      if (!convexUser || parentTask.userId !== convexUser._id) {
         throw new Error("Unauthorized to create stacked task");
       }
 
@@ -1372,44 +1252,32 @@ These are specific instructions from the user that should be followed throughout
         context
       );
 
-      // Create the new stacked task
-      await prisma.task.create({
-        data: {
-          id: taskId,
-          title,
-          repoFullName: parentTask.repoFullName,
-          repoUrl: parentTask.repoUrl,
-          baseBranch: parentTask.shadowBranch, // Use parent's shadow branch as base
-          shadowBranch,
-          baseCommitSha: "pending",
-          status: "INITIALIZING",
-          user: {
-            connect: {
-              id: userId,
-            },
-          },
-          messages: {
-            create: {
-              content: message,
-              role: MessageRole.USER,
-              sequence: 1,
-              llmModel: model,
-            },
-          },
-        },
+      // Create the new stacked task in Convex
+      const { taskId: newConvexTaskId } = await createTask({
+        title,
+        repoFullName: parentTask.repoFullName,
+        repoUrl: parentTask.repoUrl,
+        baseBranch: parentTask.shadowBranch, // Use parent's shadow branch as base
+        shadowBranch,
+        baseCommitSha: "pending",
+        userId: convexUser._id,
+      });
+
+      // Create the initial user message for the new task
+      await appendMessage({
+        taskId: newConvexTaskId,
+        role: "USER",
+        content: message,
+        llmModel: model,
       });
 
       // Create a message in the parent task referencing the stacked task
-      const parentNextSequence = await this.getNextSequence(parentTaskId);
-      await prisma.chatMessage.create({
-        data: {
-          content: message,
-          role: MessageRole.USER,
-          llmModel: model,
-          taskId: parentTaskId,
-          stackedTaskId: taskId,
-          sequence: parentNextSequence,
-        },
+      await appendMessage({
+        taskId: toConvexId<"tasks">(parentTaskId),
+        role: "USER",
+        content: message,
+        llmModel: model,
+        stackedTaskId: newConvexTaskId,
       });
 
       // Trigger task initialization (similar to the backend initiate endpoint)
