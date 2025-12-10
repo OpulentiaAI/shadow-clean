@@ -55,6 +55,8 @@ ENV DATABASE_URL=${DATABASE_URL}
 
 # Build the frontend
 WORKDIR /app/apps/frontend
+# Remove any .env files that might override our production ENV vars
+RUN rm -f .env .env.local .env.development .env.production 2>/dev/null || true
 RUN npm run build
 
 # Production stage
