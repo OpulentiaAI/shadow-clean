@@ -14,6 +14,7 @@ This doc captures the current agent execution flow, Convex integration, and work
 - **Legacy Socket.IO bridge**: `convex-agent-bridge` still emits stream chunks and `tool-call-update`/`tool-call-history` events for existing UI until full migration. Socket path remains the default unless the Convex streaming flag is enabled.
 - Message parts (text/tool-call/tool-result/reasoning/error) are stored in Convex; tool calls also logged to `toolCalls` (server tools) and `agentTools` (streaming tool calls).
 - Streaming provider routing prefers OpenRouter first (with Anthropic/OpenAI fallbacks) and supports abortable cancellation via `cancelStream`; streaming tools are currently disabled and recorded as completed with a friendly message.
+- **Available OpenRouter Models**: Grok Code Fast 1, Claude Opus 4.5, Kimi K2/K2-Thinking, Codestral 2508, **Devstral 2 (FREE 123B agentic coding)**, DeepSeek R1/Chat V3, Qwen3 Coder/235B.
 
 ## Workspace initialization (backend)
 

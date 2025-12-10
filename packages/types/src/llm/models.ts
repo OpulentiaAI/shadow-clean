@@ -33,6 +33,7 @@ export const AvailableModels = {
   DEEPSEEK_CHAT_V3_0324: "deepseek/deepseek-chat-v3-0324",
   QWEN_3_CODER: "qwen/qwen3-coder",
   QWEN_3_235B_A22B_2507: "qwen/qwen3-235b-a22b-2507",
+  MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -140,6 +141,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "Qwen 3 235B A22B 2507",
     provider: "openrouter",
   },
+  [AvailableModels.MISTRAL_DEVSTRAL_2]: {
+    id: AvailableModels.MISTRAL_DEVSTRAL_2,
+    name: "Devstral 2 (Free)",
+    provider: "openrouter",
+  },
 };
 
 export function getModelProvider(
@@ -197,6 +203,7 @@ export async function getAllPossibleModels(
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
       AvailableModels.QWEN_3_CODER,
       AvailableModels.QWEN_3_235B_A22B_2507,
+      AvailableModels.MISTRAL_DEVSTRAL_2,
     );
   }
 
@@ -257,6 +264,7 @@ export async function getDefaultSelectedModels(
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
       AvailableModels.QWEN_3_CODER,
       AvailableModels.QWEN_3_235B_A22B_2507,
+      AvailableModels.MISTRAL_DEVSTRAL_2,
     );
   }
 
