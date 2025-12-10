@@ -22,6 +22,10 @@ WORKDIR /app
 
 # Copy source files first (needed for Prisma schema during postinstall)
 COPY --from=builder /app/out/full/ .
+
+# Remove any .env files from build context - we use Railway env vars in production
+RUN find . -name ".env*" -type f ! -name ".env.example" ! -name ".env.template" -delete 2>/dev/null || true
+
 # Ensure Convex generated files are available even if prune omitted the convex workspace
 RUN mkdir -p convex/_generated
 COPY --from=builder /app/convex/_generated ./convex/_generated
