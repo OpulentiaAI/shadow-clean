@@ -72,6 +72,10 @@ COPY --from=installer --chown=server:server /app/packages ./packages
 # Copy Convex generated files - required at runtime for server imports
 COPY --from=installer --chown=server:server /app/convex/_generated ./convex/_generated
 
+# Remove any .env files that might have been copied - use Railway env vars instead
+RUN rm -f .env .env.local .env.production .env.development 2>/dev/null || true && \
+    rm -f apps/server/.env apps/server/.env.local apps/server/.env.production 2>/dev/null || true
+
 # Switch to non-root user
 USER server
 
