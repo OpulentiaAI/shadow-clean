@@ -34,7 +34,7 @@ RUN npx turbo run build --filter @repo/types
 # Set build-time environment variables with production defaults
 # These NEXT_PUBLIC_* values get baked into the client bundle at build time
 ARG NEXT_PUBLIC_SERVER_URL=https://shadow-clean-production.up.railway.app
-ARG NEXT_PUBLIC_CONVEX_URL=https://polished-goldfish-393.convex.cloud
+ARG NEXT_PUBLIC_CONVEX_URL=https://veracious-alligator-638.convex.cloud
 ARG NEXT_PUBLIC_APP_URL=https://shadow-frontend-production-373f.up.railway.app
 ARG NEXT_PUBLIC_BYPASS_AUTH=false
 ARG NEXT_PUBLIC_API_URL=https://shadow-clean-production.up.railway.app
