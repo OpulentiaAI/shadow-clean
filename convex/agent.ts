@@ -2,27 +2,54 @@ import { action, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { components, internal, api } from "./_generated/api";
 import { Agent } from "@convex-dev/agent";
-import { openai } from "@ai-sdk/openai";
-// import { createOpenRouter } from "@openrouter/ai-sdk-provider"; // Will be used for model switching
 import OpenAI from "openai";
 import { createAgentTools } from "./agentTools";
 import { Id } from "./_generated/dataModel";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
-// OpenRouter provider for chat models when API key is available
-// Currently unused - will be used when implementing model switching
-// const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-// const openrouterProvider = openrouterApiKey
-//   ? createOpenRouter({ apiKey: openrouterApiKey })
-//   : null;
+// OpenRouter provider using the official AI SDK provider
+// Lazy-load so deploy doesn't fail if env isn't loaded yet
+let _openrouter: ReturnType<typeof createOpenRouter> | null = null;
+function getOpenRouter() {
+  if (_openrouter) return _openrouter;
 
-const shadowAgent = new Agent(components.agent, {
-  name: "ShadowAgent",
-  languageModel: openai.chat("gpt-4o"),
-  // Note: textEmbedding removed - not supported in current @convex-dev/agent version
-  instructions: `You are Shadow, an AI coding assistant. You help developers write, debug, and understand code.
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is not set in Convex environment");
+  }
+
+  _openrouter = createOpenRouter({
+    apiKey,
+    headers: {
+      ...(process.env.OPENROUTER_REFERRER
+        ? { "HTTP-Referer": process.env.OPENROUTER_REFERRER }
+        : {}),
+      ...(process.env.OPENROUTER_TITLE
+        ? { "X-Title": process.env.OPENROUTER_TITLE }
+        : {}),
+    },
+  });
+
+  return _openrouter;
+}
+
+// Lazy-load shadowAgent
+let _shadowAgent: Agent | null = null;
+function getShadowAgent() {
+  if (_shadowAgent) return _shadowAgent;
+
+  const openrouter = getOpenRouter();
+  _shadowAgent = new Agent(components.agent, {
+    name: "ShadowAgent",
+    languageModel: openrouter.chat("anthropic/claude-3.5-sonnet"),
+    // Note: textEmbedding removed - not supported in current @convex-dev/agent version
+    instructions: `You are Shadow, an AI coding assistant. You help developers write, debug, and understand code.
 You have access to the user's repository and can analyze code, suggest improvements, and help with implementation tasks.
 Be concise but thorough. When showing code, use proper formatting.`,
-});
+  });
+
+  return _shadowAgent;
+}
 
 export const createThread = action({
   args: {
@@ -31,11 +58,60 @@ export const createThread = action({
     metadata: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
+    const shadowAgent = getShadowAgent();
     const result = await shadowAgent.createThread(ctx, {
       userId: args.userId ?? undefined,
       title: args.taskId ? `Task: ${args.taskId}` : undefined,
     });
     return { threadId: result.threadId };
+  },
+});
+
+// OpenRouter-native implementation without Agent component
+export const generateTextWithOpenRouter = action({
+  args: {
+    prompt: v.string(),
+    model: v.optional(v.string()),
+    systemPrompt: v.optional(v.string()),
+    maxTokens: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      return { error: "OPENROUTER_API_KEY not set in environment" };
+    }
+
+    const client = new OpenAI({
+      apiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": process.env.OPENROUTER_REFERRER || "https://code.opulentia.ai",
+        "X-Title": process.env.OPENROUTER_TITLE || "Shadow Agent",
+      },
+    });
+
+    const completion = await client.chat.completions.create({
+      model: args.model || "x-ai/grok-code-fast-1",
+      messages: args.systemPrompt
+        ? [
+            { role: "system", content: args.systemPrompt },
+            { role: "user", content: args.prompt },
+          ]
+        : [{ role: "user", content: args.prompt }],
+      max_tokens: args.maxTokens || 500,
+    });
+
+    return {
+      text: completion.choices[0]?.message?.content || "",
+      usage: completion.usage
+        ? {
+            promptTokens: completion.usage.prompt_tokens,
+            completionTokens: completion.usage.completion_tokens,
+            totalTokens: completion.usage.total_tokens,
+          }
+        : undefined,
+      model: args.model || "x-ai/grok-code-fast-1",
+    };
   },
 });
 
@@ -48,27 +124,42 @@ export const generateText = action({
     maxTokens: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let threadId = args.threadId;
-    if (!threadId) {
-      const result = await shadowAgent.createThread(ctx, {});
-      threadId = result.threadId;
+    // Use raw OpenAI client for OpenRouter (bypasses Agent component issues)
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENROUTER_API_KEY is not set");
     }
-    const agent = args.systemPrompt
-      ? new Agent(components.agent, {
-          name: "ShadowAgent",
-          languageModel: openai.chat((args.model as any) || "gpt-4o"),
-          instructions: args.systemPrompt,
-        })
-      : shadowAgent;
-    const result = await agent.generateText(
-      ctx,
-      { threadId },
-      { prompt: args.prompt },
-    );
+
+    const client = new OpenAI({
+      apiKey,
+      baseURL: "https://openrouter.ai/api/v1",
+      defaultHeaders: {
+        "HTTP-Referer": process.env.OPENROUTER_REFERRER || "https://code.opulentia.ai",
+        "X-Title": process.env.OPENROUTER_TITLE || "Shadow Agent",
+      },
+    });
+
+    const completion = await client.chat.completions.create({
+      model: args.model || "anthropic/claude-3.5-sonnet",
+      messages: args.systemPrompt
+        ? [
+            { role: "system", content: args.systemPrompt },
+            { role: "user", content: args.prompt },
+          ]
+        : [{ role: "user", content: args.prompt }],
+      max_tokens: args.maxTokens,
+    });
+
     return {
-      threadId,
-      text: result.text,
-      usage: result.usage,
+      threadId: args.threadId ?? null,
+      text: completion.choices[0]?.message?.content || "",
+      usage: completion.usage
+        ? {
+            promptTokens: completion.usage.prompt_tokens,
+            completionTokens: completion.usage.completion_tokens,
+            totalTokens: completion.usage.total_tokens,
+          }
+        : undefined,
     };
   },
 });
@@ -178,10 +269,12 @@ export const continueThread = action({
     model: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const openrouter = getOpenRouter();
+    const shadowAgent = getShadowAgent();
     const agent = args.model
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          languageModel: openai.chat(args.model as any),
+          languageModel: openrouter.chat(args.model as any),
         })
       : shadowAgent;
     const result = await agent.generateText(
@@ -204,6 +297,7 @@ export const analyzeCode = action({
     question: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const shadowAgent = getShadowAgent();
     const prompt = args.question
       ? `Analyze the following ${args.language || "code"}:\n\n\`\`\`${args.language || ""}\n${args.code}\n\`\`\`\n\nQuestion: ${args.question}`
       : `Analyze the following ${args.language || "code"} and provide insights about its functionality, potential issues, and improvements:\n\n\`\`\`${args.language || ""}\n${args.code}\n\`\`\``;
@@ -229,6 +323,7 @@ export const generateCode = action({
     context: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const shadowAgent = getShadowAgent();
     const prompt = args.context
       ? `Generate ${args.language} code for the following requirement:\n\n${args.description}\n\nContext:\n${args.context}`
       : `Generate ${args.language} code for the following requirement:\n\n${args.description}`;
@@ -254,6 +349,7 @@ export const explainError = action({
     language: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const shadowAgent = getShadowAgent();
     let prompt = `Explain the following error and suggest how to fix it:\n\n${args.error}`;
     if (args.code) {
       prompt += `\n\nRelevant code:\n\`\`\`${args.language || ""}\n${args.code}\n\`\`\``;
@@ -282,6 +378,8 @@ export const chat: ReturnType<typeof action> = action({
     threadId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const openrouter = getOpenRouter();
+    const shadowAgent = getShadowAgent();
     const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
     if (!task) {
       throw new Error("Task not found");
@@ -296,12 +394,12 @@ export const chat: ReturnType<typeof action> = action({
     const agent = args.model
       ? new Agent(components.agent, {
           name: "ShadowAgent",
-          languageModel: openai.chat(args.model as any),
+          languageModel: openrouter.chat(args.model as any),
           instructions: `You are Shadow, an AI coding assistant working on the repository: ${task.repoFullName}. Help the user with their coding tasks.`,
         })
       : new Agent(components.agent, {
           name: "ShadowAgent",
-          languageModel: openai.chat("gpt-4o"),
+          languageModel: openrouter.chat("anthropic/claude-3.5-sonnet"),
           instructions: `You are Shadow, an AI coding assistant working on the repository: ${task.repoFullName}. Help the user with their coding tasks.`,
         });
     const result = await agent.generateText(
@@ -323,11 +421,12 @@ export const chat: ReturnType<typeof action> = action({
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 function createTaskAgent(ctx: ActionCtx, taskId: Id<"tasks">, model?: string) {
+  const openrouter = getOpenRouter();
   const tools = createAgentTools(ctx, taskId);
 
   return new Agent(components.agent, {
     name: "ShadowTaskAgent",
-    languageModel: openai.chat((model as any) || "gpt-4o"),
+    languageModel: openrouter.chat((model as any) || "anthropic/claude-3.5-sonnet"),
     instructions: `You are Shadow, an AI coding assistant with access to tools for file operations, code search, and task management.
 
 CRITICAL RULES:

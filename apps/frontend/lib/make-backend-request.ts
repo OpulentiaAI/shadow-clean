@@ -36,8 +36,18 @@ export async function makeBackendRequest(
     }
   }
 
-  return fetch(fullUrl, {
-    ...options,
-    headers,
-  });
+  try {
+    return await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
+  } catch (error) {
+    console.error(`[makeBackendRequest] Failed to fetch ${fullUrl}:`, error);
+    // Return a mock error response to prevent crash
+    return new Response(JSON.stringify({ error: "Backend unreachable" }), {
+      status: 503,
+      statusText: "Service Unavailable",
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }

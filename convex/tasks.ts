@@ -316,12 +316,12 @@ export const getDetails: ReturnType<typeof action> = action({
     ]);
 
     // Fetch file changes and diff stats from existing backend endpoint
-    const baseUrl = getBackendBaseUrl();
     let fileData: { fileChanges: unknown[]; diffStats: { additions: number; deletions: number; totalFiles: number } } = {
       fileChanges: [],
       diffStats: { additions: 0, deletions: 0, totalFiles: 0 },
     };
     try {
+      const baseUrl = getBackendBaseUrl();
       const authToken = process.env.CONVEX_TASK_AUTH_TOKEN;
       const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/file-changes`, {
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -334,7 +334,7 @@ export const getDetails: ReturnType<typeof action> = action({
         console.warn(`file-changes fetch failed (${res.status}): ${res.statusText}`);
       }
     } catch (err) {
-      console.warn("file-changes fetch errored", err);
+      console.warn("file-changes fetch errored or config missing", err);
     }
 
     return {
