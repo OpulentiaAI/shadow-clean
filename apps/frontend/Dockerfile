@@ -34,12 +34,13 @@ RUN npx turbo run build --filter @repo/types
 # Set build-time environment variables with production defaults
 # These NEXT_PUBLIC_* values get baked into the client bundle at build time
 ARG NEXT_PUBLIC_SERVER_URL=https://shadow-clean-production.up.railway.app
-ARG NEXT_PUBLIC_CONVEX_URL=https://polished-goldfish-393.convex.cloud
+ARG NEXT_PUBLIC_CONVEX_URL=https://veracious-alligator-638.convex.cloud
 ARG NEXT_PUBLIC_APP_URL=https://shadow-frontend-production-373f.up.railway.app
 ARG NEXT_PUBLIC_BYPASS_AUTH=false
 ARG NEXT_PUBLIC_API_URL=https://shadow-clean-production.up.railway.app
 ARG NEXTAUTH_URL=https://shadow-frontend-production-373f.up.railway.app
 ARG BETTER_AUTH_SECRET=build-time-placeholder-secret-minimum-32-characters-long
+ARG NEXT_PUBLIC_USE_CONVEX_REALTIME=true
 ARG DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder
 
 ENV NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL}
@@ -49,6 +50,7 @@ ENV NEXT_PUBLIC_BYPASS_AUTH=${NEXT_PUBLIC_BYPASS_AUTH}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXTAUTH_URL=${NEXTAUTH_URL}
 ENV BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+ENV NEXT_PUBLIC_USE_CONVEX_REALTIME=${NEXT_PUBLIC_USE_CONVEX_REALTIME}
 ENV DATABASE_URL=${DATABASE_URL}
 
 # Build the frontend
