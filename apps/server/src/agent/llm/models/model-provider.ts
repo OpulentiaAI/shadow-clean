@@ -1,10 +1,16 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 // import { createGroq } from "@ai-sdk/groq";
 // import { createOllama } from "ollama-ai-provider";
 import { ModelType, getModelProvider, ApiKeys } from "@repo/types";
 import { LanguageModel } from "ai";
+
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENROUTER_HEADERS = {
+  "HTTP-Referer": "https://code.opulentia.ai",
+  "X-Title": "Shadow Agent",
+};
 
 export class ModelProvider {
   /**
@@ -56,20 +62,15 @@ export class ModelProvider {
         console.log("Creating OpenRouter client");
 
         try {
-          const openrouterClient = createOpenRouter({
+          const openrouterClient = createOpenAI({
             apiKey: userApiKeys.openrouter,
-            // Add required headers for OpenRouter
-            headers: {
-              "HTTP-Referer": "https://code.opulentia.ai",
-              "X-Title": "Shadow Agent",
-            },
+            baseURL: OPENROUTER_BASE_URL,
+            headers: OPENROUTER_HEADERS,
           });
-          const model = openrouterClient.chat(modelId);
+          const model = openrouterClient(modelId);
 
           console.log(`[MODEL_PROVIDER] Created OpenRouter model: ${modelId}`);
-          // Cast to LanguageModel for AI SDK v5 compatibility
-          // OpenRouter provider may not fully implement LanguageModelV2.supportedUrls
-          return model as unknown as LanguageModel;
+          return model;
         } catch (error) {
           console.error("OpenRouter client creation failed:", error);
           throw error;

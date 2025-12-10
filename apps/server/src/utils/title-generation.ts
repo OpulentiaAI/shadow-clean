@@ -1,7 +1,6 @@
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI, openai } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   cleanTitle,
   generateShadowBranchName,
@@ -10,6 +9,13 @@ import {
 } from "@repo/types";
 import { TaskModelContext } from "../services/task-model-context";
 import { braintrustService } from "../agent/llm/observability/braintrust-service";
+
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENROUTER_HEADERS = {
+  "HTTP-Referer": "https://code.opulentia.ai",
+  "X-Title": "Shadow Agent",
+};
 
 export async function generateTaskTitleAndBranch(
   taskId: string,
@@ -49,13 +55,11 @@ export async function generateTaskTitleAndBranch(
         ? openai(modelConfig.modelChoice)
         : modelConfig.provider === "anthropic"
           ? anthropic(modelConfig.modelChoice)
-          : createOpenRouter({
+          : createOpenAI({
               apiKey: apiKeys.openrouter!,
-              headers: {
-                "HTTP-Referer": "https://code.opulentia.ai",
-                "X-Title": "Shadow Agent",
-              },
-            }).chat(modelConfig.modelChoice);
+              baseURL: OPENROUTER_BASE_URL,
+              headers: OPENROUTER_HEADERS,
+            })(modelConfig.modelChoice);
 
     const { text: generatedText } = await generateText({
       model: model as any,

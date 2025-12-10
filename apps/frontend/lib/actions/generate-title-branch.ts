@@ -3,7 +3,6 @@
 import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import {
   cleanTitle,
   generateShadowBranchName,
@@ -11,6 +10,13 @@ import {
   generateTitlePrompt,
 } from "@repo/types";
 import { getApiKeys } from "./api-keys";
+
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENROUTER_HEADERS = {
+  "HTTP-Referer": "https://shadowrealm.ai",
+  "X-Title": "Shadow Agent",
+};
 
 export async function generateTaskTitleAndBranch(
   taskId: string,
@@ -43,13 +49,11 @@ export async function generateTaskTitleAndBranch(
           ? createAnthropic({ apiKey: apiKeys.anthropic })(
               modelConfig.modelChoice
             )
-          : createOpenRouter({
+          : createOpenAI({
               apiKey: apiKeys.openrouter!,
-              headers: {
-                "HTTP-Referer": "https://shadowrealm.ai",
-                "X-Title": "Shadow Agent",
-              },
-            }).chat(modelConfig.modelChoice);
+              baseURL: OPENROUTER_BASE_URL,
+              headers: OPENROUTER_HEADERS,
+            })(modelConfig.modelChoice);
 
     const { text: generatedText } = await generateText({
       model: model as any, // Type cast for OpenRouter compatibility with AI SDK v5

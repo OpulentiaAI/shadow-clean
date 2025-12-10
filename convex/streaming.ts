@@ -4,7 +4,6 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { type LanguageModel } from "ai";
 import { createAgentTools } from "./agentTools";
 
@@ -20,19 +19,22 @@ type ProviderOptions = {
   };
 };
 
+const OPENROUTER_BASE_URL =
+  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+const OPENROUTER_HEADERS = {
+  "HTTP-Referer": "https://code.opulentia.ai",
+  "X-Title": "Shadow Agent",
+};
+
 function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
-    const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    const openrouterClient = createOpenRouter({
+    const openrouterClient = createOpenAI({
       apiKey: apiKeys.openrouter,
-      baseURL,
-      headers: {
-        "HTTP-Referer": "https://code.opulentia.ai",
-        "X-Title": "Shadow Agent",
-      },
+      baseURL: OPENROUTER_BASE_URL,
+      headers: OPENROUTER_HEADERS,
     });
-    return openrouterClient.chat(model) as unknown as LanguageModel;
+    return openrouterClient(model);
   }
 
   if (apiKeys.anthropic) {
@@ -46,16 +48,12 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   // Fallback to environment keys to keep UI simple (no client key prompts)
   const envOpenRouter = process.env.OPENROUTER_API_KEY;
   if (envOpenRouter) {
-    const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    const openrouterClient = createOpenRouter({
+    const openrouterClient = createOpenAI({
       apiKey: envOpenRouter,
-      baseURL,
-      headers: {
-        "HTTP-Referer": "https://code.opulentia.ai",
-        "X-Title": "Shadow Agent",
-      },
+      baseURL: OPENROUTER_BASE_URL,
+      headers: OPENROUTER_HEADERS,
     });
-    return openrouterClient.chat(model) as unknown as LanguageModel;
+    return openrouterClient(model);
   }
 
   const envAnthropic = process.env.ANTHROPIC_API_KEY;
