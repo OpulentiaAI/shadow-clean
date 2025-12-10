@@ -6,11 +6,9 @@ import {
   updateTask,
   listMessagesByTask,
   listToolCallsByTask,
+  toConvexId,
 } from "./lib/convex-operations";
-import { toConvexId } from "./lib/convex-operations";
-import { prisma } from "@repo/db";
-import { getConvexClient } from "./lib/convex-client";
-import { api } from "../../../convex/_generated/api";
+
 import cors from "cors";
 import express from "express";
 import http from "http";
@@ -38,62 +36,19 @@ export const chatService = new ChatService();
 const initializationEngine = new TaskInitializationEngine();
 
 async function ensureConvexTask(taskId: string) {
-  const convexClient = getConvexClient();
-
-  // Try to use the provided taskId directly (if it is already a Convex ID)
   try {
-    const existing = await convexClient.query(api.tasks.getWithDetails, {
-      taskId: toConvexId<"tasks">(taskId),
-    });
+    const existing = await getTaskWithDetails(toConvexId<"tasks">(taskId));
     if (existing?.task) {
       return { convexTaskId: taskId };
     }
   } catch (error) {
     console.warn(
-      `[TASK_SYNC] Task ${taskId} not found in Convex, will attempt to sync from Prisma.`,
+      `[TASK_SYNC] Task ${taskId} not found in Convex.`,
       error
     );
   }
 
-  const prismaTask = await prisma.task.findUnique({
-    where: { id: taskId },
-    include: { user: true },
-  });
-
-  if (!prismaTask || !prismaTask.user) {
-    return { convexTaskId: null, error: "Task not found" as const };
-  }
-
-  // Ensure Convex user exists (by externalId)
-  const userExternalId = prismaTask.user.id;
-  const existingUser = await convexClient
-    .query(api.auth.getUserByExternalId, { externalId: userExternalId })
-    .catch(() => null);
-
-  const convexUserId =
-    existingUser?._id ||
-    (await convexClient.mutation(api.auth.upsertUser, {
-      externalId: userExternalId,
-      name: prismaTask.user.name || "Unknown User",
-      email: prismaTask.user.email || `${userExternalId}@example.invalid`,
-      image: prismaTask.user.image || undefined,
-      emailVerified: prismaTask.user.emailVerified ?? true,
-    }));
-
-  const created = await convexClient.mutation(api.tasks.create, {
-    title: prismaTask.title || "Untitled Task",
-    repoFullName: prismaTask.repoFullName || "unknown/repo",
-    repoUrl: prismaTask.repoUrl || "https://example.com/repo",
-    userId: convexUserId,
-    isScratchpad: prismaTask.isScratchpad ?? false,
-    baseBranch: prismaTask.baseBranch || "main",
-    baseCommitSha: prismaTask.baseCommitSha || "pending",
-    shadowBranch: prismaTask.shadowBranch || "shadow",
-    mainModel: prismaTask.mainModel || undefined,
-    githubIssueId: prismaTask.githubIssueId || undefined,
-  });
-
-  return { convexTaskId: created.taskId };
+  return { convexTaskId: null, error: "Task not found" as const };
 }
 
 const initiateTaskSchema = z.object({
@@ -395,23 +350,20 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
 
     console.log(`[MESSAGE_SUBMIT] Submitting message to task ${taskId}`);
 
-    // Fetch Prisma task (source of truth for legacy tasks)
-    const prismaTask = await prisma.task.findUnique({
-      where: { id: taskId },
-      include: { user: true },
-    });
+    // Fetch task from Convex
+    const task = await getTask(toConvexId<"tasks">(taskId));
 
-    if (!prismaTask) {
+    if (!task) {
       return res.status(404).json({ error: "Task not found" });
     }
 
     // Allow messages in more states for hosted/Convex flow (Railway may mark tasks as INITIALIZING)
     const isActiveStatus =
-      prismaTask.status === "RUNNING" ||
-      prismaTask.status === "INITIALIZING" ||
-      prismaTask.status === "COMPLETED" || // allow follow-ups
-      prismaTask.hasBeenInitialized === true ||
-      prismaTask.initStatus === "ACTIVE";
+      task.status === "RUNNING" ||
+      task.status === "INITIALIZING" ||
+      task.status === "COMPLETED" || // allow follow-ups
+      task.hasBeenInitialized === true ||
+      task.initStatus === "ACTIVE";
     if (!isActiveStatus) {
       return res.status(400).json({
         error:
@@ -419,19 +371,12 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
       });
     }
 
-    // Ensure a Convex task exists for streaming; create/mirror if missing
-    const { convexTaskId, error } = await ensureConvexTask(taskId);
-    if (!convexTaskId || error) {
-      return res.status(404).json({ error: "Task not found" });
-    }
-    chatService.setConvexTaskId(taskId, convexTaskId);
-
     // Build model context - API keys come from cookies (sent by frontend)
     const apiKeys = parseApiKeysFromCookies(req.headers.cookie || "");
 
     const context = new TaskModelContext(
       taskId,
-      (model as ModelType) || prismaTask.mainModel || "gpt-4o",
+      (model as ModelType) || task.mainModel || "gpt-4o",
       apiKeys
     );
 
@@ -441,7 +386,7 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
       userMessage: message,
       context,
       enableTools: true,
-      workspacePath: prismaTask.workspacePath || undefined,
+      workspacePath: task.workspacePath || undefined,
     });
 
     res.json({ success: true, message: "Message submitted successfully" });

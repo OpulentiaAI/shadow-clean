@@ -47,6 +47,7 @@ import {
   getLatestMessageSequence,
   createTask,
   getUserSettings,
+  getUserByExternalId,
 } from "../lib/convex-operations";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { TaskInitializationEngine } from "@/initialization";
@@ -1220,22 +1221,16 @@ These are specific instructions from the user that should be followed throughout
     newTaskId?: string;
   }): Promise<void> {
     try {
-      // Get parent task details
-      const parentTask = await prisma.task.findUnique({
-        where: { id: parentTaskId },
-        select: {
-          repoFullName: true,
-          repoUrl: true,
-          shadowBranch: true,
-          userId: true,
-        },
-      });
+      // Get parent task details from Convex
+      const parentTask = await getTask(toConvexId<"tasks">(parentTaskId));
 
       if (!parentTask) {
         throw new Error("Parent task not found");
       }
 
-      if (parentTask.userId !== userId) {
+      // Get the Convex user for authorization check
+      const convexUser = await getUserByExternalId(userId);
+      if (!convexUser || parentTask.userId !== convexUser._id) {
         throw new Error("Unauthorized to create stacked task");
       }
 
@@ -1257,44 +1252,32 @@ These are specific instructions from the user that should be followed throughout
         context
       );
 
-      // Create the new stacked task
-      await prisma.task.create({
-        data: {
-          id: taskId,
-          title,
-          repoFullName: parentTask.repoFullName,
-          repoUrl: parentTask.repoUrl,
-          baseBranch: parentTask.shadowBranch, // Use parent's shadow branch as base
-          shadowBranch,
-          baseCommitSha: "pending",
-          status: "INITIALIZING",
-          user: {
-            connect: {
-              id: userId,
-            },
-          },
-          messages: {
-            create: {
-              content: message,
-              role: MessageRole.USER,
-              sequence: 1,
-              llmModel: model,
-            },
-          },
-        },
+      // Create the new stacked task in Convex
+      const { taskId: newConvexTaskId } = await createTask({
+        title,
+        repoFullName: parentTask.repoFullName,
+        repoUrl: parentTask.repoUrl,
+        baseBranch: parentTask.shadowBranch, // Use parent's shadow branch as base
+        shadowBranch,
+        baseCommitSha: "pending",
+        userId: convexUser._id,
+      });
+
+      // Create the initial user message for the new task
+      await appendMessage({
+        taskId: newConvexTaskId,
+        role: "USER",
+        content: message,
+        llmModel: model,
       });
 
       // Create a message in the parent task referencing the stacked task
-      const parentNextSequence = await this.getNextSequence(parentTaskId);
-      await prisma.chatMessage.create({
-        data: {
-          content: message,
-          role: MessageRole.USER,
-          llmModel: model,
-          taskId: parentTaskId,
-          stackedTaskId: taskId,
-          sequence: parentNextSequence,
-        },
+      await appendMessage({
+        taskId: toConvexId<"tasks">(parentTaskId),
+        role: "USER",
+        content: message,
+        llmModel: model,
+        stackedTaskId: newConvexTaskId,
       });
 
       // Trigger task initialization (similar to the backend initiate endpoint)
