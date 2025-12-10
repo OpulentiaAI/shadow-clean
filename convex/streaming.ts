@@ -32,7 +32,7 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
       apiKey: apiKeys.openrouter,
       headers: OPENROUTER_HEADERS,
     });
-    return openrouterClient.chat(model);
+    return openrouterClient.chat(model) as any;
   }
 
   if (apiKeys.anthropic) {
@@ -50,7 +50,7 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
       apiKey: envOpenRouter,
       headers: OPENROUTER_HEADERS,
     });
-    return openrouterClient.chat(model);
+    return openrouterClient.chat(model) as any;
   }
 
   const envAnthropic = process.env.ANTHROPIC_API_KEY;
