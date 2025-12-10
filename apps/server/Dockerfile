@@ -1,4 +1,5 @@
 # Backend Server Dockerfile - Optimized for Turborepo monorepo
+# Cache bust: 2025-12-10-0532
 FROM node:22-alpine AS base
 
 # Builder stage - prunes monorepo and installs dependencies
