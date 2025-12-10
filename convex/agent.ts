@@ -41,7 +41,7 @@ function getShadowAgent() {
   const openrouter = getOpenRouter();
   _shadowAgent = new Agent(components.agent, {
     name: "ShadowAgent",
-    languageModel: openrouter.chat("anthropic/claude-3.5-sonnet"),
+    languageModel: openrouter.chat("anthropic/claude-3.5-sonnet") as any,
     // Note: textEmbedding removed - not supported in current @convex-dev/agent version
     instructions: `You are Shadow, an AI coding assistant. You help developers write, debug, and understand code.
 You have access to the user's repository and can analyze code, suggest improvements, and help with implementation tasks.
