@@ -12,6 +12,9 @@ RUN npm install -g turbo@^2
 # Copy entire monorepo for pruning
 COPY . .
 
+# CRITICAL: Remove all .env files BEFORE pruning - prevents dev config from entering build
+RUN find . -name ".env*" -type f ! -name ".env.example" ! -name ".env.template" -delete 2>/dev/null || true
+
 # Generate a partial monorepo with pruned lockfile for server workspace
 RUN turbo prune server --docker
 
