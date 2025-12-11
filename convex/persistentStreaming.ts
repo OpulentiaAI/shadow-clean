@@ -65,4 +65,3 @@ export const streamPersistentDemo = httpAction(async (ctx, request) => {
   response.headers.set("Vary", "Origin");
   return response;
 });
-

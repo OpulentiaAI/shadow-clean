@@ -35,13 +35,19 @@ Sets up isolated execution environments for AI agents to work on GitHub reposito
 - Sidecar supports Convex-native mode (file changes, tool logs, terminal output, workspace status) via `USE_CONVEX_NATIVE=true` and `CONVEX_URL`.
 - Hybrid fallback remains: legacy Socket.IO sidecar events and REST are still available while UI wiring catches up. Use `NEXT_PUBLIC_USE_CONVEX_REALTIME=true` (frontend) to opt into Convex streaming.
 - Provider routing now prefers OpenRouter (first-party), with Anthropic/OpenAI fallbacks and abortable cancellation; presence cleanup runs via `convex/crons.ts`.
-- Known gaps before full nativity: streaming tool execution is explicitly disabled in `streamChatWithTools` (status is recorded) until real tool runners are wired; some Phase 1 hooks still carry implicit `any` types.
+- Streaming tools (file/terminal/search/memory/todos) execute through the tool API and are tracked in the `agentTools` table. Some OpenRouter models (notably Kimi) may emit `tool-input-*` parts without streaming args; `streamChatWithTools` includes CLI-friendly fallbacks to recover args and still execute tools reliably.
 
 ### Convex streaming quick test (local)
 - Set frontend env: `NEXT_PUBLIC_CONVEX_URL=<your convex>`, `NEXT_PUBLIC_USE_CONVEX_REALTIME=true`, `NEXT_PUBLIC_API_URL=http://localhost:4000`.
 - Start services: `npx convex dev`, `npm run dev --filter=server`, then restart frontend `npm run dev --filter=frontend` (or `npm run dev:app`).
 - Create a **new task** in the UI (ensures Prisma + Convex rows), send a message, and watch the stream.
 - If you see “Could not find public function…”, run `npx convex dev --until-success --once` to regenerate/deploy functions.
+
+### Convex streaming + tool-calling quick test (CLI)
+- Deploy (prod URL): `npx convex deploy --url <your_convex_url> -y`
+- Run: `npx convex run streaming:streamChatWithTools --deployment-name <deployment> '<json args>'`
+- Recommended “cheap + reliable” OpenRouter model for tool-calling verification: `moonshotai/kimi-k2-thinking`
+- If you need a deterministic workspace on the tool server for CLI tests, create a scratch task and set `workspacePath` to `/app` (present in the Railway tool container), then run file/terminal tools against that task.
 
 ## Execution Modes
 
