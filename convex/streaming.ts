@@ -247,6 +247,12 @@ export const streamChatWithTools = action({
     console.log(`[STREAMING] streamChatWithTools called for task ${args.taskId}`);
     console.log(`[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`);
     console.log(`[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}`);
+    if (args.apiKeys?.openrouter) {
+      console.log(`[STREAMING] OpenRouter key from args: ${args.apiKeys.openrouter.length} chars`);
+    } else {
+      console.log(`[STREAMING] No OpenRouter key in args, will check env`);
+      console.log(`[STREAMING] Env OPENROUTER_API_KEY present: ${!!process.env.OPENROUTER_API_KEY}`);
+    }
 
     // Get task details
     const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
@@ -406,11 +412,16 @@ export const streamChatWithTools = action({
       
       // Format user-friendly error message
       let userMessage = error instanceof Error ? error.message : String(error);
+      const errorStr = String(error);
       
       // Check for specific error types and provide better messages
-      if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
+      if (errorStr.includes('401') || userMessage.includes('401') || userMessage.includes('Unauthorized')) {
+        userMessage = 'API authentication failed (401). The API key may be invalid or expired. Please check your API key configuration.';
+      } else if (errorStr.includes('403') || userMessage.includes('403') || userMessage.includes('Forbidden')) {
+        userMessage = 'API access forbidden (403). Your API key may not have permission to use this model.';
+      } else if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
         userMessage = 'The model returned no response. This usually happens due to rate limiting on free-tier models. Please try again or switch to a different model.';
-      } else if (userMessage.includes('rate limit') || userMessage.includes('Rate limit')) {
+      } else if (userMessage.includes('rate limit') || userMessage.includes('Rate limit') || errorStr.includes('429')) {
         userMessage = 'Rate limit exceeded. Please wait a moment before trying again, or switch to a different model.';
       } else if (userMessage.includes('quota')) {
         userMessage = 'API quota exceeded. Please check your API key credits or switch to a different provider.';
