@@ -370,6 +370,10 @@ export const streamChatWithTools = action({
             messageId,
             deltaText: part.text,
             isFinal: false,
+            parts: [{
+              type: "text",
+              text: part.text,
+            }],
           });
         } else if (part.type === "tool-call") {
           const toolCallId = (part as any).toolCallId ?? (part as any).id;
@@ -388,8 +392,21 @@ export const streamChatWithTools = action({
             status: "RUNNING",
           });
           toolCallIds.push(toolCallId);
+
+          await ctx.runMutation(api.messages.appendStreamDelta, {
+            messageId,
+            deltaText: "",
+            isFinal: false,
+            parts: [{
+              type: "tool-call",
+              toolCallId,
+              toolName,
+              args: toolArgs,
+            }],
+          });
         } else if (part.type === "tool-result") {
           const toolCallId = (part as any).toolCallId ?? (part as any).id;
+          const toolName = (part as any).toolName ?? "unknown-tool";
           const toolResult = (part as any).result ?? (part as any).output;
           if (!toolCallId) continue;
 
@@ -397,6 +414,18 @@ export const streamChatWithTools = action({
             toolCallId,
             result: toolResult,
             status: "COMPLETED",
+          });
+
+          await ctx.runMutation(api.messages.appendStreamDelta, {
+            messageId,
+            deltaText: "",
+            isFinal: false,
+            parts: [{
+              type: "tool-result",
+              toolCallId,
+              toolName,
+              result: toolResult,
+            }],
           });
         }
       }
