@@ -26,8 +26,12 @@ const OPENROUTER_HEADERS = {
 };
 
 function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
+  console.log(`[STREAMING] resolveProvider called for model: ${model}`);
+  console.log(`[STREAMING] API keys check - openrouter: ${!!apiKeys.openrouter}, anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}`);
+
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
+    console.log(`[STREAMING] Using OpenRouter with client-provided API key`);
     const openrouterClient = createOpenRouter({
       apiKey: apiKeys.openrouter,
       headers: OPENROUTER_HEADERS,
@@ -36,16 +40,19 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   }
 
   if (apiKeys.anthropic) {
+    console.log(`[STREAMING] Using Anthropic with client-provided API key`);
     return createAnthropic({ apiKey: apiKeys.anthropic })(model);
   }
 
   if (apiKeys.openai) {
+    console.log(`[STREAMING] Using OpenAI with client-provided API key`);
     return createOpenAI({ apiKey: apiKeys.openai })(model);
   }
 
   // Fallback to environment keys to keep UI simple (no client key prompts)
   const envOpenRouter = process.env.OPENROUTER_API_KEY;
   if (envOpenRouter) {
+    console.log(`[STREAMING] Using OpenRouter with environment API key`);
     const openrouterClient = createOpenRouter({
       apiKey: envOpenRouter,
       headers: OPENROUTER_HEADERS,
@@ -55,14 +62,17 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
 
   const envAnthropic = process.env.ANTHROPIC_API_KEY;
   if (envAnthropic) {
+    console.log(`[STREAMING] Using Anthropic with environment API key`);
     return createAnthropic({ apiKey: envAnthropic })(model);
   }
 
   const envOpenAI = process.env.OPENAI_API_KEY;
   if (envOpenAI) {
+    console.log(`[STREAMING] Using OpenAI with environment API key`);
     return createOpenAI({ apiKey: envOpenAI })(model);
   }
 
+  console.error(`[STREAMING] No API key found for model: ${model}`);
   throw new Error("No API key provided");
 }
 
@@ -226,25 +236,35 @@ export const streamChatWithTools = action({
     }),
   },
   handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
+    console.log(`[STREAMING] streamChatWithTools called for task ${args.taskId}`);
+    console.log(`[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`);
+    console.log(`[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}`);
+
     // Get task details
     const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
     if (!task) {
+      console.error(`[STREAMING] Task not found: ${args.taskId}`);
       throw new Error("Task not found");
     }
+    console.log(`[STREAMING] Task found: ${task._id}`);
 
     // Initialize streaming message
+    console.log(`[STREAMING] Starting streaming message`);
     const { messageId } = await ctx.runMutation(api.messages.startStreaming, {
       taskId: args.taskId,
       llmModel: args.llmModel,
     });
+    console.log(`[STREAMING] Streaming message created: ${messageId}`);
 
     try {
       // Import AI SDK dynamically
+      console.log(`[STREAMING] Importing AI SDK and resolving provider`);
       const { streamText } = await import("ai");
       const providerModel = resolveProvider({
         model: args.model,
         apiKeys: args.apiKeys || {},
       });
+      console.log(`[STREAMING] Provider resolved for model: ${args.model}`);
       const controller = new AbortController();
       streamControllers.set(messageId, controller);
 
@@ -265,6 +285,7 @@ export const streamChatWithTools = action({
       const toolCallIds: string[] = [];
 
       // Start streaming with tools
+      console.log(`[STREAMING] Starting streamText with ${Object.keys(aiTools).length} tools`);
       const result = await streamText({
         model: providerModel,
         prompt: args.prompt,
@@ -273,6 +294,7 @@ export const streamChatWithTools = action({
         temperature: 0.7,
         abortSignal: controller.signal,
       });
+      console.log(`[STREAMING] streamText initiated, processing stream...`);
 
       let accumulatedText = "";
 
@@ -329,6 +351,7 @@ export const streamChatWithTools = action({
         finishReason: finishReason ?? undefined,
       });
 
+      console.log(`[STREAMING] Streaming completed successfully, text length: ${accumulatedText.length}`);
       return {
         success: true,
         messageId,
@@ -337,6 +360,10 @@ export const streamChatWithTools = action({
         usage: usage ?? undefined,
       };
     } catch (error) {
+      console.error(`[STREAMING] Error during streaming:`, error);
+      if (error instanceof Error) {
+        console.error(`[STREAMING] Error stack:`, error.stack);
+      }
       await ctx.runMutation(api.messages.update, {
         messageId,
         content: `Error: ${error instanceof Error ? error.message : String(error)}`,
