@@ -768,11 +768,13 @@ These are specific instructions from the user that should be followed throughout
 
       messages.unshift(...systemMessagesToAdd);
       console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
+      console.log(`[CHAT] About to exit if block (isFirstMessage)`);
     } else {
       console.log(`[CHAT] Not first message, skipping system prompts`);
     }
 
     console.log(`[CHAT] === MESSAGE BUILDING PHASE COMPLETE ===`);
+    console.log(`[CHAT] Current messages count: ${messages.length}`);
     console.log(`[CHAT] Finished if block, about to push user message`);
     try {
       messages.push({
