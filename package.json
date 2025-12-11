@@ -60,5 +60,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "@convex-dev/persistent-text-streaming": "^0.3.0"
+  }
 }
