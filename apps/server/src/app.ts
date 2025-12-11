@@ -268,17 +268,42 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
 
       const initSteps =
         await initializationEngine.getDefaultStepsForTask(taskId);
-      await initializationEngine.initializeTask(
-        taskId,
-        initSteps,
-        userId,
-        initContext
-      );
+      
+      // Split steps into essential (blocking) and non-essential (background)
+      const essentialSteps = initSteps.filter(step => step === "PREPARE_WORKSPACE");
+      const backgroundSteps = initSteps.filter(step => step !== "PREPARE_WORKSPACE");
+      
+      console.log(`[TASK_INITIATE] Essential steps: ${essentialSteps.join(", ")}`);
+      console.log(`[TASK_INITIATE] Background steps: ${backgroundSteps.join(", ")}`);
+      
+      // Wait for essential steps only (workspace must exist before chat can start)
+      if (essentialSteps.length > 0) {
+        await initializationEngine.initializeTask(
+          taskId,
+          essentialSteps,
+          userId,
+          initContext
+        );
+      }
 
       const updatedTask = await getTask(toConvexId<"tasks">(taskId));
 
       await updateTaskStatus(taskId, "RUNNING", "INIT");
+      
+      // Start background initialization steps (don't await)
+      if (backgroundSteps.length > 0) {
+        console.log(`[TASK_INITIATE] Starting background initialization for task ${taskId}`);
+        initializationEngine.initializeTask(
+          taskId,
+          backgroundSteps,
+          userId,
+          initContext
+        ).catch(error => {
+          console.error(`[TASK_INITIATE] Background initialization failed for task ${taskId}:`, error);
+        });
+      }
 
+      // Start chat processing immediately (don't wait for background init)
       await chatService.processUserMessage({
         taskId,
         userMessage: message,
