@@ -136,6 +136,16 @@ function TaskPageContent() {
   }, [cancelStream]);
 
   const displayMessages = useMemo(() => {
+    // Debug: Log what messages we're receiving from Convex
+    console.log("[TASK_CONTENT] Messages received:", {
+      count: messages.length,
+      messages: messages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        hasContent: !!m.content,
+        hasParts: !!m.metadata?.parts?.length,
+      })),
+    });
     // Messages from Convex include metadata.isStreaming; render as-is.
     // If we ever add client-side partials, we can merge here using parts helpers.
     return messages;
