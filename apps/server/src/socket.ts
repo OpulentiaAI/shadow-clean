@@ -375,6 +375,8 @@ export function createSocketServer(
 
     // Handle user message
     socket.on("user-message", async (data) => {
+      console.log(`[SOCKET] ====== USER MESSAGE EVENT RECEIVED ======`);
+      console.log(`[SOCKET] user-message event: taskId=${data?.taskId}, messageLen=${data?.message?.length || 0}`);
       try {
         console.log("Received user message:", data);
 
