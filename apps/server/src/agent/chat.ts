@@ -327,7 +327,7 @@ export class ChatService {
     workspacePath?: string,
     messageId?: string,
     context?: TaskModelContext
-  ): Promise<void> {
+  ): Promise<{ success: boolean; prNumber?: number; error?: string; skipped?: boolean }> {
     // Get or create context if not provided
     let modelContext: TaskModelContext;
     if (context) {
@@ -338,7 +338,7 @@ export class ChatService {
         console.warn(
           `[CHAT] No model context available for task ${taskId}, skipping PR creation`
         );
-        return;
+        return { success: false, skipped: true, error: "No model context available" };
       }
       modelContext = taskContext;
     }
@@ -359,27 +359,27 @@ export class ChatService {
     workspacePath?: string,
     messageId?: string,
     context?: TaskModelContext
-  ): Promise<void> {
+  ): Promise<{ success: boolean; prNumber?: number; error?: string; skipped?: boolean }> {
     try {
       const task = await getTask(toConvexId<"tasks">(taskId));
 
       if (!task) {
         console.warn(`[CHAT] Task not found for PR creation: ${taskId}`);
-        return;
+        return { success: false, skipped: true, error: "Task not found" };
       }
 
       if (task.isScratchpad) {
         console.log(
           `[CHAT] Task ${taskId} is a scratchpad workspace, skipping PR creation`
         );
-        return;
+        return { success: false, skipped: true, error: "Scratchpad workspaces cannot create pull requests" };
       }
 
       if (!task.shadowBranch) {
         console.warn(
           `[CHAT] No shadow branch configured for task ${taskId}, skipping PR creation`
         );
-        return;
+        return { success: false, skipped: true, error: "No shadow branch configured" };
       }
 
       const resolvedWorkspacePath = workspacePath || task.workspacePath;
@@ -387,7 +387,7 @@ export class ChatService {
         console.warn(
           `[CHAT] No workspace path available for task ${taskId}, skipping PR creation`
         );
-        return;
+        return { success: false, skipped: true, error: "No workspace path available" };
       }
 
       const gitService = await createGitService(taskId);
@@ -397,17 +397,17 @@ export class ChatService {
         console.warn(
           `[CHAT] No messageId provided for PR creation for task ${taskId}`
         );
-        return;
+        return { success: false, skipped: true, error: "No messageId provided" };
       }
 
       if (!context) {
         console.warn(
           `[CHAT] No context available for PR creation, skipping PR for task ${taskId}`
         );
-        return;
+        return { success: false, skipped: true, error: "No model context available" };
       }
 
-      await prManager.createPRIfNeeded(
+      return await prManager.createPRIfNeeded(
         {
           taskId,
           repoFullName: task.repoFullName,
@@ -423,6 +423,10 @@ export class ChatService {
     } catch (error) {
       console.error(`[CHAT] Failed to create PR for task ${taskId}:`, error);
       // Non-blocking - don't throw
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create pull request",
+      };
     }
   }
 

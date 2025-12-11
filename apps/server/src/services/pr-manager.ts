@@ -9,6 +9,9 @@ import { getTask, toConvexId } from "../lib/convex-operations";
 export class PRManager {
   private prService: PRService;
 
+  public static readonly NOOP_ERROR_NO_CHANGES =
+    "No commits between base and head branches";
+
   constructor(
     private gitService: GitService,
     private llmService: LLMService
@@ -22,7 +25,7 @@ export class PRManager {
   async createPRIfNeeded(
     options: CreatePROptions,
     context: TaskModelContext
-  ): Promise<void> {
+  ): Promise<{ success: boolean; prNumber?: number; error?: string; skipped?: boolean }> {
     try {
       console.log(`[PR_MANAGER] Processing PR for task ${options.taskId}`);
 
@@ -32,11 +35,26 @@ export class PRManager {
         console.log(
           `[PR_MANAGER] Uncommitted changes found, skipping PR creation`
         );
-        return;
+        return {
+          success: false,
+          skipped: true,
+          error: "Uncommitted changes present; commit before creating a PR.",
+        };
       }
 
       // Get git metadata
-      const commitSha = await this.gitService.getCurrentCommitSha();
+      let commitSha = "unknown";
+      try {
+        commitSha = await this.gitService.getCurrentCommitSha();
+      } catch (err) {
+        // In some production deployments we may not have a functional git binary inside the
+        // server container. Creating the PR via GitHub API can still succeed, so fall back
+        // to an opaque commitSha for snapshot bookkeeping.
+        console.warn(
+          `[PR_MANAGER] Failed to read current commit SHA (continuing):`,
+          err
+        );
+      }
 
       // Check if PR already exists
       const existingPRNumber = await this.prService.getExistingPRNumber(
@@ -45,23 +63,24 @@ export class PRManager {
 
       if (!existingPRNumber) {
         // Create new PR path
-        await this.createNewPR(options, commitSha, context);
+        const result = await this.createNewPR(options, commitSha, context);
+        if (!result.success) {
+          return result;
+        }
+        return { success: true, prNumber: result.prNumber };
       } else {
         // Update existing PR path
-        await this.updateExistingPR(
+        const result = await this.updateExistingPR(
           options,
           existingPRNumber,
           commitSha,
           context
         );
+        if (!result.success) {
+          return result;
+        }
+        return { success: true, prNumber: existingPRNumber };
       }
-
-      console.log(
-        `[PR_MANAGER] Successfully ${existingPRNumber ? "updated" : "created"} PR for task ${options.taskId}`
-      );
-
-      // Emit success event with PR data
-      await this.emitCompletionEvent(options, existingPRNumber ?? undefined);
     } catch (error) {
       console.error(
         `[PR_MANAGER] Failed to create/update PR for task ${options.taskId}:`,
@@ -80,6 +99,10 @@ export class PRManager {
       });
 
       // Don't throw - PR creation is non-blocking
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create pull request",
+      };
     }
   }
 
@@ -90,7 +113,7 @@ export class PRManager {
     options: CreatePROptions,
     commitSha: string,
     context: TaskModelContext
-  ): Promise<void> {
+  ): Promise<{ success: boolean; prNumber?: number; error?: string }> {
     // Generate PR metadata with AI using mini model for cost optimization
     const metadata = await this.generatePRMetadata(options, context);
 
@@ -98,8 +121,13 @@ export class PRManager {
     const result = await this.prService.createPR(options, metadata, commitSha);
 
     if (!result.success) {
-      throw new Error(`Failed to create PR: ${result.error}`);
+      return { success: false, error: `Failed to create PR: ${result.error}` };
     }
+    console.log(
+      `[PR_MANAGER] Successfully created PR #${result.prNumber} for task ${options.taskId}`
+    );
+    await this.emitCompletionEvent(options, result.prNumber);
+    return { success: true, prNumber: result.prNumber };
   }
 
   /**
@@ -110,7 +138,7 @@ export class PRManager {
     prNumber: number,
     commitSha: string,
     context: TaskModelContext
-  ): Promise<void> {
+  ): Promise<{ success: boolean; prNumber?: number; error?: string }> {
     // Get current PR description from most recent snapshot
     const latestSnapshot = await this.prService.getLatestSnapshot(
       options.taskId
@@ -139,8 +167,13 @@ export class PRManager {
     );
 
     if (!result.success) {
-      throw new Error(`Failed to update PR: ${result.error}`);
+      return { success: false, error: `Failed to update PR: ${result.error}` };
     }
+    console.log(
+      `[PR_MANAGER] Successfully updated PR #${prNumber} for task ${options.taskId}`
+    );
+    await this.emitCompletionEvent(options, prNumber);
+    return { success: true, prNumber };
   }
 
   /**
