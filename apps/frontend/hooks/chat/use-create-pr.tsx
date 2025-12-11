@@ -21,7 +21,8 @@ export function useCreatePR() {
       })
       .catch((err) => ({
         success: false,
-        error: err instanceof Error ? err.message : "Failed to create pull request",
+        error:
+          err instanceof Error ? err.message : "Failed to create pull request",
       }));
   };
 

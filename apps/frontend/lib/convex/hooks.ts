@@ -29,7 +29,10 @@ export function useConvexTasks(userId: Id<"users"> | undefined) {
 }
 
 export function useConvexTasksExcludeArchived(userId: Id<"users"> | undefined) {
-  return useQuery(api.tasks.listByUserExcludeArchived, userId ? { userId } : "skip");
+  return useQuery(
+    api.tasks.listByUserExcludeArchived,
+    userId ? { userId } : "skip"
+  );
 }
 
 export function useConvexActiveTaskCount(userId: Id<"users"> | undefined) {
@@ -57,12 +60,14 @@ export function useDeleteTask() {
 }
 
 // Explicit return type to avoid non-portable inferred type from ReturnType<typeof action>
-export function useTaskDetailsAction(): (args: { taskId: Id<"tasks"> }) => Promise<any> {
-  return useAction(api.tasksNode.getDetails) as any;
+export function useTaskDetailsAction(): (args: {
+  taskId: Id<"tasks">;
+}) => Promise<any> {
+  return useAction(api.tasks.getDetails) as any;
 }
 
 export function useCreatePullRequestAction() {
-  return useAction(api.tasksNode.createPullRequest);
+  return useAction(api.tasks.createPullRequest);
 }
 
 export function useConvexMessages(taskId: Id<"tasks"> | undefined) {
@@ -163,7 +168,10 @@ export function useConvexUserByEmail(email: string | undefined) {
 }
 
 export function useConvexUserByExternalId(externalId: string | undefined) {
-  return useQuery(api.auth.getUserByExternalId, externalId ? { externalId } : "skip");
+  return useQuery(
+    api.auth.getUserByExternalId,
+    externalId ? { externalId } : "skip"
+  );
 }
 
 export function useUpsertUser() {
@@ -199,17 +207,25 @@ export function useUpsertUserSettings() {
 }
 
 export function useConvexRepositoryIndex(repoFullName: string | undefined) {
-  return useQuery(api.repositoryIndex.get, repoFullName ? { repoFullName } : "skip");
+  return useQuery(
+    api.repositoryIndex.get,
+    repoFullName ? { repoFullName } : "skip"
+  );
 }
 
 export function useUpsertRepositoryIndex() {
   return useMutation(api.repositoryIndex.upsert);
 }
 
-export function useNeedsReindex(repoFullName: string | undefined, currentCommitSha: string | undefined) {
+export function useNeedsReindex(
+  repoFullName: string | undefined,
+  currentCommitSha: string | undefined
+) {
   return useQuery(
     api.repositoryIndex.needsReindex,
-    repoFullName && currentCommitSha ? { repoFullName, currentCommitSha } : "skip"
+    repoFullName && currentCommitSha
+      ? { repoFullName, currentCommitSha }
+      : "skip"
   );
 }
 
@@ -218,11 +234,17 @@ export function useConvexCodebase(id: Id<"codebaseUnderstanding"> | undefined) {
 }
 
 export function useConvexCodebaseByRepo(repoFullName: string | undefined) {
-  return useQuery(api.codebaseUnderstanding.getByRepo, repoFullName ? { repoFullName } : "skip");
+  return useQuery(
+    api.codebaseUnderstanding.getByRepo,
+    repoFullName ? { repoFullName } : "skip"
+  );
 }
 
 export function useConvexCodebaseByTaskId(taskId: Id<"tasks"> | undefined) {
-  return useQuery(api.codebaseUnderstanding.getByTaskId, taskId ? { taskId } : "skip");
+  return useQuery(
+    api.codebaseUnderstanding.getByTaskId,
+    taskId ? { taskId } : "skip"
+  );
 }
 
 export function useCreateCodebaseUnderstanding() {
@@ -287,8 +309,14 @@ export function useConvexFileChanges(taskId: Id<"tasks"> | undefined) {
   return useQuery(api.fileChanges.byTask, taskId ? { taskId } : "skip");
 }
 
-export function useConvexRecentFileChanges(taskId: Id<"tasks"> | undefined, limit?: number) {
-  return useQuery(api.fileChanges.byTaskSince, taskId ? { taskId, since: Date.now() - 3600000 } : "skip");
+export function useConvexRecentFileChanges(
+  taskId: Id<"tasks"> | undefined,
+  limit?: number
+) {
+  return useQuery(
+    api.fileChanges.byTaskSince,
+    taskId ? { taskId, since: Date.now() - 3600000 } : "skip"
+  );
 }
 
 export function useConvexFileChangeStats(taskId: Id<"tasks"> | undefined) {
@@ -300,8 +328,14 @@ export function useConvexToolLogs(taskId: Id<"tasks"> | undefined) {
   return useQuery(api.toolLogs.byTask, taskId ? { taskId } : "skip");
 }
 
-export function useConvexRecentToolLogs(taskId: Id<"tasks"> | undefined, limit?: number) {
-  return useQuery(api.toolLogs.recentByTask, taskId ? { taskId, limit } : "skip");
+export function useConvexRecentToolLogs(
+  taskId: Id<"tasks"> | undefined,
+  limit?: number
+) {
+  return useQuery(
+    api.toolLogs.recentByTask,
+    taskId ? { taskId, limit } : "skip"
+  );
 }
 
 export function useConvexRunningToolLogs(taskId: Id<"tasks"> | undefined) {
@@ -317,12 +351,20 @@ export function useConvexTerminalOutputByTask(taskId: Id<"tasks"> | undefined) {
   return useQuery(api.terminalOutput.byTask, taskId ? { taskId } : "skip");
 }
 
-export function useConvexTerminalOutputByCommand(commandId: string | undefined) {
-  return useQuery(api.terminalOutput.byCommand, commandId ? { commandId } : "skip");
+export function useConvexTerminalOutputByCommand(
+  commandId: string | undefined
+) {
+  return useQuery(
+    api.terminalOutput.byCommand,
+    commandId ? { commandId } : "skip"
+  );
 }
 
 export function useConvexCombinedTerminalOutput(commandId: string | undefined) {
-  return useQuery(api.terminalOutput.getCombinedOutput, commandId ? { commandId } : "skip");
+  return useQuery(
+    api.terminalOutput.getCombinedOutput,
+    commandId ? { commandId } : "skip"
+  );
 }
 
 // Workspace Status hooks (sidecar Convex-native)

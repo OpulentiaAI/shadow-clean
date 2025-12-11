@@ -43,10 +43,7 @@ async function ensureConvexTask(taskId: string) {
       return { convexTaskId: taskId };
     }
   } catch (error) {
-    console.warn(
-      `[TASK_SYNC] Task ${taskId} not found in Convex.`,
-      error
-    );
+    console.warn(`[TASK_SYNC] Task ${taskId} not found in Convex.`, error);
   }
 
   return { convexTaskId: null, error: "Task not found" as const };
@@ -84,7 +81,10 @@ app.use(
 );
 
 // Special raw body handling for webhook endpoints (before JSON parsing)
-app.use("/api/webhooks", express.raw({ type: "application/json", limit: "2mb" }));
+app.use(
+  "/api/webhooks",
+  express.raw({ type: "application/json", limit: "2mb" })
+);
 
 // General JSON/urlencoded parsers with increased limits (some requests exceed 100kb)
 app.use(express.json({ limit: "2mb" }));
@@ -272,14 +272,22 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
 
       const initSteps =
         await initializationEngine.getDefaultStepsForTask(taskId);
-      
+
       // Split steps into essential (blocking) and non-essential (background)
-      const essentialSteps = initSteps.filter(step => step === "PREPARE_WORKSPACE");
-      const backgroundSteps = initSteps.filter(step => step !== "PREPARE_WORKSPACE");
-      
-      console.log(`[TASK_INITIATE] Essential steps: ${essentialSteps.join(", ")}`);
-      console.log(`[TASK_INITIATE] Background steps: ${backgroundSteps.join(", ")}`);
-      
+      const essentialSteps = initSteps.filter(
+        (step) => step === "PREPARE_WORKSPACE"
+      );
+      const backgroundSteps = initSteps.filter(
+        (step) => step !== "PREPARE_WORKSPACE"
+      );
+
+      console.log(
+        `[TASK_INITIATE] Essential steps: ${essentialSteps.join(", ")}`
+      );
+      console.log(
+        `[TASK_INITIATE] Background steps: ${backgroundSteps.join(", ")}`
+      );
+
       // Wait for essential steps only (workspace must exist before chat can start)
       if (essentialSteps.length > 0) {
         await initializationEngine.initializeTask(
@@ -293,24 +301,28 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
       const updatedTask = await getTask(toConvexId<"tasks">(taskId));
 
       await updateTaskStatus(taskId, "RUNNING", "INIT");
-      
+
       // Start background initialization steps (don't await)
       if (backgroundSteps.length > 0) {
-        console.log(`[TASK_INITIATE] Starting background initialization for task ${taskId}`);
-        initializationEngine.initializeTask(
-          taskId,
-          backgroundSteps,
-          userId,
-          initContext
-        ).catch(error => {
-          console.error(`[TASK_INITIATE] Background initialization failed for task ${taskId}:`, error);
-        });
+        console.log(
+          `[TASK_INITIATE] Starting background initialization for task ${taskId}`
+        );
+        initializationEngine
+          .initializeTask(taskId, backgroundSteps, userId, initContext)
+          .catch((error) => {
+            console.error(
+              `[TASK_INITIATE] Background initialization failed for task ${taskId}:`,
+              error
+            );
+          });
       }
 
       // Start chat processing immediately (don't wait for background init)
       // Skip if Convex streaming is enabled - Convex action will handle LLM call
       if (!useConvexStreaming) {
-        console.log(`[TASK_INITIATE] Using legacy backend LLM processing for task ${taskId}`);
+        console.log(
+          `[TASK_INITIATE] Using legacy backend LLM processing for task ${taskId}`
+        );
         await chatService.processUserMessage({
           taskId,
           userMessage: message,
@@ -320,7 +332,9 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
           workspacePath: updatedTask?.workspacePath || undefined,
         });
       } else {
-        console.log(`[TASK_INITIATE] Skipping backend LLM - Convex streaming enabled for task ${taskId}`);
+        console.log(
+          `[TASK_INITIATE] Skipping backend LLM - Convex streaming enabled for task ${taskId}`
+        );
       }
 
       res.json({
@@ -412,27 +426,37 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
     // Note: parseApiKeysFromCookies has module-level env var reads that may miss runtime changes
     // So we also check env vars directly here as a safety net
     const apiKeys = parseApiKeysFromCookies(req.headers.cookie || "");
-    
+
     // Extra safety: if no openrouter key from cookies/module-level env, check runtime env
     if (!apiKeys.openrouter && process.env.OPENROUTER_API_KEY) {
-      console.log(`[MESSAGE_SUBMIT] Using runtime OPENROUTER_API_KEY env var as fallback`);
+      console.log(
+        `[MESSAGE_SUBMIT] Using runtime OPENROUTER_API_KEY env var as fallback`
+      );
       apiKeys.openrouter = process.env.OPENROUTER_API_KEY;
     }
-    
-    console.log(`[MESSAGE_SUBMIT] Cookie header present: ${!!req.headers.cookie}`);
-    console.log(`[MESSAGE_SUBMIT] Cookie header value: ${req.headers.cookie?.substring(0, 100) || 'none'}`);
+
+    console.log(
+      `[MESSAGE_SUBMIT] Cookie header present: ${!!req.headers.cookie}`
+    );
+    console.log(
+      `[MESSAGE_SUBMIT] Cookie header value: ${req.headers.cookie?.substring(0, 100) || "none"}`
+    );
     console.log(`[MESSAGE_SUBMIT] API keys after parsing:`);
-    console.log(`[MESSAGE_SUBMIT]   - openrouter: ${apiKeys.openrouter ? `present (${apiKeys.openrouter.length} chars, prefix: ${apiKeys.openrouter.substring(0, 8)}...)` : 'MISSING'}`);
-    console.log(`[MESSAGE_SUBMIT]   - anthropic: ${apiKeys.anthropic ? `present (${apiKeys.anthropic.length} chars)` : 'missing'}`);
-    console.log(`[MESSAGE_SUBMIT]   - openai: ${apiKeys.openai ? `present (${apiKeys.openai.length} chars)` : 'missing'}`);
-    console.log(`[MESSAGE_SUBMIT] Runtime env check: OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY ? `present (${process.env.OPENROUTER_API_KEY.length} chars)` : 'MISSING'}`);
+    console.log(
+      `[MESSAGE_SUBMIT]   - openrouter: ${apiKeys.openrouter ? `present (${apiKeys.openrouter.length} chars, prefix: ${apiKeys.openrouter.substring(0, 8)}...)` : "MISSING"}`
+    );
+    console.log(
+      `[MESSAGE_SUBMIT]   - anthropic: ${apiKeys.anthropic ? `present (${apiKeys.anthropic.length} chars)` : "missing"}`
+    );
+    console.log(
+      `[MESSAGE_SUBMIT]   - openai: ${apiKeys.openai ? `present (${apiKeys.openai.length} chars)` : "missing"}`
+    );
+    console.log(
+      `[MESSAGE_SUBMIT] Runtime env check: OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY ? `present (${process.env.OPENROUTER_API_KEY.length} chars)` : "MISSING"}`
+    );
 
     const selectedModel = (model as ModelType) || task.mainModel || "gpt-4o";
-    const context = new TaskModelContext(
-      taskId,
-      selectedModel,
-      apiKeys
-    );
+    const context = new TaskModelContext(taskId, selectedModel, apiKeys);
 
     // Validate API key access BEFORE processing (match initiate endpoint behavior)
     if (!context.validateAccess()) {
@@ -443,18 +467,26 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
           : provider === "openrouter"
             ? "OpenRouter"
             : "OpenAI";
-      
-      console.error(`[MESSAGE_SUBMIT] API key validation failed for ${providerName}`);
-      console.error(`[MESSAGE_SUBMIT] Model: ${selectedModel}, Provider: ${provider}`);
-      console.error(`[MESSAGE_SUBMIT] Available keys: openrouter=${!!apiKeys.openrouter}, anthropic=${!!apiKeys.anthropic}, openai=${!!apiKeys.openai}`);
-      
+
+      console.error(
+        `[MESSAGE_SUBMIT] API key validation failed for ${providerName}`
+      );
+      console.error(
+        `[MESSAGE_SUBMIT] Model: ${selectedModel}, Provider: ${provider}`
+      );
+      console.error(
+        `[MESSAGE_SUBMIT] Available keys: openrouter=${!!apiKeys.openrouter}, anthropic=${!!apiKeys.anthropic}, openai=${!!apiKeys.openai}`
+      );
+
       return res.status(400).json({
         error: `${providerName} API key required`,
         details: `Please configure your ${providerName} API key to use ${selectedModel}. The key may be missing from both cookies and server environment.`,
       });
     }
-    
-    console.log(`[MESSAGE_SUBMIT] API key validation passed, proceeding with model: ${selectedModel}`);
+
+    console.log(
+      `[MESSAGE_SUBMIT] API key validation passed, proceeding with model: ${selectedModel}`
+    );
 
     // Process the user message
     await chatService.processUserMessage({

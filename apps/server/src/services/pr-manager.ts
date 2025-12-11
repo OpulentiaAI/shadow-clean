@@ -25,7 +25,12 @@ export class PRManager {
   async createPRIfNeeded(
     options: CreatePROptions,
     context: TaskModelContext
-  ): Promise<{ success: boolean; prNumber?: number; error?: string; skipped?: boolean }> {
+  ): Promise<{
+    success: boolean;
+    prNumber?: number;
+    error?: string;
+    skipped?: boolean;
+  }> {
     try {
       console.log(`[PR_MANAGER] Processing PR for task ${options.taskId}`);
 
@@ -101,7 +106,10 @@ export class PRManager {
       // Don't throw - PR creation is non-blocking
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create pull request",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create pull request",
       };
     }
   }
@@ -260,7 +268,6 @@ export class PRManager {
       return `${oldDescription}\n\n## Recent Updates\n\n- Additional changes made\n- See latest commit for details`;
     }
   }
-
 
   /**
    * Emit completion event with PR snapshot data
