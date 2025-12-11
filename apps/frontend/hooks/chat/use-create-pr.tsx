@@ -1,7 +1,3 @@
-import { useCreatePullRequestAction } from "@/lib/convex/hooks";
-import type { Id } from "../../../../convex/_generated/dataModel";
-import { asConvexId } from "@/lib/convex/id";
-
 interface CreatePRResponse {
   success: boolean;
   prNumber?: number;
@@ -11,17 +7,22 @@ interface CreatePRResponse {
 }
 
 export function useCreatePR() {
-  const mutationFn = useCreatePullRequestAction();
-
   const mutate = (taskId: string): Promise<CreatePRResponse> => {
-    const convexTaskId = asConvexId<"tasks">(taskId);
-    if (!convexTaskId) {
-      return Promise.resolve({
+    return fetch(`/api/tasks/${taskId}/pull-request`, { method: "POST" })
+      .then(async (res) => {
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          return {
+            success: false,
+            error: text || `Failed to create pull request (${res.status})`,
+          };
+        }
+        return (await res.json()) as CreatePRResponse;
+      })
+      .catch((err) => ({
         success: false,
-        error: "Convex task id unavailable",
-      });
-    }
-    return mutationFn({ taskId: convexTaskId as Id<"tasks"> }) as Promise<CreatePRResponse>;
+        error: err instanceof Error ? err.message : "Failed to create pull request",
+      }));
   };
 
   // Wrap Convex action to provide React Query-like interface

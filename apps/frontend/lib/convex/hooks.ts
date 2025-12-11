@@ -58,11 +58,11 @@ export function useDeleteTask() {
 
 // Explicit return type to avoid non-portable inferred type from ReturnType<typeof action>
 export function useTaskDetailsAction(): (args: { taskId: Id<"tasks"> }) => Promise<any> {
-  return useAction(api.tasks.getDetails) as any;
+  return useAction(api.tasksNode.getDetails) as any;
 }
 
 export function useCreatePullRequestAction() {
-  return useAction(api.tasks.createPullRequest);
+  return useAction(api.tasksNode.createPullRequest);
 }
 
 export function useConvexMessages(taskId: Id<"tasks"> | undefined) {

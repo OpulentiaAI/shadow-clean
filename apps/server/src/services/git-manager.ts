@@ -1,12 +1,69 @@
 import { generateText } from "ai";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
+import fs from "fs";
 import { ModelProvider } from "@/agent/llm/models/model-provider";
 import { TaskModelContext } from "./task-model-context";
 import { braintrustService } from "../agent/llm/observability/braintrust-service";
 import { AvailableModels } from "@repo/types";
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
+
+function parseShellLikeArgs(input: string): string[] {
+  const args: string[] = [];
+  let current = "";
+  let quote: "'" | "\"" | null = null;
+
+  const pushCurrent = () => {
+    if (current.length > 0) {
+      args.push(current);
+      current = "";
+    }
+  };
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input.charAt(i);
+
+    if (quote) {
+      if (ch === quote) {
+        quote = null;
+        continue;
+      }
+      // Support basic escaping inside double quotes.
+      if (quote === "\"" && ch === "\\" && i + 1 < input.length) {
+        current += input.charAt(i + 1);
+        i++;
+        continue;
+      }
+      current += ch;
+      continue;
+    }
+
+    if (ch === "\"" || ch === "'") {
+      quote = ch;
+      continue;
+    }
+
+    if (/\s/.test(ch)) {
+      pushCurrent();
+      // collapse consecutive whitespace
+      while (i + 1 < input.length && /\s/.test(input.charAt(i + 1))) i++;
+      continue;
+    }
+
+    // Support escaping whitespace without invoking a shell.
+    if (ch === "\\" && i + 1 < input.length) {
+      current += input.charAt(i + 1);
+      i++;
+      continue;
+    }
+
+    current += ch;
+  }
+
+  pushCurrent();
+  return args;
+}
 
 export interface GitUser {
   name: string;
@@ -301,15 +358,52 @@ Commit message:`,
   public async execGit(
     gitArgs: string
   ): Promise<{ stdout: string; stderr: string }> {
-    const command = `git ${gitArgs}`;
+    const args = parseShellLikeArgs(gitArgs);
+    const gitCandidates = [
+      process.env.GIT_BIN,
+      "git",
+      "/usr/bin/git",
+      "/bin/git",
+      "/usr/local/bin/git",
+    ].filter(Boolean) as string[];
+    const gitBin =
+      gitCandidates.find((p) => (p === "git" ? true : fs.existsSync(p))) ||
+      "git";
     const options = {
       cwd: this.workspacePath,
       maxBuffer: 1024 * 1024 * 10, // 10MB buffer for large diffs
     };
 
     try {
-      const result = await execAsync(command, options);
-      return result;
+      let stdout: string | Buffer | undefined;
+      let stderr: string | Buffer | undefined;
+      try {
+        ({ stdout, stderr } = await execFileAsync(gitBin, args, options));
+      } catch (err) {
+        const e = err as { code?: string };
+        // If the chosen binary wasn't found, try other candidates before failing.
+        if (e?.code === "ENOENT") {
+          let lastErr: unknown = err;
+          for (const candidate of gitCandidates) {
+            if (candidate === gitBin) continue;
+            try {
+              ({ stdout, stderr } = await execFileAsync(candidate, args, options));
+              lastErr = null;
+              break;
+            } catch (candidateErr) {
+              lastErr = candidateErr;
+              const ce = candidateErr as { code?: string };
+              if (ce?.code !== "ENOENT") {
+                throw candidateErr;
+              }
+            }
+          }
+          if (lastErr) throw lastErr;
+        } else {
+          throw err;
+        }
+      }
+      return { stdout: stdout ?? "", stderr: stderr ?? "" };
     } catch (error: unknown) {
       // Log the command and error for debugging
       const errorObj = error as {
@@ -317,7 +411,7 @@ Commit message:`,
         stdout?: string;
         stderr?: string;
       };
-      console.error(`[GIT_MANAGER] Command failed: ${command}`, {
+      console.error(`[GIT_MANAGER] Command failed: git ${gitArgs}`, {
         code: errorObj.code,
         stdout: errorObj.stdout,
         stderr: errorObj.stderr,

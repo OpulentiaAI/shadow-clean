@@ -30,6 +30,7 @@ import { toolsRouter } from "./routes/tools";
 import { modelContextService } from "./services/model-context-service";
 import { parseApiKeysFromCookies } from "./utils/cookie-parser";
 import { TaskModelContext } from "./services/task-model-context";
+import { getUserByExternalId } from "./lib/convex-operations";
 
 const app = express();
 export const chatService = new ChatService();
@@ -575,12 +576,36 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
       });
     }
 
-    if (task.userId !== userId) {
-      console.warn(`[PR_CREATION] User ${userId} does not own task ${taskId}`);
-      return res.status(403).json({
-        success: false,
-        error: "Unauthorized",
-      });
+    // Ownership check:
+    // - In Convex, task.userId is a Convex user id (Id<"users">).
+    // - In production, the frontend often supplies BetterAuth user id (externalId).
+    // Support both so PR creation works for Convex-native tasks.
+    if (config.nodeEnv === "production") {
+      const rawUserId = typeof userId === "string" ? userId : "";
+      const directMatch = rawUserId && task.userId?.toString() === rawUserId;
+
+      let externalIdMatch = false;
+      if (!directMatch && rawUserId) {
+        try {
+          const convexUser = await getUserByExternalId(rawUserId);
+          externalIdMatch = !!convexUser && task.userId === convexUser._id;
+        } catch (err) {
+          console.warn(
+            `[PR_CREATION] Failed to resolve user externalId ${rawUserId}:`,
+            err
+          );
+        }
+      }
+
+      if (!directMatch && !externalIdMatch) {
+        console.warn(
+          `[PR_CREATION] User ${rawUserId || "<missing>"} does not own task ${taskId}`
+        );
+        return res.status(403).json({
+          success: false,
+          error: "Unauthorized",
+        });
+      }
     }
 
     if (task.isScratchpad) {
@@ -628,36 +653,41 @@ app.post("/api/tasks/:taskId/pull-request", async (req, res) => {
     );
 
     const messageId = latestAssistantMessage._id as string;
-    if (modelContext) {
-      await chatService.createPRIfNeeded(
-        taskId,
-        task.workspacePath || undefined,
-        messageId,
-        modelContext
-      );
-    } else {
-      // Fallback if context unavailable
-      await chatService.createPRIfNeeded(
-        taskId,
-        task.workspacePath || undefined,
-        messageId
-      );
+    const prResult = modelContext
+      ? await chatService.createPRIfNeeded(
+          taskId,
+          task.workspacePath || undefined,
+          messageId,
+          modelContext
+        )
+      : await chatService.createPRIfNeeded(
+          taskId,
+          task.workspacePath || undefined,
+          messageId
+        );
+
+    if (!prResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: prResult.error || "Failed to create pull request",
+      });
     }
 
-    const updatedTask = await getTask(toConvexId<"tasks">(taskId));
-
-    if (!updatedTask?.pullRequestNumber) {
-      throw new Error("PR creation completed but no PR number found");
+    if (!prResult.prNumber) {
+      return res.status(500).json({
+        success: false,
+        error: "Pull request created but PR number missing",
+      });
     }
 
     console.log(
-      `[PR_CREATION] Successfully created PR #${updatedTask.pullRequestNumber} for task ${taskId}`
+      `[PR_CREATION] Successfully created PR #${prResult.prNumber} for task ${taskId}`
     );
 
     res.json({
       success: true,
-      prNumber: updatedTask.pullRequestNumber,
-      prUrl: `${updatedTask.repoUrl}/pull/${updatedTask.pullRequestNumber}`,
+      prNumber: prResult.prNumber,
+      prUrl: `${task.repoUrl}/pull/${prResult.prNumber}`,
       messageId,
     });
   } catch (error) {

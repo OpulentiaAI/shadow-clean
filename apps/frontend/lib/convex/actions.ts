@@ -30,7 +30,7 @@ export async function initiateTask(input: {
   userId: Id<"users">;
 }) {
   const client = getConvexClient();
-  return client.action(api.tasks.initiate, input);
+  return client.action(api.tasksNode.initiate, input);
 }
 
 export async function updateTask(input: {
