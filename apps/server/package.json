@@ -26,7 +26,7 @@
     "@ai-sdk/openai": "2.0.57",
     "@kubernetes/client-node": "^1.0.0",
     "@morphllm/morphsdk": "^0.2.42",
-    "@openrouter/ai-sdk-provider": "^0.7.3",
+    "@openrouter/ai-sdk-provider": "^1.5.3",
     "@opentelemetry/sdk-node": "^0.203.0",
     "@opentelemetry/sdk-trace-base": "^2.0.1",
     "@repo/command-security": "*",
