@@ -306,7 +306,7 @@ export const streamChatWithTools = action({
     }),
   },
   handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
-    console.log(`[STREAMING] === ACTION START ===`);
+    console.log(`[STREAMING] === ACTION START [v6] ===`);
     console.log(
       `[STREAMING] streamChatWithTools called for task ${args.taskId}`
     );
@@ -609,6 +609,43 @@ export const streamChatWithTools = action({
         throw new Error(
           `Model returned no output. This may be due to rate limiting or model unavailability. Try a different model.`
         );
+      }
+
+      // [v6] Execute any pending tool calls that weren't auto-executed by AI SDK
+      // This handles OpenRouter models that use tool-input-* parts instead of triggering tool-calls finishReason
+      console.log(
+        `[STREAMING] [v6] Checking pending tools: size=${toolCallStates.size}, toolCount=${Object.keys(aiTools).length}`
+      );
+      if (toolCallStates.size > 0 && Object.keys(aiTools).length > 0) {
+        for (const [toolCallId, state] of toolCallStates.entries()) {
+          console.log(
+            `[STREAMING] [v6] Tool state: id=${toolCallId}, name=${state.toolName}, argKeys=${Object.keys(state.latestArgs).join(",")}`
+          );
+          const toolDef = (aiTools as any)[state.toolName];
+          if (toolDef?.execute && Object.keys(state.latestArgs).length > 0) {
+            console.log(`[STREAMING] [v6] Executing ${state.toolName}...`);
+            try {
+              const toolResult = await toolDef.execute(state.latestArgs);
+              console.log(
+                `[STREAMING] [v6] Tool result:`,
+                JSON.stringify(toolResult).substring(0, 200)
+              );
+              await ctx.runMutation(api.toolCallTracking.updateResult, {
+                toolCallId,
+                result: toolResult,
+                status: "COMPLETED",
+              });
+              // Tool result stored in tracking; no need to add to parts here
+            } catch (toolErr) {
+              console.error(`[STREAMING] [v6] Tool failed:`, toolErr);
+              await ctx.runMutation(api.toolCallTracking.updateResult, {
+                toolCallId,
+                result: { error: String(toolErr) },
+                status: "FAILED",
+              });
+            }
+          }
+        }
       }
 
       // Finalize message

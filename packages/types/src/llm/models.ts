@@ -34,6 +34,10 @@ export const AvailableModels = {
   QWEN_3_CODER: "qwen/qwen3-coder",
   QWEN_3_235B_A22B_2507: "qwen/qwen3-235b-a22b-2507",
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
+  // OpenAI via OpenRouter (reasoning models)
+  OPENAI_GPT_5_1: "openai/gpt-5.1",
+  OPENAI_GPT_5_1_CODEX_MAX: "openai/gpt-5.1-codex-max",
+  OPENAI_GPT_5_2: "openai/gpt-5.2",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -146,41 +150,70 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "Devstral 2 (Free)",
     provider: "openrouter",
   },
+  [AvailableModels.OPENAI_GPT_5_1]: {
+    id: AvailableModels.OPENAI_GPT_5_1,
+    name: "GPT-5.1",
+    provider: "openrouter",
+  },
+  [AvailableModels.OPENAI_GPT_5_1_CODEX_MAX]: {
+    id: AvailableModels.OPENAI_GPT_5_1_CODEX_MAX,
+    name: "GPT-5.1 Codex Max",
+    provider: "openrouter",
+  },
+  [AvailableModels.OPENAI_GPT_5_2]: {
+    id: AvailableModels.OPENAI_GPT_5_2,
+    name: "GPT-5.2",
+    provider: "openrouter",
+  },
 };
 
 export function getModelProvider(
-  model: ModelType,
+  model: ModelType
 ): "anthropic" | "openai" | "openrouter" /* | "ollama" */ {
   const modelInfo = ModelInfos[model];
   if (modelInfo) {
     return modelInfo.provider;
   }
-  
+
   // Defensive fallback: If model not found in registry, try to infer provider from model string
   // This handles cases where a model string is passed that isn't in our static registry
   const modelStr = model as string;
-  console.warn(`[getModelProvider] Model "${modelStr}" not found in ModelInfos, attempting to infer provider`);
-  
+  console.warn(
+    `[getModelProvider] Model "${modelStr}" not found in ModelInfos, attempting to infer provider`
+  );
+
   // OpenRouter models typically have format "organization/model-name"
-  if (modelStr.includes('/')) {
-    console.warn(`[getModelProvider] Inferred OpenRouter provider for model: ${modelStr}`);
+  if (modelStr.includes("/")) {
+    console.warn(
+      `[getModelProvider] Inferred OpenRouter provider for model: ${modelStr}`
+    );
     return "openrouter";
   }
-  
+
   // Claude direct models (from Anthropic)
-  if (modelStr.toLowerCase().includes('claude') && !modelStr.includes('/')) {
-    console.warn(`[getModelProvider] Inferred Anthropic provider for model: ${modelStr}`);
+  if (modelStr.toLowerCase().includes("claude") && !modelStr.includes("/")) {
+    console.warn(
+      `[getModelProvider] Inferred Anthropic provider for model: ${modelStr}`
+    );
     return "anthropic";
   }
-  
+
   // GPT/OpenAI models
-  if (modelStr.toLowerCase().includes('gpt') || modelStr.toLowerCase().includes('o3') || modelStr.toLowerCase().includes('o4')) {
-    console.warn(`[getModelProvider] Inferred OpenAI provider for model: ${modelStr}`);
+  if (
+    modelStr.toLowerCase().includes("gpt") ||
+    modelStr.toLowerCase().includes("o3") ||
+    modelStr.toLowerCase().includes("o4")
+  ) {
+    console.warn(
+      `[getModelProvider] Inferred OpenAI provider for model: ${modelStr}`
+    );
     return "openai";
   }
-  
+
   // Default to OpenRouter for unknown models
-  console.warn(`[getModelProvider] Defaulting to OpenRouter for unknown model: ${modelStr}`);
+  console.warn(
+    `[getModelProvider] Defaulting to OpenRouter for unknown model: ${modelStr}`
+  );
   return "openrouter";
 }
 
@@ -195,17 +228,37 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
     case "openai":
       return AvailableModels.GPT_5;
     case "openrouter":
-      return AvailableModels.XAI_GROK_CODE_FAST_1; // xAI Grok Code Fast (OpenRouter)
+      return AvailableModels.MOONSHOT_KIMI_K2_THINKING; // Kimi K2 Thinking (default)
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
 }
 
 /**
+ * Check if a model is a reasoning/thinking model
+ */
+export function isReasoningModel(model: string): boolean {
+  const reasoningModels = [
+    "moonshotai/kimi-k2-thinking",
+    "deepseek/deepseek-r1",
+    "anthropic/claude-opus-4.5", // Extended thinking
+    "openai/gpt-5.1", // GPT-5.1 reasoning
+    "openai/gpt-5.1-codex-max", // GPT-5.1 Codex Max reasoning
+    "openai/gpt-5.2", // GPT-5.2 adaptive reasoning
+    "o1",
+    "o3",
+    "o4",
+  ];
+  return reasoningModels.some((rm) =>
+    model.toLowerCase().includes(rm.toLowerCase())
+  );
+}
+
+/**
  * Get all possible models based on user API keys (for settings UI)
  */
 export async function getAllPossibleModels(
-  userApiKeys: ApiKeys,
+  userApiKeys: ApiKeys
 ): Promise<ModelType[]> {
   const models: ModelType[] = [];
 
@@ -218,22 +271,25 @@ export async function getAllPossibleModels(
       AvailableModels.GPT_5,
       AvailableModels.GPT_5_MINI,
       AvailableModels.GPT_4_1,
-      AvailableModels.GPT_4O,
+      AvailableModels.GPT_4O
     );
   }
 
   if (userApiKeys.openrouter) {
     models.push(
-      AvailableModels.XAI_GROK_CODE_FAST_1, // Default OpenRouter mini
+      AvailableModels.MOONSHOT_KIMI_K2_THINKING, // Default OpenRouter (reasoning model)
+      AvailableModels.OPENAI_GPT_5_2, // GPT-5.2 (reasoning, adaptive)
+      AvailableModels.OPENAI_GPT_5_1_CODEX_MAX, // GPT-5.1 Codex Max (reasoning)
+      AvailableModels.OPENAI_GPT_5_1, // GPT-5.1 (reasoning)
+      AvailableModels.XAI_GROK_CODE_FAST_1,
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
-      AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
       AvailableModels.QWEN_3_CODER,
       AvailableModels.QWEN_3_235B_A22B_2507,
-      AvailableModels.MISTRAL_DEVSTRAL_2,
+      AvailableModels.MISTRAL_DEVSTRAL_2
     );
   }
 
@@ -259,7 +315,7 @@ export async function getAllPossibleModels(
  * Get default selected models based on user API keys
  */
 export async function getDefaultSelectedModels(
-  userApiKeys: ApiKeys,
+  userApiKeys: ApiKeys
 ): Promise<ModelType[]> {
   const defaultModels: ModelType[] = [];
 
@@ -269,7 +325,7 @@ export async function getDefaultSelectedModels(
       AvailableModels.GPT_5, // default
       AvailableModels.GPT_5_MINI, // default
       AvailableModels.GPT_4_1, // default
-      AvailableModels.GPT_4O, // default
+      AvailableModels.GPT_4O // default
       // AvailableModels.O3, // default
       // AvailableModels.O4_MINI // default
     );
@@ -278,23 +334,26 @@ export async function getDefaultSelectedModels(
   if (userApiKeys.anthropic) {
     defaultModels.push(
       AvailableModels.CLAUDE_OPUS_4, // default
-      AvailableModels.CLAUDE_SONNET_4, // default
+      AvailableModels.CLAUDE_SONNET_4 // default
     );
   }
 
   if (userApiKeys.openrouter) {
-    // All OpenRouter models default - xAI Grok Code Fast first as primary
+    // All OpenRouter models default - Kimi K2 Thinking first as primary
     defaultModels.push(
-      AvailableModels.XAI_GROK_CODE_FAST_1, // Default OpenRouter mini
+      AvailableModels.MOONSHOT_KIMI_K2_THINKING, // Default OpenRouter (reasoning model)
+      AvailableModels.OPENAI_GPT_5_2, // GPT-5.2 (reasoning, adaptive)
+      AvailableModels.OPENAI_GPT_5_1_CODEX_MAX, // GPT-5.1 Codex Max (reasoning)
+      AvailableModels.OPENAI_GPT_5_1, // GPT-5.1 (reasoning)
+      AvailableModels.XAI_GROK_CODE_FAST_1,
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.MOONSHOT_KIMI_K2,
-      AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_CODESTRAL_2508,
       AvailableModels.DEEPSEEK_R1_0528,
       AvailableModels.DEEPSEEK_CHAT_V3_0324,
       AvailableModels.QWEN_3_CODER,
       AvailableModels.QWEN_3_235B_A22B_2507,
-      AvailableModels.MISTRAL_DEVSTRAL_2,
+      AvailableModels.MISTRAL_DEVSTRAL_2
     );
   }
 
@@ -314,7 +373,7 @@ export async function getDefaultSelectedModels(
  */
 export async function getAvailableModels(
   userApiKeys: ApiKeys,
-  selectedModels?: ModelType[],
+  selectedModels?: ModelType[]
 ): Promise<ModelType[]> {
   const allPossible = await getAllPossibleModels(userApiKeys);
 
