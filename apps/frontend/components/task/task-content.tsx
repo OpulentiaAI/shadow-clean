@@ -51,13 +51,24 @@ function TaskPageContent() {
       // Optimistic user append
       sendMessageMutation.mutate({ taskId, message, model });
 
+      // Debug: Log at start of every message send
+      console.log("[TASK_CONTENT] handleSendMessage called", {
+        taskId,
+        messageLength: message.length,
+        model,
+        USE_CONVEX_STREAMING,
+        convexTaskId,
+      });
+
       if (USE_CONVEX_STREAMING) {
+        console.log("[TASK_CONTENT] Entering Convex streaming path");
         if (!convexTaskId) {
-          console.warn("Convex task id missing; skipping Convex streaming");
+          console.warn("[TASK_CONTENT] Convex task id missing; skipping Convex streaming");
           return;
         }
 
         try {
+          console.log("[TASK_CONTENT] Calling startStreamWithTools...");
           await startStreamWithTools({
             taskId: convexTaskId,
             prompt: message,
@@ -72,11 +83,14 @@ function TaskPageContent() {
               openrouter: undefined,
             },
           });
+          console.log("[TASK_CONTENT] startStreamWithTools completed successfully");
         } catch (error) {
-          console.error("[CONVEX_STREAMING] Error submitting message:", error);
+          console.error("[TASK_CONTENT] Error submitting message:", error);
         }
         return;
       }
+
+      console.log("[TASK_CONTENT] Using legacy Socket.IO / REST path");
 
       // Legacy Socket.IO / REST path
       setLegacyStreaming(true);
