@@ -760,8 +760,11 @@ These are specific instructions from the user that should be followed throughout
 
       messages.unshift(...systemMessagesToAdd);
       console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
+    } else {
+      console.log(`[CHAT] Not first message, skipping system prompts`);
     }
 
+    console.log(`[CHAT] === MESSAGE BUILDING PHASE COMPLETE ===`);
     console.log(`[CHAT] Finished if block, about to push user message`);
     try {
       messages.push({
@@ -778,6 +781,7 @@ These are specific instructions from the user that should be followed throughout
     }
     console.log(`[CHAT] Total messages for LLM: ${messages.length}`);
 
+    console.log(`[CHAT] === STREAMING PHASE STARTING ===`);
     console.log(`[CHAT] Starting stream for task ${taskId}`);
     startStream(taskId);
 
@@ -791,9 +795,20 @@ These are specific instructions from the user that should be followed throughout
     let responseText = "";
 
     // Create tools first so we can generate system prompt based on available tools
+    console.log(`[CHAT] === TOOL CREATION PHASE ===`);
+    console.log(`[CHAT] enableTools: ${enableTools}, taskId: ${taskId}`);
     let availableTools: ToolSet | undefined;
     if (enableTools && taskId) {
-      availableTools = await createTools(taskId, workspacePath);
+      console.log(`[CHAT] Calling createTools for task ${taskId}`);
+      try {
+        availableTools = await createTools(taskId, workspacePath);
+        console.log(`[CHAT] createTools completed, tools available: ${!!availableTools}`);
+      } catch (toolError) {
+        console.error(`[CHAT] createTools failed:`, toolError);
+        throw toolError;
+      }
+    } else {
+      console.log(`[CHAT] Skipping tool creation`);
     }
 
     // Get system prompt with available tools context
@@ -820,7 +835,9 @@ These are specific instructions from the user that should be followed throughout
 
       const apiKeys = context.getApiKeys();
       console.log(`[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`);
+      console.log(`[CHAT] === CONVEX ACTION CALL ===`);
       console.log(`[CHAT] Calling streamChatWithTools action`);
+      console.log(`[CHAT] Action params: taskId=${convexTaskId}, model=${context.getMainModel()}, promptLen=${userMessage.length}`);
 
       const streamResult = await convexClient.action(
         api.streaming.streamChatWithTools,
