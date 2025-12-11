@@ -713,9 +713,12 @@ export class ChatService {
       const userSettings = task ? await getUserSettings(task.userId) : null;
       console.log(`[CHAT] User settings retrieved: ${userSettings ? 'present' : 'not found'}`);
       const memoriesEnabled = userSettings?.memoriesEnabled ?? true;
+      console.log(`[CHAT] Memories enabled: ${memoriesEnabled}`);
 
       if (memoriesEnabled) {
+        console.log(`[CHAT] Fetching memories for task ${taskId}`);
         const memoryContext = await memoryService.getMemoriesForTask(taskId);
+        console.log(`[CHAT] Memories retrieved: ${memoryContext?.memories?.length ?? 0} memories`);
         if (memoryContext && memoryContext.memories.length > 0) {
           const memoryContent =
             memoryService.formatMemoriesForPrompt(memoryContext);
@@ -739,6 +742,7 @@ export class ChatService {
       }
 
       // Add Rules section if available
+      console.log(`[CHAT] Checking user rules`);
       const userRules = userSettings?.rules;
       if (userRules && userRules.trim()) {
         const rulesContent = `
@@ -766,6 +770,7 @@ These are specific instructions from the user that should be followed throughout
         });
       }
 
+      console.log(`[CHAT] About to unshift ${systemMessagesToAdd.length} system messages`);
       messages.unshift(...systemMessagesToAdd);
       console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
       console.log(`[CHAT] About to exit if block (isFirstMessage)`);
