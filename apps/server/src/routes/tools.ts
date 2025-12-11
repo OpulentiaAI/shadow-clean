@@ -78,7 +78,10 @@ const WarpGrepSchema = z.object({
 });
 
 // Helper to get executor for a task
-async function getExecutorForTask(taskId: string) {
+async function getExecutorForTask(taskId: string, workspacePathOverride?: string) {
+  if (workspacePathOverride) {
+    return createToolExecutor(taskId, workspacePathOverride);
+  }
   const task = await getTask(toConvexId<"tasks">(taskId));
   if (!task) {
     throw new Error(`Task ${taskId} not found`);
@@ -92,7 +95,11 @@ router.post("/:taskId/read_file", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = ReadFileSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.readFile(params.target_file, {
       shouldReadEntireFile: params.should_read_entire_file,
       startLineOneIndexed: params.start_line_one_indexed,
@@ -115,7 +122,11 @@ router.post("/:taskId/edit_file", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = EditFileSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.writeFile(
       params.target_file,
       params.code_edit,
@@ -139,7 +150,11 @@ router.post("/:taskId/search_replace", validateInternalKey, async (req, res) => 
     const { taskId } = req.params;
     const params = SearchReplaceSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.searchReplace(
       params.file_path,
       params.old_string,
@@ -163,7 +178,11 @@ router.post("/:taskId/run_terminal_cmd", validateInternalKey, async (req, res) =
     const { taskId } = req.params;
     const params = RunTerminalCmdSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.executeCommand(params.command, {
       isBackground: params.is_background,
     });
@@ -184,7 +203,11 @@ router.post("/:taskId/list_dir", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = ListDirSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.listDirectory(params.relative_workspace_path);
 
     res.json(result);
@@ -203,7 +226,11 @@ router.post("/:taskId/grep_search", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = GrepSearchSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.grepSearch(params.query, {
       includePattern: params.include_pattern,
       excludePattern: params.exclude_pattern,
@@ -226,7 +253,11 @@ router.post("/:taskId/file_search", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = FileSearchSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.searchFiles(params.query);
 
     res.json(result);
@@ -245,7 +276,11 @@ router.post("/:taskId/delete_file", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = DeleteFileSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.deleteFile(params.target_file);
 
     res.json(result);
@@ -291,7 +326,11 @@ router.post("/:taskId/warp_grep", validateInternalKey, async (req, res) => {
     const { taskId } = req.params;
     const params = WarpGrepSchema.parse(req.body);
 
-    const executor = await getExecutorForTask(taskId);
+    const workspacePathOverride =
+      typeof req.headers["x-shadow-workspace-path"] === "string"
+        ? req.headers["x-shadow-workspace-path"]
+        : undefined;
+    const executor = await getExecutorForTask(taskId, workspacePathOverride);
     const result = await executor.warpGrep(params.query);
 
     res.json(result);
