@@ -365,6 +365,8 @@ app.get("/api/tasks/:taskId/messages", async (req, res) => {
 
 // Submit a message to an existing task
 app.post("/api/tasks/:taskId/messages", async (req, res) => {
+  console.log(`[MESSAGE_SUBMIT] ====== HTTP MESSAGE REQUEST RECEIVED ======`);
+  console.log(`[MESSAGE_SUBMIT] Request for task ${req.params.taskId}`);
   try {
     const { taskId } = req.params;
     const { message, model } = req.body;
