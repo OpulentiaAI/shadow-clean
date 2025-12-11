@@ -6,7 +6,6 @@ import {
   QueuedActionUI,
   generateTaskId,
 } from "@repo/types";
-import { TextPart } from "ai";
 import { randomUUID } from "crypto";
 import { LLMService } from "./llm";
 import { getSystemPrompt, getShadowWikiMessage } from "./system-prompt";
@@ -871,31 +870,10 @@ These are specific instructions from the user that should be followed throughout
         : undefined;
       this.activeConvexMessageIds.set(taskId, streamResult.messageId);
 
-      // Persist assistant message to Convex for history/PR flows
-      console.log(`[CHAT] Saving assistant message for task ${taskId}`);
-      const assistantSequence = await this.getNextSequence(taskId);
-      const finalMetadata: MessageMetadata = {
-        usage: usageMetadata,
-        finishReason,
-        isStreaming: false,
-        parts: responseText
-          ? [
-              {
-                type: "text",
-                text: responseText,
-              } as TextPart,
-            ]
-          : [],
-      };
-
-      const assistantMsg = await this.saveAssistantMessage(
-        taskId,
-        responseText,
-        context.getMainModel(),
-        assistantSequence,
-        finalMetadata
-      );
-      assistantMessageId = assistantMsg.id;
+      // NOTE: Don't create a new assistant message here - the Convex streaming action
+      // already created and populated the message via startStreaming + appendStreamDelta.
+      // Creating another message would cause duplicate responses in the UI.
+      assistantMessageId = streamResult.messageId;
 
       console.log(
         `[CHAT] Convex streaming completed for task ${taskId}, messageId: ${assistantMessageId}`
