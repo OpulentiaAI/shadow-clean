@@ -79,6 +79,7 @@ type QueuedStackedPRAction = {
 type QueuedAction = QueuedMessageAction | QueuedStackedPRAction;
 
 const CONVEX_ACTION_TIMEOUT_MS = 300000; // 5 minutes
+const IMPORT_TIMEOUT_MS = 10000; // 10 seconds for each import
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   let timeoutId: NodeJS.Timeout;
@@ -850,19 +851,31 @@ These are specific instructions from the user that should be followed throughout
     try {
       console.log(`[CHAT] Importing Convex modules for task ${taskId}`);
       
-      console.log(`[CHAT] Import 1/3: convex-client.js`);
-      const { getConvexClient } =
-        (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
+      console.log(`[CHAT] Import 1/3: convex-client.js (timeout: ${IMPORT_TIMEOUT_MS}ms)`);
+      const convexClientModule = await withTimeout(
+        import("../lib/convex-client.js"),
+        IMPORT_TIMEOUT_MS,
+        'Import convex-client.js'
+      ) as typeof import("../lib/convex-client.js");
+      const { getConvexClient } = convexClientModule;
       console.log(`[CHAT] Import 1/3: SUCCESS`);
       
-      console.log(`[CHAT] Import 2/3: api.js`);
-      const { api } =
-        (await import("../../../../convex/_generated/api.js")) as typeof import("../../../../convex/_generated/api.js");
+      console.log(`[CHAT] Import 2/3: api.js (timeout: ${IMPORT_TIMEOUT_MS}ms)`);
+      const apiModule = await withTimeout(
+        import("../../../../convex/_generated/api.js"),
+        IMPORT_TIMEOUT_MS,
+        'Import convex api.js'
+      ) as typeof import("../../../../convex/_generated/api.js");
+      const { api } = apiModule;
       console.log(`[CHAT] Import 2/3: SUCCESS`);
       
-      console.log(`[CHAT] Import 3/3: convex-operations.js`);
-      const { toConvexId } =
-        (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
+      console.log(`[CHAT] Import 3/3: convex-operations.js (timeout: ${IMPORT_TIMEOUT_MS}ms)`);
+      const convexOpsModule = await withTimeout(
+        import("../lib/convex-operations.js"),
+        IMPORT_TIMEOUT_MS,
+        'Import convex-operations.js'
+      ) as typeof import("../lib/convex-operations.js");
+      const { toConvexId } = convexOpsModule;
       console.log(`[CHAT] Import 3/3: SUCCESS - all imports complete`);
 
       console.log(`[CHAT] Getting Convex client...`);
