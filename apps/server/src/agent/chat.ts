@@ -85,6 +85,7 @@ export class ChatService {
   private convexTaskIdMap: Map<string, string> = new Map();
   private stopRequested: Set<string> = new Set();
   private queuedActions: Map<string, QueuedAction> = new Map();
+  private processingTasks: Set<string> = new Set();
 
   constructor() {
     this.llmService = new LLMService();
@@ -605,6 +606,14 @@ export class ChatService {
     console.log(`[CHAT] _processUserMessageInternal started for task ${taskId}`);
     console.log(`[CHAT] Model: ${context.getMainModel()}, enableTools: ${enableTools}, skipUserMessageSave: ${skipUserMessageSave}`);
 
+    // Prevent concurrent message processing for the same task (duplicate request guard)
+    if (this.processingTasks.has(taskId)) {
+      console.warn(`[CHAT] Task ${taskId} is already processing a message, skipping duplicate request`);
+      return;
+    }
+    this.processingTasks.add(taskId);
+    console.log(`[CHAT] Task ${taskId} added to processing set`);
+
     // Get task info for follow-up logic (use Convex as source of truth)
     const task = await getTask(toConvexId<"tasks">(taskId));
 
@@ -933,6 +942,10 @@ These are specific instructions from the user that should be followed throughout
         );
       }
 
+      // Clean up processing state on success
+      this.processingTasks.delete(taskId);
+      console.log(`[CHAT] Task ${taskId} removed from processing set (success path)`);
+
       // Process any queued actions
       await this.processQueuedActions(taskId);
     } catch (error) {
@@ -975,6 +988,10 @@ These are specific instructions from the user that should be followed throughout
 
       // Clear any queued actions (don't process them after error)
       this.clearQueuedAction(taskId);
+      
+      // Clean up processing state on error
+      this.processingTasks.delete(taskId);
+      console.log(`[CHAT] Task ${taskId} removed from processing set (error path)`);
       throw error;
     }
   }
