@@ -603,15 +603,22 @@ export class ChatService {
     workspacePath?: string;
     queue?: boolean;
   }) {
+    console.log(`[CHAT] _processUserMessageInternal started for task ${taskId}`);
+    console.log(`[CHAT] Model: ${context.getMainModel()}, enableTools: ${enableTools}, skipUserMessageSave: ${skipUserMessageSave}`);
+
     // Get task info for follow-up logic (use Convex as source of truth)
     const task = await getTask(toConvexId<"tasks">(taskId));
 
     if (!task) {
+      console.error(`[CHAT] Task ${taskId} not found in Convex`);
       throw new Error(`Task ${taskId} not found in Convex`);
     }
+    console.log(`[CHAT] Task found: status=${task.status}, initStatus=${task.initStatus}, userId=${task.userId}`);
 
     // Handle follow-up logic for COMPLETED tasks
+    console.log(`[CHAT] Calling handleFollowUpLogic for task ${taskId}`);
     await this.handleFollowUpLogic(taskId, task.userId, context);
+    console.log(`[CHAT] handleFollowUpLogic completed for task ${taskId}`);
 
     if (queue) {
       if (this.activeStreams.has(taskId)) {
@@ -644,10 +651,16 @@ export class ChatService {
 
     // Save user message to database (unless skipped, e.g. on task initialization)
     if (!skipUserMessageSave) {
+      console.log(`[CHAT] Saving user message for task ${taskId}`);
       await this.saveUserMessage(taskId, userMessage, context.getMainModel());
+      console.log(`[CHAT] User message saved for task ${taskId}`);
+    } else {
+      console.log(`[CHAT] Skipping user message save for task ${taskId}`);
     }
 
+    console.log(`[CHAT] Getting chat history for task ${taskId}`);
     const history = await this.getChatHistory(taskId);
+    console.log(`[CHAT] Chat history retrieved: ${history.length} messages`);
 
     const messages: Message[] = history
       .slice(0, -1)
@@ -659,11 +672,15 @@ export class ChatService {
       );
 
     const isFirstMessage = !messages.some((msg) => msg.role === "system");
+    console.log(`[CHAT] isFirstMessage: ${isFirstMessage}, filtered messages count: ${messages.length}`);
 
     if (isFirstMessage) {
+      console.log(`[CHAT] First message - adding system prompts`);
       const systemMessagesToAdd: Message[] = [];
 
+      console.log(`[CHAT] Getting Shadow Wiki content for task ${taskId}`);
       const shadowWikiContent = await getShadowWikiMessage(taskId);
+      console.log(`[CHAT] Shadow Wiki content: ${shadowWikiContent ? 'present' : 'not found'}`);
       if (shadowWikiContent) {
         const shadowWikiSequence = await this.getNextSequence(taskId);
         await this.saveSystemMessage(
@@ -682,8 +699,11 @@ export class ChatService {
         });
       }
 
+      console.log(`[CHAT] Re-fetching task for userSettings`);
       const task = await getTask(toConvexId<"tasks">(taskId));
+      console.log(`[CHAT] Fetching user settings for userId: ${task?.userId}`);
       const userSettings = task ? await getUserSettings(task.userId) : null;
+      console.log(`[CHAT] User settings retrieved: ${userSettings ? 'present' : 'not found'}`);
       const memoriesEnabled = userSettings?.memoriesEnabled ?? true;
 
       if (memoriesEnabled) {
@@ -739,6 +759,7 @@ These are specific instructions from the user that should be followed throughout
       }
 
       messages.unshift(...systemMessagesToAdd);
+      console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
     }
 
     messages.push({
@@ -748,7 +769,9 @@ These are specific instructions from the user that should be followed throughout
       createdAt: new Date().toISOString(),
       llmModel: context.getMainModel(),
     });
+    console.log(`[CHAT] Total messages for LLM: ${messages.length}`);
 
+    console.log(`[CHAT] Starting stream for task ${taskId}`);
     startStream(taskId);
 
     // Create AbortController for this stream
@@ -767,9 +790,12 @@ These are specific instructions from the user that should be followed throughout
     }
 
     // Get system prompt with available tools context
+    console.log(`[CHAT] Getting system prompt for task ${taskId}`);
     const taskSystemPrompt = await getSystemPrompt(availableTools);
+    console.log(`[CHAT] System prompt length: ${taskSystemPrompt?.length || 0}`);
 
     try {
+      console.log(`[CHAT] Importing Convex modules for task ${taskId}`);
       const { getConvexClient } =
         (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
       const { api } =
@@ -778,10 +804,16 @@ These are specific instructions from the user that should be followed throughout
         (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
 
       const convexClient = getConvexClient();
+      console.log(`[CHAT] Convex client obtained`);
 
       console.log(`[CHAT] Starting Convex streaming for task ${taskId}`);
 
       const convexTaskId = this.resolveConvexTaskId(taskId);
+      console.log(`[CHAT] Resolved Convex task ID: ${convexTaskId}`);
+
+      const apiKeys = context.getApiKeys();
+      console.log(`[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`);
+      console.log(`[CHAT] Calling streamChatWithTools action`);
 
       const streamResult = await convexClient.action(
         api.streaming.streamChatWithTools,
@@ -792,14 +824,16 @@ These are specific instructions from the user that should be followed throughout
           systemPrompt: taskSystemPrompt,
           llmModel: context.getMainModel(),
           apiKeys: {
-            anthropic: context.getApiKeys().anthropic,
-            openai: context.getApiKeys().openai,
-            openrouter: context.getApiKeys().openrouter,
+            anthropic: apiKeys.anthropic,
+            openai: apiKeys.openai,
+            openrouter: apiKeys.openrouter,
           },
         }
       );
+      console.log(`[CHAT] streamChatWithTools returned: success=${streamResult?.success}, messageId=${streamResult?.messageId}`);
 
       responseText = streamResult.text ?? "";
+      console.log(`[CHAT] Response text length: ${responseText.length}`);
       usageMetadata = streamResult.usage
         ? {
             promptTokens: streamResult.usage.promptTokens,
@@ -809,7 +843,8 @@ These are specific instructions from the user that should be followed throughout
         : undefined;
       this.activeConvexMessageIds.set(taskId, streamResult.messageId);
 
-      // Persist assistant message to Prisma for history/PR flows
+      // Persist assistant message to Convex for history/PR flows
+      console.log(`[CHAT] Saving assistant message for task ${taskId}`);
       const assistantSequence = await this.getNextSequence(taskId);
       const finalMetadata: MessageMetadata = {
         usage: usageMetadata,
@@ -895,7 +930,10 @@ These are specific instructions from the user that should be followed throughout
       // Process any queued actions
       await this.processQueuedActions(taskId);
     } catch (error) {
-      console.error("Error processing user message:", error);
+      console.error(`[CHAT] Error processing user message for task ${taskId}:`, error);
+      if (error instanceof Error) {
+        console.error(`[CHAT] Error stack:`, error.stack);
+      }
 
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error occurred";
