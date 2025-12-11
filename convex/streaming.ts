@@ -268,7 +268,8 @@ export const streamChatWithTools = action({
       openrouter: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
+  handler: async (ctx, args) => {
+    console.log(`[STREAMING] === ACTION START ===`);
     console.log(`[STREAMING] streamChatWithTools called for task ${args.taskId}`);
     console.log(`[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`);
     console.log(`[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}`);
