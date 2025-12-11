@@ -839,6 +839,9 @@ These are specific instructions from the user that should be followed throughout
       console.log(`[CHAT] Calling streamChatWithTools action`);
       console.log(`[CHAT] Action params: taskId=${convexTaskId}, model=${context.getMainModel()}, promptLen=${userMessage.length}`);
 
+      const actionStartTime = Date.now();
+      console.log(`[CHAT] Starting Convex action at ${new Date().toISOString()}`);
+      
       const streamResult = await convexClient.action(
         api.streaming.streamChatWithTools,
         {
@@ -854,7 +857,8 @@ These are specific instructions from the user that should be followed throughout
           },
         }
       );
-      console.log(`[CHAT] streamChatWithTools returned: success=${streamResult?.success}, messageId=${streamResult?.messageId}`);
+      const actionDuration = Date.now() - actionStartTime;
+      console.log(`[CHAT] streamChatWithTools returned after ${actionDuration}ms: success=${streamResult?.success}, messageId=${streamResult?.messageId}`);
 
       responseText = streamResult.text ?? "";
       console.log(`[CHAT] Response text length: ${responseText.length}`);
