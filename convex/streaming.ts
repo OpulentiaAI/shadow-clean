@@ -268,7 +268,7 @@ export const streamChatWithTools = action({
       openrouter: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
     console.log(`[STREAMING] === ACTION START ===`);
     console.log(`[STREAMING] streamChatWithTools called for task ${args.taskId}`);
     console.log(`[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`);
