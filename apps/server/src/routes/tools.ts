@@ -8,6 +8,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { createToolExecutor } from "../execution";
 import { getTask, toConvexId } from "../lib/convex-operations";
+import fs from "node:fs";
+import path from "node:path";
 
 const router = Router();
 
@@ -84,6 +86,13 @@ async function getExecutorForTask(taskId: string, workspacePathOverride?: string
   }
   const task = await getTask(toConvexId<"tasks">(taskId));
   if (!task) {
+    // Fallback for production: tasks may not be readable from Convex due to access policies.
+    // If the workspace exists locally in the container, use it directly.
+    const workspaceRoot = process.env.WORKSPACE_DIR || "/workspace";
+    const candidate = path.join(workspaceRoot, "tasks", taskId);
+    if (fs.existsSync(candidate)) {
+      return createToolExecutor(taskId, candidate);
+    }
     throw new Error(`Task ${taskId} not found`);
   }
   return createToolExecutor(taskId, task.workspacePath || undefined);
