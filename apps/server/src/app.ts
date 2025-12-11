@@ -401,9 +401,13 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
     // Build model context - API keys come from cookies (sent by frontend)
     const apiKeys = parseApiKeysFromCookies(req.headers.cookie || "");
     console.log(`[MESSAGE_SUBMIT] Cookie header present: ${!!req.headers.cookie}`);
+    console.log(`[MESSAGE_SUBMIT] Cookie header value: ${req.headers.cookie?.substring(0, 50) || 'none'}...`);
     console.log(`[MESSAGE_SUBMIT] API keys - openrouter: ${apiKeys.openrouter ? `present (${apiKeys.openrouter.length} chars)` : 'missing'}, anthropic: ${apiKeys.anthropic ? 'present' : 'missing'}, openai: ${apiKeys.openai ? 'present' : 'missing'}`);
     if (apiKeys.openrouter) {
       console.log(`[MESSAGE_SUBMIT] OpenRouter key prefix: ${apiKeys.openrouter.substring(0, 10)}...`);
+    } else {
+      console.log(`[MESSAGE_SUBMIT] WARNING: No OpenRouter key found! Checking env fallback...`);
+      console.log(`[MESSAGE_SUBMIT] OPENROUTER_API_KEY env: ${process.env.OPENROUTER_API_KEY ? `present (${process.env.OPENROUTER_API_KEY.length} chars)` : 'MISSING'}`);
     }
 
     const context = new TaskModelContext(
