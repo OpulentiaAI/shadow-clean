@@ -247,6 +247,10 @@ export async function createTask(formData: FormData) {
       const requestHeaders = await headers();
       const cookieHeader = requestHeaders.get("cookie");
 
+      // Check if Convex streaming is enabled to skip backend LLM processing
+      const useConvexStreaming =
+        process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
+
       const response = await makeBackendRequest(
         `/api/tasks/${taskId}/initiate`,
         {
@@ -259,6 +263,9 @@ export async function createTask(formData: FormData) {
             message,
             model,
             userId: userId,
+            // When Convex streaming is enabled, skip backend LLM processing
+            // Convex streamChatWithTools action will handle the LLM call
+            useConvexStreaming,
           }),
         }
       );
