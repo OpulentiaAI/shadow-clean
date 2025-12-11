@@ -89,7 +89,8 @@ app.use(express.urlencoded({ limit: "2mb", extended: true }));
 
 // API key authentication for protected routes
 app.use("/api", (req, res, next) => {
-  if (req.path.startsWith("/webhooks")) {
+  // Skip auth for webhooks and tools (tools have their own x-convex-tool-key auth)
+  if (req.path.startsWith("/webhooks") || req.path.startsWith("/tools")) {
     return next();
   }
   return apiKeyAuth(req, res, next);
