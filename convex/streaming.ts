@@ -31,7 +31,12 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
 
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
-    console.log(`[STREAMING] Using OpenRouter with client-provided API key`);
+    // Log key details for debugging (prefix only for security)
+    const keyPrefix = apiKeys.openrouter.substring(0, 10);
+    const keyLength = apiKeys.openrouter.length;
+    console.log(`[STREAMING] Using OpenRouter with client-provided API key: ${keyPrefix}... (${keyLength} chars)`);
+    console.log(`[STREAMING] OpenRouter headers:`, JSON.stringify(OPENROUTER_HEADERS));
+    
     const openrouterClient = createOpenRouter({
       apiKey: apiKeys.openrouter,
       headers: OPENROUTER_HEADERS,
@@ -195,10 +200,18 @@ export const streamChat = action({
         usage: usage ?? undefined,
       };
     } catch (error) {
-      // Handle error
+      // Handle error with user-friendly message
+      let userMessage = error instanceof Error ? error.message : String(error);
+      
+      if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
+        userMessage = 'The model returned no response. This usually happens due to rate limiting on free-tier models. Please try again or switch to a different model.';
+      } else if (userMessage.includes('rate limit') || userMessage.includes('Rate limit')) {
+        userMessage = 'Rate limit exceeded. Please wait a moment before trying again, or switch to a different model.';
+      }
+      
       await ctx.runMutation(api.messages.update, {
         messageId,
-        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        content: `⚠️ ${userMessage}`,
       });
 
       throw error;
@@ -239,6 +252,12 @@ export const streamChatWithTools = action({
     console.log(`[STREAMING] streamChatWithTools called for task ${args.taskId}`);
     console.log(`[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`);
     console.log(`[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}`);
+    if (args.apiKeys?.openrouter) {
+      console.log(`[STREAMING] OpenRouter key from args: ${args.apiKeys.openrouter.length} chars`);
+    } else {
+      console.log(`[STREAMING] No OpenRouter key in args, will check env`);
+      console.log(`[STREAMING] Env OPENROUTER_API_KEY present: ${!!process.env.OPENROUTER_API_KEY}`);
+    }
 
     // Get task details
     const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
@@ -395,9 +414,27 @@ export const streamChatWithTools = action({
       if (error instanceof Error) {
         console.error(`[STREAMING] Error stack:`, error.stack);
       }
+      
+      // Format user-friendly error message
+      let userMessage = error instanceof Error ? error.message : String(error);
+      const errorStr = String(error);
+      
+      // Check for specific error types and provide better messages
+      if (errorStr.includes('401') || userMessage.includes('401') || userMessage.includes('Unauthorized')) {
+        userMessage = 'API authentication failed (401). The API key may be invalid or expired. Please check your API key configuration.';
+      } else if (errorStr.includes('403') || userMessage.includes('403') || userMessage.includes('Forbidden')) {
+        userMessage = 'API access forbidden (403). Your API key may not have permission to use this model.';
+      } else if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
+        userMessage = 'The model returned no response. This usually happens due to rate limiting on free-tier models. Please try again or switch to a different model.';
+      } else if (userMessage.includes('rate limit') || userMessage.includes('Rate limit') || errorStr.includes('429')) {
+        userMessage = 'Rate limit exceeded. Please wait a moment before trying again, or switch to a different model.';
+      } else if (userMessage.includes('quota')) {
+        userMessage = 'API quota exceeded. Please check your API key credits or switch to a different provider.';
+      }
+      
       await ctx.runMutation(api.messages.update, {
         messageId,
-        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        content: `⚠️ ${userMessage}`,
       });
 
       throw error;

@@ -863,6 +863,9 @@ These are specific instructions from the user that should be followed throughout
 
       const apiKeys = context.getApiKeys();
       console.log(`[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`);
+      if (apiKeys.openrouter) {
+        console.log(`[CHAT] OpenRouter key details: ${apiKeys.openrouter.substring(0, 10)}... (${apiKeys.openrouter.length} chars)`);
+      }
       console.log(`[CHAT] === CONVEX ACTION CALL ===`);
       console.log(`[CHAT] Calling streamChatWithTools action`);
       console.log(`[CHAT] Action params: taskId=${convexTaskId}, model=${context.getMainModel()}, promptLen=${userMessage.length}`);
@@ -1024,6 +1027,27 @@ These are specific instructions from the user that should be followed throughout
 
       // Clear any queued actions (don't process them after error)
       this.clearQueuedAction(taskId);
+      
+      // Check if this is a model-related error that was already saved to the chat
+      // For these errors, don't re-throw - the error is visible in the chat UI
+      const errorStr = String(error);
+      const isModelError = errorMessage.includes('No output generated') ||
+        errorMessage.includes('Model returned no output') ||
+        errorMessage.includes('rate limit') ||
+        errorMessage.includes('Rate limit') ||
+        errorMessage.includes('quota') ||
+        errorMessage.includes('Stream error') ||
+        errorMessage.includes('401') ||
+        errorMessage.includes('403') ||
+        errorMessage.includes('Unauthorized') ||
+        errorMessage.includes('Forbidden') ||
+        errorStr.includes('401') ||
+        errorStr.includes('403');
+      
+      if (isModelError) {
+        console.log(`[CHAT] Model/API error for task ${taskId} - not re-throwing (error visible in chat)`);
+        return; // Don't throw - error is already in the chat
+      }
       
       throw error;
     } finally {
