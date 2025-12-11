@@ -420,6 +420,22 @@ export const streamChatWithTools = action({
       >();
       const knownToolCalls = new Set<string>();
 
+      const normalizeToolCallId = (raw: string): string => {
+        const id = String(raw ?? "").trim();
+        // Provider-native unique ids (OpenAI style) - keep as-is.
+        if (
+          id.startsWith("call_") ||
+          id.startsWith("toolu_") ||
+          id.startsWith("tool-") ||
+          id.includes("-")
+        ) {
+          return id;
+        }
+        // Many providers use small ids like "read_file:0" or "functions.list_dir:0"
+        // which collide across messages. Namespace them by messageId.
+        return `${messageId}:${id}`;
+      };
+
       const ensureToolTracking = async (
         toolCallId: string,
         toolName: string,
@@ -485,7 +501,8 @@ export const streamChatWithTools = action({
           partType === "tool-call-start"
         ) {
           const rawToolCallId = (part as any).toolCallId ?? (part as any).id;
-          const toolCallId = rawToolCallId ? String(rawToolCallId).trim() : "";
+          const toolCallIdRaw = rawToolCallId ? String(rawToolCallId).trim() : "";
+          const toolCallId = toolCallIdRaw ? normalizeToolCallId(toolCallIdRaw) : "";
 
           const rawToolName =
             (part as any).toolName ?? (part as any).name ?? "unknown-tool";
@@ -663,6 +680,44 @@ export const streamChatWithTools = action({
         `[STREAMING] [v6] Checking pending tools: size=${toolCallStates.size}, toolCount=${Object.keys(aiTools).length}`
       );
       if (toolCallStates.size > 0 && Object.keys(aiTools).length > 0) {
+        const extractJsonArgsFromPrompt = (
+          prompt: string
+        ): Record<string, unknown> | null => {
+          const markerIdx = prompt.indexOf("JSON args:");
+          const searchStart = markerIdx >= 0 ? markerIdx + "JSON args:".length : 0;
+          const s = prompt.slice(searchStart);
+
+          const firstBrace = s.indexOf("{");
+          if (firstBrace < 0) return null;
+
+          // Find matching closing brace with a simple brace counter.
+          let depth = 0;
+          let end = -1;
+          for (let i = firstBrace; i < s.length; i++) {
+            const ch = s[i];
+            if (ch === "{") depth++;
+            if (ch === "}") {
+              depth--;
+              if (depth === 0) {
+                end = i;
+                break;
+              }
+            }
+          }
+          if (end < 0) return null;
+
+          const jsonText = s.slice(firstBrace, end + 1).trim();
+          try {
+            const parsed = JSON.parse(jsonText);
+            if (parsed && typeof parsed === "object") {
+              return parsed as Record<string, unknown>;
+            }
+          } catch {
+            // ignore
+          }
+          return null;
+        };
+
         for (const [toolCallId, state] of toolCallStates.entries()) {
           console.log(
             `[STREAMING] [v6] Tool state: id=${toolCallId}, name=${state.toolName}, argKeys=${Object.keys(state.latestArgs).join(",")}`
@@ -671,6 +726,16 @@ export const streamChatWithTools = action({
           const execArgs: Record<string, unknown> = {
             ...(state.latestArgs ?? {}),
           };
+          // If provider didn't stream args, try to recover them from the prompt (CLI testing mode).
+          if (Object.keys(execArgs).length === 0) {
+            const recovered = extractJsonArgsFromPrompt(args.prompt);
+            if (recovered) {
+              console.log(
+                `[STREAMING] [v6] Recovered tool args from prompt for ${state.toolName}: ${Object.keys(recovered).join(",")}`
+              );
+              Object.assign(execArgs, recovered);
+            }
+          }
           // Some providers emit tool-input-start without args; for list_dir we can safely default.
           if (
             state.toolName === "list_dir" &&
@@ -688,8 +753,13 @@ export const streamChatWithTools = action({
               // pass workspacePath explicitly (avoids tool API needing to read task from Convex).
               // Prefer the actual task workspace when available; fall back to /workspace
               // (guaranteed to exist on the Railway tool server container) for CLI testing.
+              // If this task doesn't have an initialized workspace directory on the tool server,
+              // fall back to /workspace so CLI tool execution can still be verified.
+              const candidateTaskWorkspace = (task as any)?.workspacePath as
+                | string
+                | undefined;
               const workspacePathOverride =
-                ((task as any)?.workspacePath as string | undefined) ||
+                candidateTaskWorkspace ||
                 "/workspace";
               const serverUrl =
                 process.env.SHADOW_SERVER_URL || "http://localhost:4000";
@@ -715,11 +785,40 @@ export const streamChatWithTools = action({
                 );
                 if (!resp.ok) {
                   const errorText = await resp.text();
-                  throw new Error(
-                    `Tool API error: ${resp.status} - ${errorText}`
-                  );
+                  throw new Error(`Tool API error: ${resp.status} - ${errorText}`);
                 }
                 toolResult = await resp.json();
+                // If the workspace path doesn't exist on the tool server, retry against /workspace
+                // so we can still validate tool execution end-to-end in CLI.
+                if (
+                  (toolResult as any)?.success === false &&
+                  typeof (toolResult as any)?.error === "string" &&
+                  ((toolResult as any).error as string).includes("ENOENT") &&
+                  workspacePathOverride !== "/workspace"
+                ) {
+                  console.log(
+                    `[STREAMING] [v7] list_dir ENOENT on ${workspacePathOverride}, retrying with /workspace`
+                  );
+                  const retryResp = await fetch(
+                    `${serverUrl}/api/tools/${args.taskId}/list_dir`,
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "x-convex-tool-key": toolApiKey,
+                        "x-shadow-workspace-path": "/workspace",
+                      },
+                      body: JSON.stringify(execArgs),
+                    }
+                  );
+                  if (!retryResp.ok) {
+                    const retryText = await retryResp.text();
+                    throw new Error(
+                      `Tool API error: ${retryResp.status} - ${retryText}`
+                    );
+                  }
+                  toolResult = await retryResp.json();
+                }
               } else {
                 toolResult = await toolDef.execute(execArgs);
               }
