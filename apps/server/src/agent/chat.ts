@@ -762,13 +762,20 @@ These are specific instructions from the user that should be followed throughout
       console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
     }
 
-    messages.push({
-      id: randomUUID(),
-      role: "user",
-      content: userMessage,
-      createdAt: new Date().toISOString(),
-      llmModel: context.getMainModel(),
-    });
+    console.log(`[CHAT] Finished if block, about to push user message`);
+    try {
+      messages.push({
+        id: randomUUID(),
+        role: "user",
+        content: userMessage,
+        createdAt: new Date().toISOString(),
+        llmModel: context.getMainModel(),
+      });
+      console.log(`[CHAT] User message pushed successfully`);
+    } catch (pushError) {
+      console.error(`[CHAT] Error pushing user message:`, pushError);
+      throw pushError;
+    }
     console.log(`[CHAT] Total messages for LLM: ${messages.length}`);
 
     console.log(`[CHAT] Starting stream for task ${taskId}`);
