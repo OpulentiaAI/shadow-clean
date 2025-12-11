@@ -4,7 +4,7 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+// createOpenRouter removed in favor of createOpenAI configuration
 import { type LanguageModel } from "ai";
 import { createAgentTools } from "./agentTools";
 
@@ -45,7 +45,7 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
     
     // Pre-flight validation: Check if key looks valid
     const isValidKeyFormat = apiKeys.openrouter.startsWith('sk-or-v1-') && keyLength > 20;
-    console.log(`[STREAMING] >>> USING: OpenRouter with CLIENT-PROVIDED key: ${keyPrefix}...${keySuffix} (${keyLength} chars)`);
+    console.log(`[STREAMING] >>> USING: OpenRouter (via OpenAI provider) with CLIENT-PROVIDED key: ${keyPrefix}...${keySuffix} (${keyLength} chars)`);
     console.log(`[STREAMING] Key format validation: ${isValidKeyFormat ? 'PASSED' : 'FAILED - key may be invalid!'}`);
     console.log(`[STREAMING] OpenRouter headers:`, JSON.stringify(OPENROUTER_HEADERS));
     
@@ -55,11 +55,12 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
       console.error(`[STREAMING] Got: starts with '${apiKeys.openrouter.substring(0, 9)}', length ${keyLength}`);
     }
     
-    const openrouterClient = createOpenRouter({
+    const openrouter = createOpenAI({
       apiKey: apiKeys.openrouter,
+      baseURL: "https://openrouter.ai/api/v1",
       headers: OPENROUTER_HEADERS,
     });
-    return openrouterClient.chat(model) as any;
+    return openrouter(model);
   }
 
   if (apiKeys.anthropic) {
@@ -72,17 +73,17 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
     return createOpenAI({ apiKey: apiKeys.openai })(model);
   }
 
-  // Fallback to environment keys to keep UI simple (no client key prompts)
   const envOpenRouter = process.env.OPENROUTER_API_KEY;
   if (envOpenRouter) {
     const keyPrefix = envOpenRouter.substring(0, 12);
     const keyLength = envOpenRouter.length;
-    console.log(`[STREAMING] >>> USING: OpenRouter with ENVIRONMENT key: ${keyPrefix}... (${keyLength} chars)`);
-    const openrouterClient = createOpenRouter({
+    console.log(`[STREAMING] >>> USING: OpenRouter (via OpenAI provider) with ENVIRONMENT key: ${keyPrefix}... (${keyLength} chars)`);
+    const openrouter = createOpenAI({
       apiKey: envOpenRouter,
+      baseURL: "https://openrouter.ai/api/v1",
       headers: OPENROUTER_HEADERS,
     });
-    return openrouterClient.chat(model) as any;
+    return openrouter(model);
   }
 
   const envAnthropic = process.env.ANTHROPIC_API_KEY;
