@@ -151,7 +151,37 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
 export function getModelProvider(
   model: ModelType,
 ): "anthropic" | "openai" | "openrouter" /* | "ollama" */ {
-  return ModelInfos[model].provider;
+  const modelInfo = ModelInfos[model];
+  if (modelInfo) {
+    return modelInfo.provider;
+  }
+  
+  // Defensive fallback: If model not found in registry, try to infer provider from model string
+  // This handles cases where a model string is passed that isn't in our static registry
+  const modelStr = model as string;
+  console.warn(`[getModelProvider] Model "${modelStr}" not found in ModelInfos, attempting to infer provider`);
+  
+  // OpenRouter models typically have format "organization/model-name"
+  if (modelStr.includes('/')) {
+    console.warn(`[getModelProvider] Inferred OpenRouter provider for model: ${modelStr}`);
+    return "openrouter";
+  }
+  
+  // Claude direct models (from Anthropic)
+  if (modelStr.toLowerCase().includes('claude') && !modelStr.includes('/')) {
+    console.warn(`[getModelProvider] Inferred Anthropic provider for model: ${modelStr}`);
+    return "anthropic";
+  }
+  
+  // GPT/OpenAI models
+  if (modelStr.toLowerCase().includes('gpt') || modelStr.toLowerCase().includes('o3') || modelStr.toLowerCase().includes('o4')) {
+    console.warn(`[getModelProvider] Inferred OpenAI provider for model: ${modelStr}`);
+    return "openai";
+  }
+  
+  // Default to OpenRouter for unknown models
+  console.warn(`[getModelProvider] Defaulting to OpenRouter for unknown model: ${modelStr}`);
+  return "openrouter";
 }
 
 export function getModelInfo(model: ModelType): ModelInfo {
