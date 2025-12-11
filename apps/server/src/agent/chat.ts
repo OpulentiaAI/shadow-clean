@@ -849,15 +849,25 @@ These are specific instructions from the user that should be followed throughout
 
     try {
       console.log(`[CHAT] Importing Convex modules for task ${taskId}`);
+      
+      console.log(`[CHAT] Import 1/3: convex-client.js`);
       const { getConvexClient } =
         (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
+      console.log(`[CHAT] Import 1/3: SUCCESS`);
+      
+      console.log(`[CHAT] Import 2/3: api.js`);
       const { api } =
         (await import("../../../../convex/_generated/api.js")) as typeof import("../../../../convex/_generated/api.js");
+      console.log(`[CHAT] Import 2/3: SUCCESS`);
+      
+      console.log(`[CHAT] Import 3/3: convex-operations.js`);
       const { toConvexId } =
         (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
+      console.log(`[CHAT] Import 3/3: SUCCESS - all imports complete`);
 
+      console.log(`[CHAT] Getting Convex client...`);
       const convexClient = getConvexClient();
-      console.log(`[CHAT] Convex client obtained`);
+      console.log(`[CHAT] Convex client obtained: ${!!convexClient}`);
 
       console.log(`[CHAT] Starting Convex streaming for task ${taskId}`);
 
