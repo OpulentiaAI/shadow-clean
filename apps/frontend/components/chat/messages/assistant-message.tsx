@@ -34,13 +34,18 @@ import {
 } from "../../ui/dropdown-menu";
 
 type GroupedPart =
-  | { type: "text"; text: string }
-  | { type: "tool-call"; part: any; index: number }
-  | { type: "tool-result"; part: any; index: number }
-  | { type: "error"; part: ErrorPart; index: number }
-  | { type: "reasoning"; part: ReasoningPart; index: number }
-  | { type: "redacted-reasoning"; part: RedactedReasoningPart; index: number }
-  | { type: "unknown"; part: any; index: number };
+  | { type: "text"; text: string; key: string }
+  | { type: "tool-call"; part: any; index: number; key: string }
+  | { type: "tool-result"; part: any; index: number; key: string }
+  | { type: "error"; part: ErrorPart; index: number; key: string }
+  | { type: "reasoning"; part: ReasoningPart; index: number; key: string }
+  | {
+      type: "redacted-reasoning";
+      part: RedactedReasoningPart;
+      index: number;
+      key: string;
+    }
+  | { type: "unknown"; part: any; index: number; key: string };
 
 function getMessageCopyContent(groupedParts: GroupedPart[]): string {
   return groupedParts
@@ -86,11 +91,61 @@ export function AssistantMessage({
   const { task } = useTask(taskId);
   const isScratchpadTask = !!task?.isScratchpad;
 
+  const normalizedParts = useMemo(() => {
+    if (!message.metadata?.parts || message.metadata.parts.length === 0) {
+      return [] as any[];
+    }
+
+    return message.metadata.parts.map((part: any) => {
+      const rawType = typeof part.type === "string" ? part.type : "";
+      const normalizedType = rawType.replace(/_/g, "-");
+
+      if (
+        normalizedType === "tool-call-delta" ||
+        normalizedType === "tool-call" ||
+        normalizedType === "tool-call-start"
+      ) {
+        return {
+          ...part,
+          type: "tool-call",
+          toolCallId: part.toolCallId ?? part.id,
+          toolName: part.toolName ?? part.name,
+          args: part.args ?? part.input ?? part.partialArgs,
+          partialArgs: part.partialArgs ?? part.args ?? part.input,
+          streamingState:
+            part.streamingState ??
+            (normalizedType === "tool-call-delta" ? "streaming" : undefined),
+          argsComplete: normalizedType !== "tool-call-delta",
+        };
+      }
+
+      if (normalizedType === "tool-result") {
+        return {
+          ...part,
+          type: "tool-result",
+          toolCallId: part.toolCallId ?? part.id,
+          toolName: part.toolName ?? part.name,
+          result: part.result ?? part.output,
+          output: part.output ?? part.result,
+        };
+      }
+
+      if (normalizedType === "text-delta") {
+        return {
+          ...part,
+          type: "text",
+          text: part.text ?? part.delta ?? "",
+        };
+      }
+
+      return { ...part, type: normalizedType || part.type };
+    });
+  }, [message.metadata?.parts]);
+
   const toolResultsMap = useMemo(() => {
     const map = new Map<string, { result: unknown; toolName: string }>();
-    if (!message.metadata?.parts || message.metadata.parts.length === 0)
-      return map;
-    message.metadata.parts.forEach((part) => {
+    if (normalizedParts.length === 0) return map;
+    normalizedParts.forEach((part: any) => {
       if (part.type === "tool-result") {
         // Handle both AI SDK v4 (result) and v5 (output) property names
         const resultValue = (part as any).output ?? (part as any).result;
@@ -101,11 +156,11 @@ export function AssistantMessage({
       }
     });
     return map;
-  }, [message.metadata?.parts]);
+  }, [normalizedParts]);
 
   // Group consecutive text parts together for better rendering
   const groupedParts = useMemo(() => {
-    if (!message.metadata?.parts || message.metadata.parts.length === 0) {
+    if (normalizedParts.length === 0) {
       return message.content
         ? ([{ type: "text", text: message.content }] as GroupedPart[])
         : [];
@@ -113,41 +168,92 @@ export function AssistantMessage({
 
     const parts: GroupedPart[] = [];
     let currentTextGroup = "";
+    const toolCallIndex = new Map<string, number>();
 
-    message.metadata.parts.forEach((part: any, index: number) => {
+    const flushTextGroup = () => {
+      if (!currentTextGroup) return;
+      parts.push({
+        type: "text",
+        text: currentTextGroup,
+        key: `${message.id}-text-${parts.length}`,
+      });
+      currentTextGroup = "";
+    };
+
+    const pushToolCall = (part: any, index: number) => {
+      const toolCallId = part.toolCallId ?? `tool-${index}`;
+      const groupedPart: GroupedPart = {
+        type: "tool-call",
+        part,
+        index,
+        key: `${message.id}-tool-${toolCallId}`,
+      };
+
+      if (toolCallIndex.has(toolCallId)) {
+        const existingIndex = toolCallIndex.get(toolCallId)!;
+        parts[existingIndex] = groupedPart;
+      } else {
+        toolCallIndex.set(toolCallId, parts.length);
+        parts.push(groupedPart);
+      }
+    };
+
+    normalizedParts.forEach((part: any, index: number) => {
       if (part.type === "text" && part.text !== undefined) {
         currentTextGroup += part.text;
       } else {
-        if (currentTextGroup) {
-          parts.push({ type: "text", text: currentTextGroup });
-          currentTextGroup = "";
-        }
+        flushTextGroup();
         if (part.type === "tool-call") {
-          parts.push({ type: "tool-call", part, index });
+          pushToolCall(part, index);
         } else if (part.type === "tool-result") {
-          parts.push({ type: "tool-result", part, index });
+          parts.push({
+            type: "tool-result",
+            part,
+            index,
+            key: `${message.id}-tool-result-${part.toolCallId ?? index}`,
+          });
         } else if (part.type === "error") {
-          parts.push({ type: "error", part: part as ErrorPart, index });
+          parts.push({
+            type: "error",
+            part: part as ErrorPart,
+            index,
+            key: `${message.id}-error-${index}`,
+          });
         } else if (part.type === "reasoning") {
-          parts.push({ type: "reasoning", part: part as ReasoningPart, index });
+          parts.push({
+            type: "reasoning",
+            part: part as ReasoningPart,
+            index,
+            key: `${message.id}-reasoning-${index}`,
+          });
         } else if (part.type === "redacted-reasoning") {
           parts.push({
             type: "redacted-reasoning",
             part: part as RedactedReasoningPart,
             index,
+            key: `${message.id}-redacted-${index}`,
           });
         } else {
-          parts.push({ type: "unknown", part, index });
+          parts.push({
+            type: "unknown",
+            part,
+            index,
+            key: `${message.id}-unknown-${index}`,
+          });
         }
       }
     });
 
     if (currentTextGroup) {
-      parts.push({ type: "text", text: currentTextGroup });
+      parts.push({
+        type: "text",
+        text: currentTextGroup,
+        key: `${message.id}-text-${parts.length}`,
+      });
     }
 
     return parts;
-  }, [message.metadata?.parts, message.content]);
+  }, [normalizedParts, message.content, message.id]);
 
   const copyContent = useMemo(
     () => getMessageCopyContent(groupedParts),
@@ -162,6 +268,18 @@ export function AssistantMessage({
     copyMessageId(message.id);
   }, [copyMessageId, message.id]);
 
+  // Debug: Log grouped parts for tool call troubleshooting
+  console.log("[ASSISTANT_MESSAGE] Rendering:", {
+    messageId: message.id,
+    hasMetadata: !!message.metadata,
+    partsCount: message.metadata?.parts?.length ?? 0,
+    normalizedPartsCount: normalizedParts.length,
+    groupedPartsCount: groupedParts.length,
+    groupedPartsTypes: groupedParts.map((g) => g.type),
+    toolResultsMapSize: toolResultsMap.size,
+    toolResultsMapKeys: Array.from(toolResultsMap.keys()),
+  });
+
   return (
     <div
       className={cn(
@@ -172,7 +290,7 @@ export function AssistantMessage({
       {groupedParts.map((group, groupIndex) => {
         if (group.type === "text") {
           return (
-            <div key={`text-${groupIndex}`} className="px-3 py-2 text-sm">
+            <div key={group.key} className="px-3 py-2 text-sm">
               <MemoizedMarkdown
                 content={group.text}
                 id={`${message.id}-text-${groupIndex}`}
@@ -200,7 +318,7 @@ export function AssistantMessage({
           if (isValidationError) {
             return (
               <ValidationErrorTool
-                key={`validation-error-${groupIndex}`}
+                key={group.key}
                 toolName={part.toolName}
                 toolCallId={part.toolCallId}
                 args={part.args as Record<string, unknown>}
@@ -222,8 +340,11 @@ export function AssistantMessage({
                 part.toolName as (typeof STREAMING_ENABLED_TOOLS)[number]
               )
             ) {
-              const hasUseful = hasUsefulPartialArgs(part.partialArgs || {}, part.toolName);
-              
+              const hasUseful = hasUsefulPartialArgs(
+                part.partialArgs || {},
+                part.toolName
+              );
+
               if (!hasUseful) {
                 return null;
               }
@@ -261,7 +382,7 @@ export function AssistantMessage({
           };
 
           return (
-            <div key={`tool-${groupIndex}`}>
+            <div key={group.key}>
               <ToolMessage message={toolMessage} />
             </div>
           );
@@ -276,7 +397,7 @@ export function AssistantMessage({
         if (group.type === "error") {
           return (
             <ToolComponent
-              key={`error-${groupIndex}`}
+              key={group.key}
               icon={<AlertCircle className="text-destructive" />}
               title="Error occurred"
               type={"error"}
@@ -296,7 +417,7 @@ export function AssistantMessage({
 
           return (
             <ReasoningComponent
-              key={`reasoning-${groupIndex}`}
+              key={group.key}
               part={group.part}
               isLoading={isLoading}
               forceOpen={isLoading}
@@ -306,11 +427,7 @@ export function AssistantMessage({
 
         // Render redacted reasoning parts
         if (group.type === "redacted-reasoning") {
-          return (
-            <RedactedReasoningComponent
-              key={`redacted-reasoning-${groupIndex}`}
-            />
-          );
+          return <RedactedReasoningComponent key={group.key} />;
         }
 
         return null;
