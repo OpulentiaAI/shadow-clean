@@ -26,7 +26,24 @@ function mapMessage(doc: any): Message {
 
 export function useTaskMessages(taskId: string) {
   const convexTaskId = asConvexId<"tasks">(taskId);
+  
+  // Debug: Check if ID conversion works
+  console.log("[USE_TASK_MESSAGES] ID conversion:", {
+    input: taskId,
+    inputLength: taskId?.length,
+    convexTaskId,
+    isValid: !!convexTaskId,
+  });
+  
   const data = useConvexMessages(convexTaskId as Id<"tasks"> | undefined);
+  
+  // Debug: Check raw data from Convex
+  console.log("[USE_TASK_MESSAGES] Raw Convex data:", {
+    dataExists: data !== undefined,
+    dataLength: data?.length,
+    rawRoles: data?.map((d: any) => d.role),
+  });
+  
   const mapped = data?.map(mapMessage) ?? [];
   return {
     data: mapped,
