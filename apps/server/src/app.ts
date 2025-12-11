@@ -57,6 +57,8 @@ const initiateTaskSchema = z.object({
     errorMap: () => ({ message: "Invalid model type" }),
   }),
   userId: z.string().min(1, "User ID is required"),
+  // When true, skip backend LLM processing - Convex streaming will handle it
+  useConvexStreaming: z.boolean().optional().default(false),
 });
 
 const socketIOServer = http.createServer(app);
@@ -184,7 +186,7 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
       });
     }
 
-    const { message, model, userId } = validation.data;
+    const { message, model, userId, useConvexStreaming } = validation.data;
     console.log("[TASK_INITIATE] Payload accepted", {
       taskId,
       userId,
@@ -305,14 +307,20 @@ app.post("/api/tasks/:taskId/initiate", async (req, res) => {
       }
 
       // Start chat processing immediately (don't wait for background init)
-      await chatService.processUserMessage({
-        taskId,
-        userMessage: message,
-        context: initContext,
-        enableTools: true,
-        skipUserMessageSave: true,
-        workspacePath: updatedTask?.workspacePath || undefined,
-      });
+      // Skip if Convex streaming is enabled - Convex action will handle LLM call
+      if (!useConvexStreaming) {
+        console.log(`[TASK_INITIATE] Using legacy backend LLM processing for task ${taskId}`);
+        await chatService.processUserMessage({
+          taskId,
+          userMessage: message,
+          context: initContext,
+          enableTools: true,
+          skipUserMessageSave: true,
+          workspacePath: updatedTask?.workspacePath || undefined,
+        });
+      } else {
+        console.log(`[TASK_INITIATE] Skipping backend LLM - Convex streaming enabled for task ${taskId}`);
+      }
 
       res.json({
         success: true,
