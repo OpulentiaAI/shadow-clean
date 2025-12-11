@@ -340,7 +340,7 @@ export const streamChatWithTools = action({
           temperature: 0.7,
           maxSteps: 60, // Enable multi-step tool use
           abortSignal: controller.signal,
-        });
+        } as Parameters<typeof streamText>[0]);
         console.log(`[STREAMING] streamText promise resolved, processing stream...`);
       } catch (streamTextError) {
         console.error(`[STREAMING] streamText failed immediately:`, streamTextError);
