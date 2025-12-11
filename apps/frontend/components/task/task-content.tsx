@@ -17,8 +17,6 @@ const USE_CONVEX_STREAMING =
   typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
 
-// Immediate log on module load - verifies this code is deployed
-console.log("[TASK_CONTENT_MODULE] Loaded, USE_CONVEX_STREAMING:", USE_CONVEX_STREAMING, "ENV:", process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME);
 
 function TaskPageContent() {
   const { taskId } = useParams<{ taskId: string }>();
