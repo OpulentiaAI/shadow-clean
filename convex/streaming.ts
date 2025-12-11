@@ -26,15 +26,22 @@ const OPENROUTER_HEADERS = {
 };
 
 function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
-  console.log(`[STREAMING] resolveProvider called for model: ${model}`);
-  console.log(`[STREAMING] API keys check - openrouter: ${!!apiKeys.openrouter}, anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}`);
+  console.log(`[STREAMING] ========== RESOLVE PROVIDER ==========`);
+  console.log(`[STREAMING] Model requested: ${model}`);
+  console.log(`[STREAMING] API keys from args:`);
+  console.log(`[STREAMING]   - openrouter: ${apiKeys.openrouter ? `YES (${apiKeys.openrouter.length} chars, prefix: ${apiKeys.openrouter.substring(0, 8)}...)` : 'NO'}`);
+  console.log(`[STREAMING]   - anthropic: ${apiKeys.anthropic ? `YES (${apiKeys.anthropic.length} chars)` : 'NO'}`);
+  console.log(`[STREAMING]   - openai: ${apiKeys.openai ? `YES (${apiKeys.openai.length} chars)` : 'NO'}`);
+  console.log(`[STREAMING] Environment variables:`);
+  console.log(`[STREAMING]   - OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? `YES (${process.env.OPENROUTER_API_KEY.length} chars, prefix: ${process.env.OPENROUTER_API_KEY.substring(0, 8)}...)` : 'NO'}`);
+  console.log(`[STREAMING]   - ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? 'YES' : 'NO'}`);
+  console.log(`[STREAMING]   - OPENAI_API_KEY: ${process.env.OPENAI_API_KEY ? 'YES' : 'NO'}`);
 
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
-    // Log key details for debugging (prefix only for security)
-    const keyPrefix = apiKeys.openrouter.substring(0, 10);
+    const keyPrefix = apiKeys.openrouter.substring(0, 12);
     const keyLength = apiKeys.openrouter.length;
-    console.log(`[STREAMING] Using OpenRouter with client-provided API key: ${keyPrefix}... (${keyLength} chars)`);
+    console.log(`[STREAMING] >>> USING: OpenRouter with CLIENT-PROVIDED key: ${keyPrefix}... (${keyLength} chars)`);
     console.log(`[STREAMING] OpenRouter headers:`, JSON.stringify(OPENROUTER_HEADERS));
     
     const openrouterClient = createOpenRouter({
@@ -57,7 +64,9 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   // Fallback to environment keys to keep UI simple (no client key prompts)
   const envOpenRouter = process.env.OPENROUTER_API_KEY;
   if (envOpenRouter) {
-    console.log(`[STREAMING] Using OpenRouter with environment API key`);
+    const keyPrefix = envOpenRouter.substring(0, 12);
+    const keyLength = envOpenRouter.length;
+    console.log(`[STREAMING] >>> USING: OpenRouter with ENVIRONMENT key: ${keyPrefix}... (${keyLength} chars)`);
     const openrouterClient = createOpenRouter({
       apiKey: envOpenRouter,
       headers: OPENROUTER_HEADERS,

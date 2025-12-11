@@ -399,18 +399,52 @@ app.post("/api/tasks/:taskId/messages", async (req, res) => {
     }
 
     // Build model context - API keys come from cookies (sent by frontend)
+    // Note: parseApiKeysFromCookies has module-level env var reads that may miss runtime changes
+    // So we also check env vars directly here as a safety net
     const apiKeys = parseApiKeysFromCookies(req.headers.cookie || "");
-    console.log(`[MESSAGE_SUBMIT] Cookie header present: ${!!req.headers.cookie}`);
-    console.log(`[MESSAGE_SUBMIT] API keys - openrouter: ${apiKeys.openrouter ? `present (${apiKeys.openrouter.length} chars)` : 'missing'}, anthropic: ${apiKeys.anthropic ? 'present' : 'missing'}, openai: ${apiKeys.openai ? 'present' : 'missing'}`);
-    if (apiKeys.openrouter) {
-      console.log(`[MESSAGE_SUBMIT] OpenRouter key prefix: ${apiKeys.openrouter.substring(0, 10)}...`);
+    
+    // Extra safety: if no openrouter key from cookies/module-level env, check runtime env
+    if (!apiKeys.openrouter && process.env.OPENROUTER_API_KEY) {
+      console.log(`[MESSAGE_SUBMIT] Using runtime OPENROUTER_API_KEY env var as fallback`);
+      apiKeys.openrouter = process.env.OPENROUTER_API_KEY;
     }
+    
+    console.log(`[MESSAGE_SUBMIT] Cookie header present: ${!!req.headers.cookie}`);
+    console.log(`[MESSAGE_SUBMIT] Cookie header value: ${req.headers.cookie?.substring(0, 100) || 'none'}`);
+    console.log(`[MESSAGE_SUBMIT] API keys after parsing:`);
+    console.log(`[MESSAGE_SUBMIT]   - openrouter: ${apiKeys.openrouter ? `present (${apiKeys.openrouter.length} chars, prefix: ${apiKeys.openrouter.substring(0, 8)}...)` : 'MISSING'}`);
+    console.log(`[MESSAGE_SUBMIT]   - anthropic: ${apiKeys.anthropic ? `present (${apiKeys.anthropic.length} chars)` : 'missing'}`);
+    console.log(`[MESSAGE_SUBMIT]   - openai: ${apiKeys.openai ? `present (${apiKeys.openai.length} chars)` : 'missing'}`);
+    console.log(`[MESSAGE_SUBMIT] Runtime env check: OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY ? `present (${process.env.OPENROUTER_API_KEY.length} chars)` : 'MISSING'}`);
 
+    const selectedModel = (model as ModelType) || task.mainModel || "gpt-4o";
     const context = new TaskModelContext(
       taskId,
-      (model as ModelType) || task.mainModel || "gpt-4o",
+      selectedModel,
       apiKeys
     );
+
+    // Validate API key access BEFORE processing (match initiate endpoint behavior)
+    if (!context.validateAccess()) {
+      const provider = context.getProvider();
+      const providerName =
+        provider === "anthropic"
+          ? "Anthropic"
+          : provider === "openrouter"
+            ? "OpenRouter"
+            : "OpenAI";
+      
+      console.error(`[MESSAGE_SUBMIT] API key validation failed for ${providerName}`);
+      console.error(`[MESSAGE_SUBMIT] Model: ${selectedModel}, Provider: ${provider}`);
+      console.error(`[MESSAGE_SUBMIT] Available keys: openrouter=${!!apiKeys.openrouter}, anthropic=${!!apiKeys.anthropic}, openai=${!!apiKeys.openai}`);
+      
+      return res.status(400).json({
+        error: `${providerName} API key required`,
+        details: `Please configure your ${providerName} API key to use ${selectedModel}. The key may be missing from both cookies and server environment.`,
+      });
+    }
+    
+    console.log(`[MESSAGE_SUBMIT] API key validation passed, proceeding with model: ${selectedModel}`);
 
     // Process the user message
     await chatService.processUserMessage({
