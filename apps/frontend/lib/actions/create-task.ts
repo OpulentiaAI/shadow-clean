@@ -22,6 +22,7 @@ import {
   appendMessage,
   updateTask,
   getTask as getConvexTask,
+  streamChatWithTools,
 } from "../convex/actions";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -285,6 +286,29 @@ export async function createTask(formData: FormData) {
         });
       } else {
         console.log(`[TASK_CREATION] Successfully initiated task ${taskId}`);
+        
+        // Trigger Convex streaming for initial message when enabled
+        if (useConvexStreaming) {
+          console.log(`[TASK_CREATION] Triggering Convex streaming for task ${taskId}`);
+          try {
+            await streamChatWithTools({
+              taskId,
+              prompt: message,
+              model,
+              llmModel: model,
+              // API keys will be resolved server-side from env vars
+              apiKeys: {
+                anthropic: undefined,
+                openai: undefined,
+                openrouter: undefined,
+              },
+            });
+            console.log(`[TASK_CREATION] Convex streaming completed for task ${taskId}`);
+          } catch (streamError) {
+            console.error(`[TASK_CREATION] Convex streaming error for task ${taskId}:`, streamError);
+            // Don't fail the task creation - streaming error is recoverable
+          }
+        }
       }
     } catch (error) {
       console.error(`[TASK_CREATION] Error initiating task ${taskId}:`, error);
