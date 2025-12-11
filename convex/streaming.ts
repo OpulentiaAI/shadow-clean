@@ -315,6 +315,12 @@ export const streamChatWithTools = action({
         if (partCount === 1) {
           console.log(`[STREAMING] Received first stream part, type: ${part.type}`);
         }
+        // Handle error events from the stream
+        if (part.type === "error") {
+          const errorObj = part as any;
+          console.error(`[STREAMING] Stream error event:`, errorObj.error);
+          throw new Error(`Stream error: ${errorObj.error?.message || JSON.stringify(errorObj.error)}`);
+        }
         if (part.type === "text-delta") {
           accumulatedText += part.text;
 
@@ -355,6 +361,12 @@ export const streamChatWithTools = action({
 
       console.log(`[STREAMING] Stream iteration complete, processed ${partCount} parts`);
       console.log(`[STREAMING] Accumulated text length: ${accumulatedText.length}`);
+      
+      // Check if we got any output - if not, this might be a model issue
+      if (partCount === 0) {
+        console.error(`[STREAMING] No stream parts received - model may have returned empty response`);
+        throw new Error(`Model returned no output. This may be due to rate limiting or model unavailability. Try a different model.`);
+      }
       
       // Finalize message
       const usage = normalizeUsage(await result.usage);
