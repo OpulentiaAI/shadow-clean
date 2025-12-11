@@ -195,10 +195,18 @@ export const streamChat = action({
         usage: usage ?? undefined,
       };
     } catch (error) {
-      // Handle error
+      // Handle error with user-friendly message
+      let userMessage = error instanceof Error ? error.message : String(error);
+      
+      if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
+        userMessage = 'The model returned no response. This usually happens due to rate limiting on free-tier models. Please try again or switch to a different model.';
+      } else if (userMessage.includes('rate limit') || userMessage.includes('Rate limit')) {
+        userMessage = 'Rate limit exceeded. Please wait a moment before trying again, or switch to a different model.';
+      }
+      
       await ctx.runMutation(api.messages.update, {
         messageId,
-        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        content: `⚠️ ${userMessage}`,
       });
 
       throw error;
@@ -395,9 +403,22 @@ export const streamChatWithTools = action({
       if (error instanceof Error) {
         console.error(`[STREAMING] Error stack:`, error.stack);
       }
+      
+      // Format user-friendly error message
+      let userMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check for specific error types and provide better messages
+      if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
+        userMessage = 'The model returned no response. This usually happens due to rate limiting on free-tier models. Please try again or switch to a different model.';
+      } else if (userMessage.includes('rate limit') || userMessage.includes('Rate limit')) {
+        userMessage = 'Rate limit exceeded. Please wait a moment before trying again, or switch to a different model.';
+      } else if (userMessage.includes('quota')) {
+        userMessage = 'API quota exceeded. Please check your API key credits or switch to a different provider.';
+      }
+      
       await ctx.runMutation(api.messages.update, {
         messageId,
-        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+        content: `⚠️ ${userMessage}`,
       });
 
       throw error;

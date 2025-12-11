@@ -1025,6 +1025,20 @@ These are specific instructions from the user that should be followed throughout
       // Clear any queued actions (don't process them after error)
       this.clearQueuedAction(taskId);
       
+      // Check if this is a model-related error that was already saved to the chat
+      // For these errors, don't re-throw - the error is visible in the chat UI
+      const isModelError = errorMessage.includes('No output generated') ||
+        errorMessage.includes('Model returned no output') ||
+        errorMessage.includes('rate limit') ||
+        errorMessage.includes('Rate limit') ||
+        errorMessage.includes('quota') ||
+        errorMessage.includes('Stream error');
+      
+      if (isModelError) {
+        console.log(`[CHAT] Model-related error for task ${taskId} - not re-throwing (error visible in chat)`);
+        return; // Don't throw - error is already in the chat
+      }
+      
       throw error;
     } finally {
       // ALWAYS clean up processing state - this guarantees follow-up messages can be processed
