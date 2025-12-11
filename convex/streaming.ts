@@ -31,7 +31,12 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
 
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
-    console.log(`[STREAMING] Using OpenRouter with client-provided API key`);
+    // Log key details for debugging (prefix only for security)
+    const keyPrefix = apiKeys.openrouter.substring(0, 10);
+    const keyLength = apiKeys.openrouter.length;
+    console.log(`[STREAMING] Using OpenRouter with client-provided API key: ${keyPrefix}... (${keyLength} chars)`);
+    console.log(`[STREAMING] OpenRouter headers:`, JSON.stringify(OPENROUTER_HEADERS));
+    
     const openrouterClient = createOpenRouter({
       apiKey: apiKeys.openrouter,
       headers: OPENROUTER_HEADERS,

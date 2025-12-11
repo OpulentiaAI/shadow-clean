@@ -863,6 +863,9 @@ These are specific instructions from the user that should be followed throughout
 
       const apiKeys = context.getApiKeys();
       console.log(`[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`);
+      if (apiKeys.openrouter) {
+        console.log(`[CHAT] OpenRouter key details: ${apiKeys.openrouter.substring(0, 10)}... (${apiKeys.openrouter.length} chars)`);
+      }
       console.log(`[CHAT] === CONVEX ACTION CALL ===`);
       console.log(`[CHAT] Calling streamChatWithTools action`);
       console.log(`[CHAT] Action params: taskId=${convexTaskId}, model=${context.getMainModel()}, promptLen=${userMessage.length}`);
