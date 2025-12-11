@@ -78,6 +78,22 @@ type QueuedStackedPRAction = {
 
 type QueuedAction = QueuedMessageAction | QueuedStackedPRAction;
 
+const CONVEX_ACTION_TIMEOUT_MS = 300000; // 5 minutes
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 export class ChatService {
   private llmService: LLMService;
   private activeStreams: Map<string, AbortController> = new Map();
@@ -856,8 +872,9 @@ These are specific instructions from the user that should be followed throughout
 
       const actionStartTime = Date.now();
       console.log(`[CHAT] Starting Convex action at ${new Date().toISOString()}`);
+      console.log(`[CHAT] Convex action timeout: ${CONVEX_ACTION_TIMEOUT_MS}ms`);
       
-      const streamResult = await convexClient.action(
+      const actionPromise = convexClient.action(
         api.streaming.streamChatWithTools,
         {
           taskId: toConvexId<"tasks">(convexTaskId),
@@ -871,6 +888,12 @@ These are specific instructions from the user that should be followed throughout
             openrouter: apiKeys.openrouter,
           },
         }
+      );
+      
+      const streamResult = await withTimeout(
+        actionPromise,
+        CONVEX_ACTION_TIMEOUT_MS,
+        `streamChatWithTools for task ${taskId}`
       );
       const actionDuration = Date.now() - actionStartTime;
       console.log(`[CHAT] streamChatWithTools returned after ${actionDuration}ms: success=${streamResult?.success}, messageId=${streamResult?.messageId}`);
