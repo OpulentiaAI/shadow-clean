@@ -50,7 +50,7 @@ import {
   getUser,
 } from "../lib/convex-operations";
 import { getConvexClient } from "../lib/convex-client";
-import { api } from "../../../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { TaskInitializationEngine } from "@/initialization";
 import { databaseBatchService } from "../services/database-batch-service";
