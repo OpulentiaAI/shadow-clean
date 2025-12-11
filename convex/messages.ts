@@ -49,15 +49,7 @@ export const internalAppendStreamDelta = internalMutation({
     ),
     finishReason: v.optional(v.string()),
     isFinal: v.boolean(),
-    parts: v.optional(
-      v.array(
-        v.object({
-          type: v.string(),
-          text: v.optional(v.string()),
-          data: v.optional(v.any()),
-        })
-      )
-    ),
+    parts: v.optional(v.array(v.any())),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.messageId);
@@ -173,15 +165,7 @@ export const appendStreamDelta = mutation({
     ),
     finishReason: v.optional(v.string()),
     isFinal: v.boolean(),
-    parts: v.optional(
-      v.array(
-        v.object({
-          type: v.string(),
-          text: v.optional(v.string()),
-          data: v.optional(v.any()),
-        })
-      )
-    ),
+    parts: v.optional(v.array(v.any())),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.messageId);
