@@ -13,8 +13,10 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 // Server URL for tool API calls
-const getServerUrl = () => process.env.SHADOW_SERVER_URL || "http://localhost:4000";
-const getToolApiKey = () => process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
+const getServerUrl = () =>
+  process.env.SHADOW_SERVER_URL || "http://localhost:4000";
+const getToolApiKey = () =>
+  process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
 
 // Helper to make tool API calls to the server
 async function callServerTool<T>(
@@ -25,6 +27,9 @@ async function callServerTool<T>(
 ): Promise<T> {
   const serverUrl = getServerUrl();
   const apiKey = getToolApiKey();
+  console.log(
+    `[TOOL_API_CALL] tool=${toolName} serverUrl=${serverUrl} workspaceOverride=${workspacePathOverride ? "YES" : "NO"}`
+  );
 
   const response = await fetch(`${serverUrl}/api/tools/${taskId}/${toolName}`, {
     method: "POST",
@@ -76,7 +81,9 @@ const TodoWriteSchema = z.object({
         .describe("Current status of the todo"),
     })
   ),
-  explanation: z.string().describe("Brief explanation of why this update is needed"),
+  explanation: z
+    .string()
+    .describe("Brief explanation of why this update is needed"),
 });
 
 const AddMemorySchema = z.object({
@@ -143,14 +150,20 @@ const EditFileSchema = z.object({
   target_file: z.string().describe("Path to the file to edit"),
   instructions: z.string().describe("Description of the changes being made"),
   code_edit: z.string().describe("The new file content or code changes"),
-  is_new_file: z.boolean().optional().describe("Set true when creating a new file"),
+  is_new_file: z
+    .boolean()
+    .optional()
+    .describe("Set true when creating a new file"),
 });
 
 const SearchReplaceSchema = z.object({
   file_path: z.string().describe("Path to the file"),
   old_string: z.string().describe("Exact string to find and replace"),
   new_string: z.string().describe("Replacement string"),
-  is_new_file: z.boolean().optional().describe("Set true when creating a new file"),
+  is_new_file: z
+    .boolean()
+    .optional()
+    .describe("Set true when creating a new file"),
 });
 
 const RunTerminalCmdSchema = z.object({
@@ -171,8 +184,14 @@ const ListDirSchema = z.object({
 
 const GrepSearchSchema = z.object({
   query: z.string().describe("Regex pattern to search for"),
-  include_pattern: z.string().optional().describe("File glob pattern to include"),
-  exclude_pattern: z.string().optional().describe("File glob pattern to exclude"),
+  include_pattern: z
+    .string()
+    .optional()
+    .describe("File glob pattern to include"),
+  exclude_pattern: z
+    .string()
+    .optional()
+    .describe("File glob pattern to exclude"),
   case_sensitive: z.boolean().optional().describe("Case-sensitive search"),
   explanation: z.string().describe("What you're searching for"),
 });
@@ -202,14 +221,21 @@ const WarpGrepSchema = z.object({
  * @returns Object containing all agent tools
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function createAgentTools(ctx: ActionCtx, taskId: Id<"tasks">) {
+export function createAgentTools(
+  ctx: ActionCtx,
+  taskId: Id<"tasks">,
+  workspacePathOverride?: string
+) {
   const taskIdStr = taskId as string;
   let workspacePathPromise: Promise<string | undefined> | null = null;
   const getWorkspacePath = async (): Promise<string | undefined> => {
+    if (workspacePathOverride) return workspacePathOverride;
     if (!workspacePathPromise) {
       workspacePathPromise = ctx
         .runQuery(api.tasks.get, { taskId })
-        .then((t: any) => (t?.workspacePath ? String(t.workspacePath) : undefined))
+        .then((t: any) =>
+          t?.workspacePath ? String(t.workspacePath) : undefined
+        )
         .catch(() => undefined);
     }
     return workspacePathPromise;
@@ -236,7 +262,9 @@ CRITICAL RULES:
         console.log(`[TODO_WRITE] ${explanation}`);
 
         // Load existing todos when merging
-        let existingTodos: Awaited<ReturnType<typeof ctx.runQuery<typeof api.todos.byTask>>> = [];
+        let existingTodos: Awaited<
+          ReturnType<typeof ctx.runQuery<typeof api.todos.byTask>>
+        > = [];
         if (merge) {
           existingTodos = await ctx.runQuery(api.todos.byTask, { taskId });
         } else {
@@ -286,7 +314,10 @@ CRITICAL RULES:
           }
         }
 
-        const updatedTodos: Array<{ status: string }> = await ctx.runQuery(api.todos.byTask, { taskId }) as any;
+        const updatedTodos: Array<{ status: string }> = (await ctx.runQuery(
+          api.todos.byTask,
+          { taskId }
+        )) as any;
         const totalTodos: number = updatedTodos.length;
         const completedTodos = updatedTodos.filter(
           (t: { status: string }) => t.status === "COMPLETED"
@@ -342,13 +373,18 @@ CRITICAL RULES:
           throw new Error(`Task ${taskId} not found`);
         }
 
-        const memories: Array<{ category: string }> = await ctx.runQuery(api.memories.byUserAndRepo, {
-          userId: task.userId,
-          repoFullName: task.repoFullName,
-        }) as any;
+        const memories: Array<{ category: string }> = (await ctx.runQuery(
+          api.memories.byUserAndRepo,
+          {
+            userId: task.userId,
+            repoFullName: task.repoFullName,
+          }
+        )) as any;
 
         const filteredMemories = category
-          ? memories.filter((m: { category: string }) => m.category === category)
+          ? memories.filter(
+              (m: { category: string }) => m.category === category
+            )
           : memories;
 
         return {
@@ -399,7 +435,12 @@ CRITICAL RULES:
       inputSchema: ReadFileSchema,
       execute: async (params: z.infer<typeof ReadFileSchema>) => {
         console.log(`[READ_FILE] ${params.explanation}`);
-        return callServerTool(taskIdStr, "read_file", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "read_file",
+          params,
+          await getWorkspacePath()
+        );
       },
     }),
 
@@ -408,7 +449,12 @@ CRITICAL RULES:
       inputSchema: EditFileSchema,
       execute: async (params: z.infer<typeof EditFileSchema>) => {
         console.log(`[EDIT_FILE] ${params.instructions}`);
-        return callServerTool(taskIdStr, "edit_file", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "edit_file",
+          params,
+          await getWorkspacePath()
+        );
       },
     }),
 
@@ -417,7 +463,12 @@ CRITICAL RULES:
       inputSchema: SearchReplaceSchema,
       execute: async (params: z.infer<typeof SearchReplaceSchema>) => {
         console.log(`[SEARCH_REPLACE] Replacing in ${params.file_path}`);
-        return callServerTool(taskIdStr, "search_replace", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "search_replace",
+          params,
+          await getWorkspacePath()
+        );
       },
     }),
 
@@ -426,7 +477,12 @@ CRITICAL RULES:
       inputSchema: RunTerminalCmdSchema,
       execute: async (params: z.infer<typeof RunTerminalCmdSchema>) => {
         console.log(`[TERMINAL_CMD] ${params.explanation}`);
-        return callServerTool(taskIdStr, "run_terminal_cmd", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "run_terminal_cmd",
+          params,
+          await getWorkspacePath()
+        );
       },
     }),
 
@@ -435,7 +491,14 @@ CRITICAL RULES:
       inputSchema: ListDirSchema,
       execute: async (params: z.infer<typeof ListDirSchema>) => {
         console.log(`[LIST_DIR] ${params.explanation}`);
-        return callServerTool(taskIdStr, "list_dir", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "list_dir",
+          params,
+          // Prefer the actual task workspace when available; fall back to /workspace
+          // (guaranteed to exist on the Railway tool server container) for CLI testing.
+          (await getWorkspacePath()) || "/workspace"
+        );
       },
     }),
 
@@ -444,7 +507,12 @@ CRITICAL RULES:
       inputSchema: GrepSearchSchema,
       execute: async (params: z.infer<typeof GrepSearchSchema>) => {
         console.log(`[GREP_SEARCH] ${params.explanation}`);
-        return callServerTool(taskIdStr, "grep_search", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "grep_search",
+          params,
+          await getWorkspacePath()
+        );
       },
     }),
 
@@ -453,7 +521,12 @@ CRITICAL RULES:
       inputSchema: FileSearchSchema,
       execute: async (params: z.infer<typeof FileSearchSchema>) => {
         console.log(`[FILE_SEARCH] ${params.explanation}`);
-        return callServerTool(taskIdStr, "file_search", params, await getWorkspacePath());
+        return callServerTool(
+          taskIdStr,
+          "file_search",
+          params,
+          await getWorkspacePath()
+        );
       },
     }),
 

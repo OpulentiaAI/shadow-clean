@@ -306,7 +306,7 @@ export const streamChatWithTools = action({
     }),
   },
   handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
-    console.log(`[STREAMING] === ACTION START [v6-local-marker-9b7f] ===`);
+    console.log(`[STREAMING] === ACTION START [v7-start-marker-6c21] ===`);
     console.log(
       `[STREAMING] streamChatWithTools called for task ${args.taskId}`
     );
@@ -334,6 +334,9 @@ export const streamChatWithTools = action({
       throw new Error("Task not found");
     }
     console.log(`[STREAMING] Task found: ${task._id}`);
+    console.log(
+      `[STREAMING] Task workspacePath: ${(task as any)?.workspacePath ?? "null"}`
+    );
 
     // Initialize streaming message
     console.log(`[STREAMING] Starting streaming message`);
@@ -356,7 +359,11 @@ export const streamChatWithTools = action({
       streamControllers.set(messageId, controller);
 
       // Build allowed tools from the Convex agent toolset; optionally filter by requested names
-      const availableTools = createAgentTools(ctx as any, args.taskId);
+      const availableTools = createAgentTools(
+        ctx as any,
+        args.taskId,
+        (task as any)?.workspacePath
+      );
       const requestedNames = args.tools?.map((t) => t.name) ?? null;
       const aiTools = Object.fromEntries(
         Object.entries(availableTools).filter(([name]) =>
@@ -482,7 +489,9 @@ export const streamChatWithTools = action({
 
           const rawToolName =
             (part as any).toolName ?? (part as any).name ?? "unknown-tool";
-          const incomingToolName = rawToolName ? String(rawToolName).trim() : "";
+          const incomingToolName = rawToolName
+            ? String(rawToolName).trim()
+            : "";
 
           const argsText =
             (part as any).argsText ??
@@ -663,7 +672,10 @@ export const streamChatWithTools = action({
             ...(state.latestArgs ?? {}),
           };
           // Some providers emit tool-input-start without args; for list_dir we can safely default.
-          if (state.toolName === "list_dir" && Object.keys(execArgs).length === 0) {
+          if (
+            state.toolName === "list_dir" &&
+            Object.keys(execArgs).length === 0
+          ) {
             execArgs.relative_workspace_path = ".";
             execArgs.explanation = "Auto-filled missing tool args";
           }
@@ -671,7 +683,46 @@ export const streamChatWithTools = action({
           if (toolDef?.execute && Object.keys(execArgs).length > 0) {
             console.log(`[STREAMING] [v6] Executing ${state.toolName}...`);
             try {
-              const toolResult = await toolDef.execute(execArgs);
+              console.log(`[STREAMING] [v7] DIRECT_CALL_MARKER`);
+              // Prefer direct HTTP execution for server-backed tools so we can
+              // pass workspacePath explicitly (avoids tool API needing to read task from Convex).
+              // Prefer the actual task workspace when available; fall back to /workspace
+              // (guaranteed to exist on the Railway tool server container) for CLI testing.
+              const workspacePathOverride =
+                ((task as any)?.workspacePath as string | undefined) ||
+                "/workspace";
+              const serverUrl =
+                process.env.SHADOW_SERVER_URL || "http://localhost:4000";
+              const toolApiKey =
+                process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
+
+              let toolResult: unknown;
+              if (state.toolName === "list_dir") {
+                console.log(
+                  `[STREAMING] [v7] Using direct tool API call (workspaceOverride=${workspacePathOverride})`
+                );
+                const resp = await fetch(
+                  `${serverUrl}/api/tools/${args.taskId}/list_dir`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "x-convex-tool-key": toolApiKey,
+                      "x-shadow-workspace-path": workspacePathOverride,
+                    },
+                    body: JSON.stringify(execArgs),
+                  }
+                );
+                if (!resp.ok) {
+                  const errorText = await resp.text();
+                  throw new Error(
+                    `Tool API error: ${resp.status} - ${errorText}`
+                  );
+                }
+                toolResult = await resp.json();
+              } else {
+                toolResult = await toolDef.execute(execArgs);
+              }
               console.log(
                 `[STREAMING] [v6] Tool result:`,
                 JSON.stringify(toolResult).substring(0, 200)
