@@ -200,7 +200,7 @@ export const streamChat = action({
 
     try {
       // Import AI SDK dynamically (server-side only)
-      const { streamText } = await import("ai");
+      const { streamText, stepCountIs } = await import("ai");
       const providerModel = resolveProvider({
         model: args.model,
         apiKeys: args.apiKeys || {},
@@ -306,7 +306,7 @@ export const streamChatWithTools = action({
     }),
   },
   handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
-    console.log(`[STREAMING] === ACTION START [v6] ===`);
+    console.log(`[STREAMING] === ACTION START [v6-local-marker-9b7f] ===`);
     console.log(
       `[STREAMING] streamChatWithTools called for task ${args.taskId}`
     );
@@ -346,7 +346,7 @@ export const streamChatWithTools = action({
     try {
       // Import AI SDK dynamically
       console.log(`[STREAMING] Importing AI SDK and resolving provider`);
-      const { streamText } = await import("ai");
+      const { streamText, stepCountIs } = await import("ai");
       const providerModel = resolveProvider({
         model: args.model,
         apiKeys: args.apiKeys || {},
@@ -390,7 +390,8 @@ export const streamChatWithTools = action({
           system: args.systemPrompt,
           tools: aiTools,
           temperature: 0.7,
-          maxSteps: 60, // Enable multi-step tool use
+          // AI SDK v5+: use stopWhen to allow multi-step tool execution
+          stopWhen: stepCountIs(10),
           abortSignal: controller.signal,
         } as Parameters<typeof streamText>[0]);
         console.log(
@@ -441,6 +442,11 @@ export const streamChatWithTools = action({
             `[STREAMING] Received first stream part, type: ${partType}`
           );
         }
+        if (partType && partType.includes("tool")) {
+          console.log(
+            `[STREAMING] TOOL STREAM PART type=${partType} payload=${JSON.stringify(part).substring(0, 500)}`
+          );
+        }
         // Handle error events from the stream
         if (partType === "error") {
           const errorObj = part as any;
@@ -465,13 +471,22 @@ export const streamChatWithTools = action({
           });
         } else if (
           partType === "tool-call-delta" ||
-          partType === "tool_call_delta"
+          partType === "tool_call_delta" ||
+          // AI SDK v5 (some providers) streams tool args as tool-input-*
+          partType === "tool-input-start" ||
+          partType === "tool-input-delta" ||
+          partType === "tool-call-start"
         ) {
-          const toolCallId = (part as any).toolCallId ?? (part as any).id;
-          const toolName =
+          const rawToolCallId = (part as any).toolCallId ?? (part as any).id;
+          const toolCallId = rawToolCallId ? String(rawToolCallId).trim() : "";
+
+          const rawToolName =
             (part as any).toolName ?? (part as any).name ?? "unknown-tool";
+          const incomingToolName = rawToolName ? String(rawToolName).trim() : "";
+
           const argsText =
             (part as any).argsText ??
+            (part as any).delta ?? // tool-input-delta
             (part as any).text ??
             (typeof (part as any).args === "string" ? (part as any).args : "");
           const argsObject =
@@ -479,14 +494,36 @@ export const streamChatWithTools = action({
 
           if (!toolCallId) continue;
 
-          const currentState = toolCallStates.get(toolCallId) ?? {
-            toolName,
+          const existing = toolCallStates.get(toolCallId);
+          const currentState = existing ?? {
+            toolName: incomingToolName || "unknown-tool",
             accumulatedArgsText: "",
             latestArgs: {},
           };
 
+          // Preserve toolName from tool-input-start when tool-input-delta has none.
+          if (
+            incomingToolName &&
+            incomingToolName !== "unknown-tool" &&
+            currentState.toolName === "unknown-tool"
+          ) {
+            currentState.toolName = incomingToolName;
+          }
+
           if (argsText) {
-            currentState.accumulatedArgsText += argsText;
+            currentState.accumulatedArgsText += String(argsText);
+            // Best-effort parse of streamed JSON args
+            try {
+              const parsed = JSON.parse(currentState.accumulatedArgsText);
+              if (parsed && typeof parsed === "object") {
+                currentState.latestArgs = {
+                  ...(currentState.latestArgs ?? {}),
+                  ...(parsed as Record<string, unknown>),
+                };
+              }
+            } catch {
+              // Not valid JSON yet; keep accumulating.
+            }
           }
 
           if (argsObject && typeof argsObject === "object") {
@@ -499,7 +536,7 @@ export const streamChatWithTools = action({
           toolCallStates.set(toolCallId, currentState);
           await ensureToolTracking(
             toolCallId,
-            toolName,
+            currentState.toolName,
             currentState.latestArgs
           );
 
@@ -511,7 +548,7 @@ export const streamChatWithTools = action({
               {
                 type: "tool-call",
                 toolCallId,
-                toolName,
+                toolName: currentState.toolName,
                 args: currentState.latestArgs,
                 partialArgs: currentState.latestArgs,
                 streamingState: "streaming",
@@ -622,10 +659,19 @@ export const streamChatWithTools = action({
             `[STREAMING] [v6] Tool state: id=${toolCallId}, name=${state.toolName}, argKeys=${Object.keys(state.latestArgs).join(",")}`
           );
           const toolDef = (aiTools as any)[state.toolName];
-          if (toolDef?.execute && Object.keys(state.latestArgs).length > 0) {
+          const execArgs: Record<string, unknown> = {
+            ...(state.latestArgs ?? {}),
+          };
+          // Some providers emit tool-input-start without args; for list_dir we can safely default.
+          if (state.toolName === "list_dir" && Object.keys(execArgs).length === 0) {
+            execArgs.relative_workspace_path = ".";
+            execArgs.explanation = "Auto-filled missing tool args";
+          }
+
+          if (toolDef?.execute && Object.keys(execArgs).length > 0) {
             console.log(`[STREAMING] [v6] Executing ${state.toolName}...`);
             try {
-              const toolResult = await toolDef.execute(state.latestArgs);
+              const toolResult = await toolDef.execute(execArgs);
               console.log(
                 `[STREAMING] [v6] Tool result:`,
                 JSON.stringify(toolResult).substring(0, 200)

@@ -20,7 +20,8 @@ const getToolApiKey = () => process.env.CONVEX_TOOL_API_KEY || "shadow-internal-
 async function callServerTool<T>(
   taskId: string,
   toolName: string,
-  params: Record<string, unknown>
+  params: Record<string, unknown>,
+  workspacePathOverride?: string
 ): Promise<T> {
   const serverUrl = getServerUrl();
   const apiKey = getToolApiKey();
@@ -30,6 +31,9 @@ async function callServerTool<T>(
     headers: {
       "Content-Type": "application/json",
       "x-convex-tool-key": apiKey,
+      ...(workspacePathOverride
+        ? { "x-shadow-workspace-path": workspacePathOverride }
+        : {}),
     },
     body: JSON.stringify(params),
   });
@@ -200,6 +204,16 @@ const WarpGrepSchema = z.object({
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createAgentTools(ctx: ActionCtx, taskId: Id<"tasks">) {
   const taskIdStr = taskId as string;
+  let workspacePathPromise: Promise<string | undefined> | null = null;
+  const getWorkspacePath = async (): Promise<string | undefined> => {
+    if (!workspacePathPromise) {
+      workspacePathPromise = ctx
+        .runQuery(api.tasks.get, { taskId })
+        .then((t: any) => (t?.workspacePath ? String(t.workspacePath) : undefined))
+        .catch(() => undefined);
+    }
+    return workspacePathPromise;
+  };
 
   return {
     // ==================== DATA TOOLS (Direct Convex) ====================
@@ -385,7 +399,7 @@ CRITICAL RULES:
       inputSchema: ReadFileSchema,
       execute: async (params: z.infer<typeof ReadFileSchema>) => {
         console.log(`[READ_FILE] ${params.explanation}`);
-        return callServerTool(taskIdStr, "read_file", params);
+        return callServerTool(taskIdStr, "read_file", params, await getWorkspacePath());
       },
     }),
 
@@ -394,7 +408,7 @@ CRITICAL RULES:
       inputSchema: EditFileSchema,
       execute: async (params: z.infer<typeof EditFileSchema>) => {
         console.log(`[EDIT_FILE] ${params.instructions}`);
-        return callServerTool(taskIdStr, "edit_file", params);
+        return callServerTool(taskIdStr, "edit_file", params, await getWorkspacePath());
       },
     }),
 
@@ -403,7 +417,7 @@ CRITICAL RULES:
       inputSchema: SearchReplaceSchema,
       execute: async (params: z.infer<typeof SearchReplaceSchema>) => {
         console.log(`[SEARCH_REPLACE] Replacing in ${params.file_path}`);
-        return callServerTool(taskIdStr, "search_replace", params);
+        return callServerTool(taskIdStr, "search_replace", params, await getWorkspacePath());
       },
     }),
 
@@ -412,7 +426,7 @@ CRITICAL RULES:
       inputSchema: RunTerminalCmdSchema,
       execute: async (params: z.infer<typeof RunTerminalCmdSchema>) => {
         console.log(`[TERMINAL_CMD] ${params.explanation}`);
-        return callServerTool(taskIdStr, "run_terminal_cmd", params);
+        return callServerTool(taskIdStr, "run_terminal_cmd", params, await getWorkspacePath());
       },
     }),
 
@@ -421,7 +435,7 @@ CRITICAL RULES:
       inputSchema: ListDirSchema,
       execute: async (params: z.infer<typeof ListDirSchema>) => {
         console.log(`[LIST_DIR] ${params.explanation}`);
-        return callServerTool(taskIdStr, "list_dir", params);
+        return callServerTool(taskIdStr, "list_dir", params, await getWorkspacePath());
       },
     }),
 
@@ -430,7 +444,7 @@ CRITICAL RULES:
       inputSchema: GrepSearchSchema,
       execute: async (params: z.infer<typeof GrepSearchSchema>) => {
         console.log(`[GREP_SEARCH] ${params.explanation}`);
-        return callServerTool(taskIdStr, "grep_search", params);
+        return callServerTool(taskIdStr, "grep_search", params, await getWorkspacePath());
       },
     }),
 
@@ -439,7 +453,7 @@ CRITICAL RULES:
       inputSchema: FileSearchSchema,
       execute: async (params: z.infer<typeof FileSearchSchema>) => {
         console.log(`[FILE_SEARCH] ${params.explanation}`);
-        return callServerTool(taskIdStr, "file_search", params);
+        return callServerTool(taskIdStr, "file_search", params, await getWorkspacePath());
       },
     }),
 
