@@ -1027,15 +1027,22 @@ These are specific instructions from the user that should be followed throughout
       
       // Check if this is a model-related error that was already saved to the chat
       // For these errors, don't re-throw - the error is visible in the chat UI
+      const errorStr = String(error);
       const isModelError = errorMessage.includes('No output generated') ||
         errorMessage.includes('Model returned no output') ||
         errorMessage.includes('rate limit') ||
         errorMessage.includes('Rate limit') ||
         errorMessage.includes('quota') ||
-        errorMessage.includes('Stream error');
+        errorMessage.includes('Stream error') ||
+        errorMessage.includes('401') ||
+        errorMessage.includes('403') ||
+        errorMessage.includes('Unauthorized') ||
+        errorMessage.includes('Forbidden') ||
+        errorStr.includes('401') ||
+        errorStr.includes('403');
       
       if (isModelError) {
-        console.log(`[CHAT] Model-related error for task ${taskId} - not re-throwing (error visible in chat)`);
+        console.log(`[CHAT] Model/API error for task ${taskId} - not re-throwing (error visible in chat)`);
         return; // Don't throw - error is already in the chat
       }
       
