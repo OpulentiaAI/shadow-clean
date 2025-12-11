@@ -969,10 +969,6 @@ These are specific instructions from the user that should be followed throughout
         );
       }
 
-      // Clean up processing state on success
-      this.processingTasks.delete(taskId);
-      console.log(`[CHAT] Task ${taskId} removed from processing set (success path)`);
-
       // Process any queued actions
       await this.processQueuedActions(taskId);
     } catch (error) {
@@ -985,23 +981,36 @@ These are specific instructions from the user that should be followed throughout
         error instanceof Error ? error.message : "Unknown error occurred";
 
       // Update task status to failed when stream processing fails
-      await updateTaskStatus(taskId, "FAILED", "CHAT", errorMessage);
+      try {
+        await updateTaskStatus(taskId, "FAILED", "CHAT", errorMessage);
+      } catch (statusError) {
+        console.error(`[CHAT] Failed to update task status:`, statusError);
+      }
 
       // Emit error chunk
-      emitStreamChunk(
-        {
-          type: "error",
-          error: errorMessage,
-          finishReason: "error",
-        },
-        taskId
-      );
+      try {
+        emitStreamChunk(
+          {
+            type: "error",
+            error: errorMessage,
+            finishReason: "error",
+          },
+          taskId
+        );
+      } catch (emitError) {
+        console.error(`[CHAT] Failed to emit error chunk:`, emitError);
+      }
 
       // Clean up stream tracking on error
       this.activeConvexMessageIds.delete(taskId);
       this.activeStreams.delete(taskId);
       this.stopRequested.delete(taskId);
-      handleStreamError(error, taskId);
+      
+      try {
+        handleStreamError(error, taskId);
+      } catch (streamError) {
+        console.error(`[CHAT] Failed to handle stream error:`, streamError);
+      }
 
       // Clean up MCP manager for this task
       try {
@@ -1016,10 +1025,11 @@ These are specific instructions from the user that should be followed throughout
       // Clear any queued actions (don't process them after error)
       this.clearQueuedAction(taskId);
       
-      // Clean up processing state on error
-      this.processingTasks.delete(taskId);
-      console.log(`[CHAT] Task ${taskId} removed from processing set (error path)`);
       throw error;
+    } finally {
+      // ALWAYS clean up processing state - this guarantees follow-up messages can be processed
+      this.processingTasks.delete(taskId);
+      console.log(`[CHAT] Task ${taskId} removed from processing set (finally block)`);
     }
   }
 
