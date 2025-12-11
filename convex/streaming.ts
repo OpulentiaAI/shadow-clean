@@ -25,6 +25,14 @@ const OPENROUTER_HEADERS = {
   "X-Title": process.env.OPENROUTER_TITLE || "Shadow Agent",
 };
 
+function validateOpenRouterKey(key: string): { valid: boolean; reason?: string } {
+  if (!key) return { valid: false, reason: 'Key is empty' };
+  if (key.length < 20) return { valid: false, reason: `Key too short (${key.length} chars)` };
+  if (!key.startsWith('sk-or-')) return { valid: false, reason: `Key doesn't start with sk-or- (starts with ${key.substring(0, 6)})` };
+  if (key.includes(' ') || key.includes('\n') || key.includes('\t')) return { valid: false, reason: 'Key contains whitespace' };
+  return { valid: true };
+}
+
 function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   console.log(`[STREAMING] ========== RESOLVE PROVIDER ==========`);
   console.log(`[STREAMING] Model requested: ${model}`);
@@ -41,7 +49,15 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   if (apiKeys.openrouter) {
     const keyPrefix = apiKeys.openrouter.substring(0, 12);
     const keyLength = apiKeys.openrouter.length;
-    console.log(`[STREAMING] >>> USING: OpenRouter with CLIENT-PROVIDED key: ${keyPrefix}... (${keyLength} chars)`);
+    const keySuffix = apiKeys.openrouter.substring(apiKeys.openrouter.length - 4);
+    console.log(`[STREAMING] >>> USING: OpenRouter with CLIENT-PROVIDED key: ${keyPrefix}...${keySuffix} (${keyLength} chars)`);
+    
+    const validation = validateOpenRouterKey(apiKeys.openrouter);
+    if (!validation.valid) {
+      console.error(`[STREAMING] !!! API KEY VALIDATION FAILED: ${validation.reason}`);
+      throw new Error(`Invalid OpenRouter API key: ${validation.reason}`);
+    }
+    console.log(`[STREAMING] API key validation: PASSED`);
     console.log(`[STREAMING] OpenRouter headers:`, JSON.stringify(OPENROUTER_HEADERS));
     
     const openrouterClient = createOpenRouter({
@@ -66,7 +82,16 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   if (envOpenRouter) {
     const keyPrefix = envOpenRouter.substring(0, 12);
     const keyLength = envOpenRouter.length;
-    console.log(`[STREAMING] >>> USING: OpenRouter with ENVIRONMENT key: ${keyPrefix}... (${keyLength} chars)`);
+    const keySuffix = envOpenRouter.substring(envOpenRouter.length - 4);
+    console.log(`[STREAMING] >>> USING: OpenRouter with ENVIRONMENT key: ${keyPrefix}...${keySuffix} (${keyLength} chars)`);
+    
+    const validation = validateOpenRouterKey(envOpenRouter);
+    if (!validation.valid) {
+      console.error(`[STREAMING] !!! ENV API KEY VALIDATION FAILED: ${validation.reason}`);
+      throw new Error(`Invalid OpenRouter API key from environment: ${validation.reason}`);
+    }
+    console.log(`[STREAMING] ENV API key validation: PASSED`);
+    
     const openrouterClient = createOpenRouter({
       apiKey: envOpenRouter,
       headers: OPENROUTER_HEADERS,
@@ -319,6 +344,7 @@ export const streamChatWithTools = action({
       
       let result;
       try {
+        console.log(`[STREAMING] About to call streamText...`);
         result = await streamText({
           model: providerModel,
           prompt: args.prompt,
@@ -328,8 +354,21 @@ export const streamChatWithTools = action({
           abortSignal: controller.signal,
         });
         console.log(`[STREAMING] streamText promise resolved, processing stream...`);
-      } catch (streamTextError) {
+      } catch (streamTextError: any) {
         console.error(`[STREAMING] streamText failed immediately:`, streamTextError);
+        console.error(`[STREAMING] Error type:`, streamTextError?.constructor?.name);
+        console.error(`[STREAMING] Error message:`, streamTextError?.message);
+        console.error(`[STREAMING] Error cause:`, streamTextError?.cause);
+        if (streamTextError?.response) {
+          console.error(`[STREAMING] Response status:`, streamTextError.response?.status);
+          console.error(`[STREAMING] Response headers:`, JSON.stringify(streamTextError.response?.headers));
+        }
+        if (streamTextError?.statusCode) {
+          console.error(`[STREAMING] Status code:`, streamTextError.statusCode);
+        }
+        if (streamTextError?.responseHeaders) {
+          console.error(`[STREAMING] Response headers:`, JSON.stringify(streamTextError.responseHeaders));
+        }
         throw streamTextError;
       }
 
@@ -418,11 +457,12 @@ export const streamChatWithTools = action({
         toolCallIds,
         usage: usage ?? undefined,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[STREAMING] Error during streaming:`, error);
       if (error instanceof Error) {
         console.error(`[STREAMING] Error stack:`, error.stack);
       }
+      console.error(`[STREAMING] Full error object:`, JSON.stringify(error, Object.getOwnPropertyNames(error)));
       
       // Format user-friendly error message
       let userMessage = error instanceof Error ? error.message : String(error);
@@ -430,8 +470,10 @@ export const streamChatWithTools = action({
       
       // Check for specific error types and provide better messages
       if (errorStr.includes('401') || userMessage.includes('401') || userMessage.includes('Unauthorized')) {
-        userMessage = 'API authentication failed (401). The API key may be invalid or expired. Please check your API key configuration.';
-      } else if (errorStr.includes('403') || userMessage.includes('403') || userMessage.includes('Forbidden')) {
+        console.error(`[STREAMING] 401 ERROR DETECTED - API key may be invalid`);
+        console.error(`[STREAMING] Current API keys - args.openrouter: ${args.apiKeys?.openrouter ? `present (${args.apiKeys.openrouter.length} chars)` : 'missing'}`);
+        console.error(`[STREAMING] Current API keys - env OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? `present (${process.env.OPENROUTER_API_KEY.length} chars)` : 'missing'}`);
+        userMessage = 'API authentication failed (401). The API key may be invalid or expired. Please check your API key configuration.'; else if (errorStr.includes('403') || userMessage.includes('403') || userMessage.includes('Forbidden')) {
         userMessage = 'API access forbidden (403). Your API key may not have permission to use this model.';
       } else if (userMessage.includes('No output generated') || userMessage.includes('AI_NoOutputGeneratedError')) {
         userMessage = 'The model returned no response. This usually happens due to rate limiting on free-tier models. Please try again or switch to a different model.';
