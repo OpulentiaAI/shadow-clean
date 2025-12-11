@@ -78,6 +78,22 @@ type QueuedStackedPRAction = {
 
 type QueuedAction = QueuedMessageAction | QueuedStackedPRAction;
 
+const CONVEX_ACTION_TIMEOUT_MS = 300000; // 5 minutes
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
 export class ChatService {
   private llmService: LLMService;
   private activeStreams: Map<string, AbortController> = new Map();
@@ -713,9 +729,12 @@ export class ChatService {
       const userSettings = task ? await getUserSettings(task.userId) : null;
       console.log(`[CHAT] User settings retrieved: ${userSettings ? 'present' : 'not found'}`);
       const memoriesEnabled = userSettings?.memoriesEnabled ?? true;
+      console.log(`[CHAT] Memories enabled: ${memoriesEnabled}`);
 
       if (memoriesEnabled) {
+        console.log(`[CHAT] Fetching memories for task ${taskId}`);
         const memoryContext = await memoryService.getMemoriesForTask(taskId);
+        console.log(`[CHAT] Memories retrieved: ${memoryContext?.memories?.length ?? 0} memories`);
         if (memoryContext && memoryContext.memories.length > 0) {
           const memoryContent =
             memoryService.formatMemoriesForPrompt(memoryContext);
@@ -739,6 +758,7 @@ export class ChatService {
       }
 
       // Add Rules section if available
+      console.log(`[CHAT] Checking user rules`);
       const userRules = userSettings?.rules;
       if (userRules && userRules.trim()) {
         const rulesContent = `
@@ -766,13 +786,16 @@ These are specific instructions from the user that should be followed throughout
         });
       }
 
+      console.log(`[CHAT] About to unshift ${systemMessagesToAdd.length} system messages`);
       messages.unshift(...systemMessagesToAdd);
       console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
+      console.log(`[CHAT] About to exit if block (isFirstMessage)`);
     } else {
       console.log(`[CHAT] Not first message, skipping system prompts`);
     }
 
     console.log(`[CHAT] === MESSAGE BUILDING PHASE COMPLETE ===`);
+    console.log(`[CHAT] Current messages count: ${messages.length}`);
     console.log(`[CHAT] Finished if block, about to push user message`);
     try {
       messages.push({
@@ -849,8 +872,9 @@ These are specific instructions from the user that should be followed throughout
 
       const actionStartTime = Date.now();
       console.log(`[CHAT] Starting Convex action at ${new Date().toISOString()}`);
+      console.log(`[CHAT] Convex action timeout: ${CONVEX_ACTION_TIMEOUT_MS}ms`);
       
-      const streamResult = await convexClient.action(
+      const actionPromise = convexClient.action(
         api.streaming.streamChatWithTools,
         {
           taskId: toConvexId<"tasks">(convexTaskId),
@@ -864,6 +888,12 @@ These are specific instructions from the user that should be followed throughout
             openrouter: apiKeys.openrouter,
           },
         }
+      );
+      
+      const streamResult = await withTimeout(
+        actionPromise,
+        CONVEX_ACTION_TIMEOUT_MS,
+        `streamChatWithTools for task ${taskId}`
       );
       const actionDuration = Date.now() - actionStartTime;
       console.log(`[CHAT] streamChatWithTools returned after ${actionDuration}ms: success=${streamResult?.success}, messageId=${streamResult?.messageId}`);

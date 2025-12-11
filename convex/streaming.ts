@@ -286,20 +286,35 @@ export const streamChatWithTools = action({
 
       // Start streaming with tools
       console.log(`[STREAMING] Starting streamText with ${Object.keys(aiTools).length} tools`);
-      const result = await streamText({
-        model: providerModel,
-        prompt: args.prompt,
-        system: args.systemPrompt,
-        tools: aiTools,
-        temperature: 0.7,
-        abortSignal: controller.signal,
-      });
-      console.log(`[STREAMING] streamText initiated, processing stream...`);
+      console.log(`[STREAMING] Prompt preview: ${args.prompt?.substring(0, 100)}...`);
+      console.log(`[STREAMING] System prompt length: ${args.systemPrompt?.length || 0}`);
+      
+      let result;
+      try {
+        result = await streamText({
+          model: providerModel,
+          prompt: args.prompt,
+          system: args.systemPrompt,
+          tools: aiTools,
+          temperature: 0.7,
+          abortSignal: controller.signal,
+        });
+        console.log(`[STREAMING] streamText promise resolved, processing stream...`);
+      } catch (streamTextError) {
+        console.error(`[STREAMING] streamText failed immediately:`, streamTextError);
+        throw streamTextError;
+      }
 
       let accumulatedText = "";
+      let partCount = 0;
 
+      console.log(`[STREAMING] Starting to iterate fullStream...`);
       // Stream all parts (text, tool calls, tool results)
       for await (const part of result.fullStream) {
+        partCount++;
+        if (partCount === 1) {
+          console.log(`[STREAMING] Received first stream part, type: ${part.type}`);
+        }
         if (part.type === "text-delta") {
           accumulatedText += part.text;
 
@@ -338,9 +353,13 @@ export const streamChatWithTools = action({
         }
       }
 
+      console.log(`[STREAMING] Stream iteration complete, processed ${partCount} parts`);
+      console.log(`[STREAMING] Accumulated text length: ${accumulatedText.length}`);
+      
       // Finalize message
       const usage = normalizeUsage(await result.usage);
       const finishReason = await result.finishReason;
+      console.log(`[STREAMING] Usage: ${JSON.stringify(usage)}, finishReason: ${finishReason}`);
 
       await ctx.runMutation(api.messages.update, {
         messageId,
