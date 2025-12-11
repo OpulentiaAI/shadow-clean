@@ -338,7 +338,7 @@ export const streamChatWithTools = action({
           system: args.systemPrompt,
           tools: aiTools,
           temperature: 0.7,
-          maxSteps: 10, // Enable multi-step tool use
+          maxSteps: 60, // Enable multi-step tool use
           abortSignal: controller.signal,
         });
         console.log(`[STREAMING] streamText promise resolved, processing stream...`);
