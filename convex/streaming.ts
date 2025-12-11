@@ -40,9 +40,20 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   // Prefer OpenRouter when provided (first-party requirement)
   if (apiKeys.openrouter) {
     const keyPrefix = apiKeys.openrouter.substring(0, 12);
+    const keySuffix = apiKeys.openrouter.substring(apiKeys.openrouter.length - 4);
     const keyLength = apiKeys.openrouter.length;
-    console.log(`[STREAMING] >>> USING: OpenRouter with CLIENT-PROVIDED key: ${keyPrefix}... (${keyLength} chars)`);
+    
+    // Pre-flight validation: Check if key looks valid
+    const isValidKeyFormat = apiKeys.openrouter.startsWith('sk-or-v1-') && keyLength > 20;
+    console.log(`[STREAMING] >>> USING: OpenRouter with CLIENT-PROVIDED key: ${keyPrefix}...${keySuffix} (${keyLength} chars)`);
+    console.log(`[STREAMING] Key format validation: ${isValidKeyFormat ? 'PASSED' : 'FAILED - key may be invalid!'}`);
     console.log(`[STREAMING] OpenRouter headers:`, JSON.stringify(OPENROUTER_HEADERS));
+    
+    if (!isValidKeyFormat) {
+      console.error(`[STREAMING] !!! API KEY FORMAT INVALID !!!`);
+      console.error(`[STREAMING] Expected: starts with 'sk-or-v1-', length > 20`);
+      console.error(`[STREAMING] Got: starts with '${apiKeys.openrouter.substring(0, 9)}', length ${keyLength}`);
+    }
     
     const openrouterClient = createOpenRouter({
       apiKey: apiKeys.openrouter,
@@ -424,9 +435,20 @@ export const streamChatWithTools = action({
         console.error(`[STREAMING] Error stack:`, error.stack);
       }
       
+      // Enhanced 401 debugging
+      const errorStr = String(error);
+      if (errorStr.includes('401') || (error instanceof Error && error.message.includes('401'))) {
+        console.error(`[STREAMING] ====== 401 ERROR DETAILS ======`);
+        console.error(`[STREAMING] API keys at time of error:`);
+        console.error(`[STREAMING]   - args.apiKeys.openrouter: ${args.apiKeys?.openrouter ? `present (${args.apiKeys.openrouter.length} chars, prefix: ${args.apiKeys.openrouter.substring(0, 12)}...)` : 'MISSING'}`);
+        console.error(`[STREAMING]   - OPENROUTER_API_KEY env: ${process.env.OPENROUTER_API_KEY ? `present (${process.env.OPENROUTER_API_KEY.length} chars, prefix: ${process.env.OPENROUTER_API_KEY.substring(0, 12)}...)` : 'MISSING'}`);
+        console.error(`[STREAMING] Model being used: ${args.model}`);
+        console.error(`[STREAMING] Full error object:`, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        console.error(`[STREAMING] ====== END 401 ERROR DETAILS ======`);
+      }
+      
       // Format user-friendly error message
       let userMessage = error instanceof Error ? error.message : String(error);
-      const errorStr = String(error);
       
       // Check for specific error types and provide better messages
       if (errorStr.includes('401') || userMessage.includes('401') || userMessage.includes('Unauthorized')) {

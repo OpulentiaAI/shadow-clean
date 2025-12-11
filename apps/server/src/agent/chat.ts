@@ -862,9 +862,15 @@ These are specific instructions from the user that should be followed throughout
       console.log(`[CHAT] Resolved Convex task ID: ${convexTaskId}`);
 
       const apiKeys = context.getApiKeys();
+      console.log(`[CHAT] === MESSAGE TYPE DETECTION ===`);
+      console.log(`[CHAT] isFirstMessage: ${isFirstMessage}, messages count before user: ${messages.length - 1}`);
       console.log(`[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`);
       if (apiKeys.openrouter) {
-        console.log(`[CHAT] OpenRouter key details: ${apiKeys.openrouter.substring(0, 10)}... (${apiKeys.openrouter.length} chars)`);
+        const prefix = apiKeys.openrouter.substring(0, 12);
+        const suffix = apiKeys.openrouter.substring(apiKeys.openrouter.length - 4);
+        console.log(`[CHAT] OpenRouter key: ${prefix}...${suffix} (${apiKeys.openrouter.length} chars)`);
+      } else {
+        console.log(`[CHAT] WARNING: No OpenRouter key available!`);
       }
       console.log(`[CHAT] === CONVEX ACTION CALL ===`);
       console.log(`[CHAT] Calling streamChatWithTools action`);
