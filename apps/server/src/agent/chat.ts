@@ -49,6 +49,8 @@ import {
   getUserByExternalId,
   getUser,
 } from "../lib/convex-operations";
+import { getConvexClient } from "../lib/convex-client";
+import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { TaskInitializationEngine } from "@/initialization";
 import { databaseBatchService } from "../services/database-batch-service";
@@ -848,16 +850,11 @@ These are specific instructions from the user that should be followed throughout
     console.log(`[CHAT] System prompt length: ${taskSystemPrompt?.length || 0}`);
 
     try {
-      console.log(`[CHAT] Importing Convex modules for task ${taskId}`);
-      const { getConvexClient } =
-        (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
-      const { api } =
-        (await import("../../../../convex/_generated/api.js")) as typeof import("../../../../convex/_generated/api.js");
-      const { toConvexId } =
-        (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
+      console.log(`[CHAT] Using static Convex imports (no dynamic import needed)`);
 
+      console.log(`[CHAT] Getting Convex client...`);
       const convexClient = getConvexClient();
-      console.log(`[CHAT] Convex client obtained`);
+      console.log(`[CHAT] Convex client obtained: ${!!convexClient}`);
 
       console.log(`[CHAT] Starting Convex streaming for task ${taskId}`);
 
@@ -1134,13 +1131,6 @@ These are specific instructions from the user that should be followed throughout
     const convexMessageId = this.activeConvexMessageIds.get(taskId);
     if (convexMessageId) {
       try {
-        const { getConvexClient } =
-          (await import("../lib/convex-client.js")) as typeof import("../lib/convex-client.js");
-        const { api } =
-          (await import("../../../../convex/_generated/api.js")) as typeof import("../../../../convex/_generated/api.js");
-        const { toConvexId } =
-          (await import("../lib/convex-operations.js")) as typeof import("../lib/convex-operations.js");
-
         const convexClient = getConvexClient();
         await convexClient.action(api.streaming.cancelStream, {
           messageId: toConvexId<"chatMessages">(convexMessageId),
