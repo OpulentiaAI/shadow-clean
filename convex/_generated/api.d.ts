@@ -24,7 +24,6 @@ import type * as repositoryIndex from "../repositoryIndex.js";
 import type * as streaming from "../streaming.js";
 import type * as taskSessions from "../taskSessions.js";
 import type * as tasks from "../tasks.js";
-import type * as tasksNode from "../tasksNode.js";
 import type * as terminalOutput from "../terminalOutput.js";
 import type * as todos from "../todos.js";
 import type * as toolCallTracking from "../toolCallTracking.js";
@@ -55,7 +54,6 @@ declare const fullApi: ApiFromModules<{
   streaming: typeof streaming;
   taskSessions: typeof taskSessions;
   tasks: typeof tasks;
-  tasksNode: typeof tasksNode;
   terminalOutput: typeof terminalOutput;
   todos: typeof todos;
   toolCallTracking: typeof toolCallTracking;

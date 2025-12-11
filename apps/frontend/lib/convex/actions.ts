@@ -1,11 +1,36 @@
 import { getConvexClient, api } from "./client";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-type TaskStatus = "STOPPED" | "INITIALIZING" | "ARCHIVED" | "RUNNING" | "COMPLETED" | "FAILED";
-type InitStatus = "INACTIVE" | "PREPARE_WORKSPACE" | "CREATE_VM" | "WAIT_VM_READY" | "VERIFY_VM_WORKSPACE" | "START_BACKGROUND_SERVICES" | "INSTALL_DEPENDENCIES" | "COMPLETE_SHADOW_WIKI" | "ACTIVE";
+type TaskStatus =
+  | "STOPPED"
+  | "INITIALIZING"
+  | "ARCHIVED"
+  | "RUNNING"
+  | "COMPLETED"
+  | "FAILED";
+type InitStatus =
+  | "INACTIVE"
+  | "PREPARE_WORKSPACE"
+  | "CREATE_VM"
+  | "WAIT_VM_READY"
+  | "VERIFY_VM_WORKSPACE"
+  | "START_BACKGROUND_SERVICES"
+  | "INSTALL_DEPENDENCIES"
+  | "COMPLETE_SHADOW_WIKI"
+  | "ACTIVE";
 type MessageRole = "USER" | "ASSISTANT" | "SYSTEM";
 type TodoStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-type MemoryCategory = "INFRA" | "SETUP" | "STYLES" | "ARCHITECTURE" | "TESTING" | "PATTERNS" | "BUGS" | "PERFORMANCE" | "CONFIG" | "GENERAL";
+type MemoryCategory =
+  | "INFRA"
+  | "SETUP"
+  | "STYLES"
+  | "ARCHITECTURE"
+  | "TESTING"
+  | "PATTERNS"
+  | "BUGS"
+  | "PERFORMANCE"
+  | "CONFIG"
+  | "GENERAL";
 
 export async function createTask(input: {
   title: string;
@@ -30,7 +55,7 @@ export async function initiateTask(input: {
   userId: Id<"users">;
 }) {
   const client = getConvexClient();
-  return client.action(api.tasksNode.initiate, input);
+  return client.action(api.tasks.initiate, input);
 }
 
 export async function updateTask(input: {
@@ -177,7 +202,10 @@ export async function updateTodo(input: {
   return client.mutation(api.todos.update, input);
 }
 
-export async function updateTodoStatus(todoId: Id<"todos">, status: TodoStatus) {
+export async function updateTodoStatus(
+  todoId: Id<"todos">,
+  status: TodoStatus
+) {
   const client = getConvexClient();
   return client.mutation(api.todos.updateStatus, { todoId, status });
 }
@@ -192,7 +220,10 @@ export async function listTodos(taskId: Id<"tasks">) {
   return client.query(api.todos.byTask, { taskId });
 }
 
-export async function bulkCreateTodos(taskId: Id<"tasks">, todos: Array<{ content: string; status?: TodoStatus }>) {
+export async function bulkCreateTodos(
+  taskId: Id<"tasks">,
+  todos: Array<{ content: string; status?: TodoStatus }>
+) {
   const client = getConvexClient();
   return client.mutation(api.todos.bulkCreate, { taskId, todos });
 }
@@ -228,14 +259,25 @@ export async function listMemoriesByTask(taskId: Id<"tasks">) {
   return client.query(api.memories.byTask, { taskId });
 }
 
-export async function listMemoriesByUserRepo(userId: Id<"users">, repoFullName: string) {
+export async function listMemoriesByUserRepo(
+  userId: Id<"users">,
+  repoFullName: string
+) {
   const client = getConvexClient();
   return client.query(api.memories.byUserAndRepo, { userId, repoFullName });
 }
 
-export async function searchMemories(userId: Id<"users">, repoFullName: string, searchTerm?: string) {
+export async function searchMemories(
+  userId: Id<"users">,
+  repoFullName: string,
+  searchTerm?: string
+) {
   const client = getConvexClient();
-  return client.query(api.memories.search, { userId, repoFullName, searchTerm });
+  return client.query(api.memories.search, {
+    userId,
+    repoFullName,
+    searchTerm,
+  });
 }
 
 export async function upsertUser(input: {
@@ -335,17 +377,31 @@ export async function getRepositoryIndex(repoFullName: string) {
   return client.query(api.repositoryIndex.get, { repoFullName });
 }
 
-export async function upsertRepositoryIndex(repoFullName: string, lastCommitSha?: string) {
+export async function upsertRepositoryIndex(
+  repoFullName: string,
+  lastCommitSha?: string
+) {
   const client = getConvexClient();
-  return client.mutation(api.repositoryIndex.upsert, { repoFullName, lastCommitSha });
+  return client.mutation(api.repositoryIndex.upsert, {
+    repoFullName,
+    lastCommitSha,
+  });
 }
 
-export async function needsReindex(repoFullName: string, currentCommitSha: string) {
+export async function needsReindex(
+  repoFullName: string,
+  currentCommitSha: string
+) {
   const client = getConvexClient();
-  return client.query(api.repositoryIndex.needsReindex, { repoFullName, currentCommitSha });
+  return client.query(api.repositoryIndex.needsReindex, {
+    repoFullName,
+    currentCommitSha,
+  });
 }
 
-export async function getCodebaseUnderstanding(id: Id<"codebaseUnderstanding">) {
+export async function getCodebaseUnderstanding(
+  id: Id<"codebaseUnderstanding">
+) {
   const client = getConvexClient();
   return client.query(api.codebaseUnderstanding.get, { id });
 }
@@ -584,7 +640,13 @@ export async function removePresence(taskId: Id<"tasks">, userId: Id<"users">) {
 export async function broadcastActivity(input: {
   taskId: Id<"tasks">;
   userId: Id<"users">;
-  activityType: "user-joined" | "user-left" | "file-opened" | "file-saved" | "command-started" | "command-completed";
+  activityType:
+    | "user-joined"
+    | "user-left"
+    | "file-opened"
+    | "file-saved"
+    | "command-started"
+    | "command-completed";
   metadata?: any;
 }) {
   const client = getConvexClient();

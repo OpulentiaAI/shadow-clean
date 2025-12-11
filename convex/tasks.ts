@@ -273,7 +273,10 @@ export const countActiveByUser = query({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .collect();
     return tasks.filter(
-      (t) => t.status !== "ARCHIVED" && t.status !== "COMPLETED" && t.status !== "FAILED"
+      (t) =>
+        t.status !== "ARCHIVED" &&
+        t.status !== "COMPLETED" &&
+        t.status !== "FAILED"
     ).length;
   },
 });
@@ -290,13 +293,128 @@ export const listByPrNumberAndRepo = query({
       .withIndex("by_repo", (q) => q.eq("repoFullName", args.repoFullName))
       .collect();
     return tasks.filter(
-      (t) => t.pullRequestNumber === args.pullRequestNumber && t.status !== "ARCHIVED"
+      (t) =>
+        t.pullRequestNumber === args.pullRequestNumber &&
+        t.status !== "ARCHIVED"
     );
   },
 });
 
 // ----- Actions for rich task data and side-effectful operations -----
-// These actions require Node.js runtime (env vars, external fetch). See `convex/tasksNode.ts`.
+// These actions call the backend and require env vars to be set on the deployment.
+
+const getBackendBaseUrl = () => {
+  const base = process.env.BACKEND_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (!base) {
+    throw new Error(
+      "BACKEND_BASE_URL or NEXT_PUBLIC_APP_URL must be set for file changes/PR actions."
+    );
+  }
+  return base.replace(/\/$/, "");
+};
+
+// Add type annotation to avoid circular type reference
+export const getDetails: ReturnType<typeof action> = action({
+  args: { taskId: v.id("tasks") },
+  handler: async (ctx, args) => {
+    const [task, todos, messages] = await Promise.all([
+      ctx.runQuery(api.tasks.get, { taskId: args.taskId }),
+      ctx.runQuery(api.todos.byTask, { taskId: args.taskId }),
+      ctx.runQuery(api.messages.byTask, { taskId: args.taskId }),
+    ]);
+
+    let fileData: {
+      fileChanges: unknown[];
+      diffStats: { additions: number; deletions: number; totalFiles: number };
+    } = {
+      fileChanges: [],
+      diffStats: { additions: 0, deletions: 0, totalFiles: 0 },
+    };
+
+    try {
+      const baseUrl = getBackendBaseUrl();
+      const authToken = process.env.CONVEX_TASK_AUTH_TOKEN;
+      const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/file-changes`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (res.ok) {
+        fileData = (await res.json()) as typeof fileData;
+      } else {
+        console.warn(`file-changes fetch failed (${res.status}): ${res.statusText}`);
+      }
+    } catch (err) {
+      console.warn("file-changes fetch errored or config missing", err);
+    }
+
+    return {
+      task,
+      todos,
+      messages,
+      fileChanges: fileData.fileChanges ?? [],
+      diffStats:
+        fileData.diffStats ?? { additions: 0, deletions: 0, totalFiles: 0 },
+    };
+  },
+});
+
+export const createPullRequest = action({
+  args: {
+    taskId: v.id("tasks"),
+    userId: v.optional(v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const baseUrl = getBackendBaseUrl();
+    const authToken = process.env.CONVEX_TASK_AUTH_TOKEN;
+    const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/pull-request`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({ ...(args.userId ? { userId: args.userId } : {}) }),
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || `Failed to create pull request (${res.status})`);
+    }
+    return res.json();
+  },
+});
+
+export const initiate = action({
+  args: {
+    taskId: v.id("tasks"),
+    message: v.string(),
+    model: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const task = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
+    if (!task) {
+      throw new Error("Task not found");
+    }
+
+    const baseUrl = getBackendBaseUrl();
+    const res = await fetch(`${baseUrl}/api/tasks/${args.taskId}/initiate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: args.message,
+        model: args.model,
+        userId: args.userId,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(err.error || `Task initialization failed (${res.status})`);
+    }
+
+    return res.json();
+  },
+});
 
 /**
  * Update workspace status from sidecar (Convex-native mode)

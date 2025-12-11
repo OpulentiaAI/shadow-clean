@@ -12,7 +12,7 @@ const execFileAsync = promisify(execFile);
 function parseShellLikeArgs(input: string): string[] {
   const args: string[] = [];
   let current = "";
-  let quote: "'" | "\"" | null = null;
+  let quote: "'" | '"' | null = null;
 
   const pushCurrent = () => {
     if (current.length > 0) {
@@ -30,7 +30,7 @@ function parseShellLikeArgs(input: string): string[] {
         continue;
       }
       // Support basic escaping inside double quotes.
-      if (quote === "\"" && ch === "\\" && i + 1 < input.length) {
+      if (quote === '"' && ch === "\\" && i + 1 < input.length) {
         current += input.charAt(i + 1);
         i++;
         continue;
@@ -39,7 +39,7 @@ function parseShellLikeArgs(input: string): string[] {
       continue;
     }
 
-    if (ch === "\"" || ch === "'") {
+    if (ch === '"' || ch === "'") {
       quote = ch;
       continue;
     }
@@ -387,7 +387,11 @@ Commit message:`,
           for (const candidate of gitCandidates) {
             if (candidate === gitBin) continue;
             try {
-              ({ stdout, stderr } = await execFileAsync(candidate, args, options));
+              ({ stdout, stderr } = await execFileAsync(
+                candidate,
+                args,
+                options
+              ));
               lastErr = null;
               break;
             } catch (candidateErr) {
@@ -508,7 +512,6 @@ Commit message:`,
   public getWorkspacePath(): string {
     return this.workspacePath;
   }
-
 }
 
 export default GitManager;

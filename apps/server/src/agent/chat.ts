@@ -82,7 +82,11 @@ type QueuedAction = QueuedMessageAction | QueuedStackedPRAction;
 
 const CONVEX_ACTION_TIMEOUT_MS = 300000; // 5 minutes
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  label: string
+): Promise<T> {
   let timeoutId: NodeJS.Timeout;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
@@ -110,7 +114,9 @@ export class ChatService {
   }
 
   private async getNextSequence(taskId: string): Promise<number> {
-    const lastSequence = await getLatestMessageSequence(toConvexId<"tasks">(taskId));
+    const lastSequence = await getLatestMessageSequence(
+      toConvexId<"tasks">(taskId)
+    );
     return lastSequence + 1;
   }
 
@@ -145,12 +151,16 @@ export class ChatService {
       role: messageData.role,
       content: messageData.content,
       llmModel: messageData.llmModel,
-      metadataJson: messageData.metadata ? JSON.stringify(messageData.metadata) : undefined,
+      metadataJson: messageData.metadata
+        ? JSON.stringify(messageData.metadata)
+        : undefined,
       promptTokens: messageData.promptTokens,
       completionTokens: messageData.completionTokens,
       totalTokens: messageData.totalTokens,
       finishReason: messageData.finishReason,
-      stackedTaskId: messageData.stackedTaskId ? toConvexId<"tasks">(messageData.stackedTaskId) : undefined,
+      stackedTaskId: messageData.stackedTaskId
+        ? toConvexId<"tasks">(messageData.stackedTaskId)
+        : undefined,
     });
     return { id: result.messageId, sequence: result.sequence };
   }
@@ -327,7 +337,12 @@ export class ChatService {
     workspacePath?: string,
     messageId?: string,
     context?: TaskModelContext
-  ): Promise<{ success: boolean; prNumber?: number; error?: string; skipped?: boolean }> {
+  ): Promise<{
+    success: boolean;
+    prNumber?: number;
+    error?: string;
+    skipped?: boolean;
+  }> {
     // Get or create context if not provided
     let modelContext: TaskModelContext;
     if (context) {
@@ -338,7 +353,11 @@ export class ChatService {
         console.warn(
           `[CHAT] No model context available for task ${taskId}, skipping PR creation`
         );
-        return { success: false, skipped: true, error: "No model context available" };
+        return {
+          success: false,
+          skipped: true,
+          error: "No model context available",
+        };
       }
       modelContext = taskContext;
     }
@@ -359,7 +378,12 @@ export class ChatService {
     workspacePath?: string,
     messageId?: string,
     context?: TaskModelContext
-  ): Promise<{ success: boolean; prNumber?: number; error?: string; skipped?: boolean }> {
+  ): Promise<{
+    success: boolean;
+    prNumber?: number;
+    error?: string;
+    skipped?: boolean;
+  }> {
     try {
       const task = await getTask(toConvexId<"tasks">(taskId));
 
@@ -372,14 +396,22 @@ export class ChatService {
         console.log(
           `[CHAT] Task ${taskId} is a scratchpad workspace, skipping PR creation`
         );
-        return { success: false, skipped: true, error: "Scratchpad workspaces cannot create pull requests" };
+        return {
+          success: false,
+          skipped: true,
+          error: "Scratchpad workspaces cannot create pull requests",
+        };
       }
 
       if (!task.shadowBranch) {
         console.warn(
           `[CHAT] No shadow branch configured for task ${taskId}, skipping PR creation`
         );
-        return { success: false, skipped: true, error: "No shadow branch configured" };
+        return {
+          success: false,
+          skipped: true,
+          error: "No shadow branch configured",
+        };
       }
 
       const resolvedWorkspacePath = workspacePath || task.workspacePath;
@@ -387,7 +419,11 @@ export class ChatService {
         console.warn(
           `[CHAT] No workspace path available for task ${taskId}, skipping PR creation`
         );
-        return { success: false, skipped: true, error: "No workspace path available" };
+        return {
+          success: false,
+          skipped: true,
+          error: "No workspace path available",
+        };
       }
 
       const gitService = await createGitService(taskId);
@@ -397,14 +433,22 @@ export class ChatService {
         console.warn(
           `[CHAT] No messageId provided for PR creation for task ${taskId}`
         );
-        return { success: false, skipped: true, error: "No messageId provided" };
+        return {
+          success: false,
+          skipped: true,
+          error: "No messageId provided",
+        };
       }
 
       if (!context) {
         console.warn(
           `[CHAT] No context available for PR creation, skipping PR for task ${taskId}`
         );
-        return { success: false, skipped: true, error: "No model context available" };
+        return {
+          success: false,
+          skipped: true,
+          error: "No model context available",
+        };
       }
 
       return await prManager.createPRIfNeeded(
@@ -425,7 +469,10 @@ export class ChatService {
       // Non-blocking - don't throw
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Failed to create pull request",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to create pull request",
       };
     }
   }
@@ -502,7 +549,9 @@ export class ChatService {
       content: msg.content,
       llmModel: msg.llmModel || undefined,
       createdAt: new Date(msg.createdAt).toISOString(),
-      metadata: msg.metadataJson ? JSON.parse(msg.metadataJson) as MessageMetadata : undefined,
+      metadata: msg.metadataJson
+        ? (JSON.parse(msg.metadataJson) as MessageMetadata)
+        : undefined,
       pullRequestSnapshot: msg.pullRequestSnapshot || undefined,
       stackedTaskId: msg.stackedTaskId || undefined,
       stackedTask: msg.stackedTask || undefined,
@@ -625,12 +674,18 @@ export class ChatService {
     workspacePath?: string;
     queue?: boolean;
   }) {
-    console.log(`[CHAT] _processUserMessageInternal started for task ${taskId}`);
-    console.log(`[CHAT] Model: ${context.getMainModel()}, enableTools: ${enableTools}, skipUserMessageSave: ${skipUserMessageSave}`);
+    console.log(
+      `[CHAT] _processUserMessageInternal started for task ${taskId}`
+    );
+    console.log(
+      `[CHAT] Model: ${context.getMainModel()}, enableTools: ${enableTools}, skipUserMessageSave: ${skipUserMessageSave}`
+    );
 
     // Prevent concurrent message processing for the same task (duplicate request guard)
     if (this.processingTasks.has(taskId)) {
-      console.warn(`[CHAT] Task ${taskId} is already processing a message, skipping duplicate request`);
+      console.warn(
+        `[CHAT] Task ${taskId} is already processing a message, skipping duplicate request`
+      );
       return;
     }
     this.processingTasks.add(taskId);
@@ -643,7 +698,9 @@ export class ChatService {
       console.error(`[CHAT] Task ${taskId} not found in Convex`);
       throw new Error(`Task ${taskId} not found in Convex`);
     }
-    console.log(`[CHAT] Task found: status=${task.status}, initStatus=${task.initStatus}, userId=${task.userId}`);
+    console.log(
+      `[CHAT] Task found: status=${task.status}, initStatus=${task.initStatus}, userId=${task.userId}`
+    );
 
     // Handle follow-up logic for COMPLETED tasks
     console.log(`[CHAT] Calling handleFollowUpLogic for task ${taskId}`);
@@ -702,7 +759,9 @@ export class ChatService {
       );
 
     const isFirstMessage = !messages.some((msg) => msg.role === "system");
-    console.log(`[CHAT] isFirstMessage: ${isFirstMessage}, filtered messages count: ${messages.length}`);
+    console.log(
+      `[CHAT] isFirstMessage: ${isFirstMessage}, filtered messages count: ${messages.length}`
+    );
 
     if (isFirstMessage) {
       console.log(`[CHAT] First message - adding system prompts`);
@@ -710,7 +769,9 @@ export class ChatService {
 
       console.log(`[CHAT] Getting Shadow Wiki content for task ${taskId}`);
       const shadowWikiContent = await getShadowWikiMessage(taskId);
-      console.log(`[CHAT] Shadow Wiki content: ${shadowWikiContent ? 'present' : 'not found'}`);
+      console.log(
+        `[CHAT] Shadow Wiki content: ${shadowWikiContent ? "present" : "not found"}`
+      );
       if (shadowWikiContent) {
         const shadowWikiSequence = await this.getNextSequence(taskId);
         await this.saveSystemMessage(
@@ -733,14 +794,18 @@ export class ChatService {
       const task = await getTask(toConvexId<"tasks">(taskId));
       console.log(`[CHAT] Fetching user settings for userId: ${task?.userId}`);
       const userSettings = task ? await getUserSettings(task.userId) : null;
-      console.log(`[CHAT] User settings retrieved: ${userSettings ? 'present' : 'not found'}`);
+      console.log(
+        `[CHAT] User settings retrieved: ${userSettings ? "present" : "not found"}`
+      );
       const memoriesEnabled = userSettings?.memoriesEnabled ?? true;
       console.log(`[CHAT] Memories enabled: ${memoriesEnabled}`);
 
       if (memoriesEnabled) {
         console.log(`[CHAT] Fetching memories for task ${taskId}`);
         const memoryContext = await memoryService.getMemoriesForTask(taskId);
-        console.log(`[CHAT] Memories retrieved: ${memoryContext?.memories?.length ?? 0} memories`);
+        console.log(
+          `[CHAT] Memories retrieved: ${memoryContext?.memories?.length ?? 0} memories`
+        );
         if (memoryContext && memoryContext.memories.length > 0) {
           const memoryContent =
             memoryService.formatMemoriesForPrompt(memoryContext);
@@ -792,7 +857,9 @@ These are specific instructions from the user that should be followed throughout
         });
       }
 
-      console.log(`[CHAT] About to unshift ${systemMessagesToAdd.length} system messages`);
+      console.log(
+        `[CHAT] About to unshift ${systemMessagesToAdd.length} system messages`
+      );
       messages.unshift(...systemMessagesToAdd);
       console.log(`[CHAT] Added ${systemMessagesToAdd.length} system messages`);
       console.log(`[CHAT] About to exit if block (isFirstMessage)`);
@@ -839,7 +906,9 @@ These are specific instructions from the user that should be followed throughout
       console.log(`[CHAT] Calling createTools for task ${taskId}`);
       try {
         availableTools = await createTools(taskId, workspacePath);
-        console.log(`[CHAT] createTools completed, tools available: ${!!availableTools}`);
+        console.log(
+          `[CHAT] createTools completed, tools available: ${!!availableTools}`
+        );
       } catch (toolError) {
         console.error(`[CHAT] createTools failed:`, toolError);
         throw toolError;
@@ -851,10 +920,14 @@ These are specific instructions from the user that should be followed throughout
     // Get system prompt with available tools context
     console.log(`[CHAT] Getting system prompt for task ${taskId}`);
     const taskSystemPrompt = await getSystemPrompt(availableTools);
-    console.log(`[CHAT] System prompt length: ${taskSystemPrompt?.length || 0}`);
+    console.log(
+      `[CHAT] System prompt length: ${taskSystemPrompt?.length || 0}`
+    );
 
     try {
-      console.log(`[CHAT] Using static Convex imports (no dynamic import needed)`);
+      console.log(
+        `[CHAT] Using static Convex imports (no dynamic import needed)`
+      );
 
       console.log(`[CHAT] Getting Convex client...`);
       const convexClient = getConvexClient();
@@ -867,23 +940,37 @@ These are specific instructions from the user that should be followed throughout
 
       const apiKeys = context.getApiKeys();
       console.log(`[CHAT] === MESSAGE TYPE DETECTION ===`);
-      console.log(`[CHAT] isFirstMessage: ${isFirstMessage}, messages count before user: ${messages.length - 1}`);
-      console.log(`[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`);
+      console.log(
+        `[CHAT] isFirstMessage: ${isFirstMessage}, messages count before user: ${messages.length - 1}`
+      );
+      console.log(
+        `[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`
+      );
       if (apiKeys.openrouter) {
         const prefix = apiKeys.openrouter.substring(0, 12);
-        const suffix = apiKeys.openrouter.substring(apiKeys.openrouter.length - 4);
-        console.log(`[CHAT] OpenRouter key: ${prefix}...${suffix} (${apiKeys.openrouter.length} chars)`);
+        const suffix = apiKeys.openrouter.substring(
+          apiKeys.openrouter.length - 4
+        );
+        console.log(
+          `[CHAT] OpenRouter key: ${prefix}...${suffix} (${apiKeys.openrouter.length} chars)`
+        );
       } else {
         console.log(`[CHAT] WARNING: No OpenRouter key available!`);
       }
       console.log(`[CHAT] === CONVEX ACTION CALL ===`);
       console.log(`[CHAT] Calling streamChatWithTools action`);
-      console.log(`[CHAT] Action params: taskId=${convexTaskId}, model=${context.getMainModel()}, promptLen=${userMessage.length}`);
+      console.log(
+        `[CHAT] Action params: taskId=${convexTaskId}, model=${context.getMainModel()}, promptLen=${userMessage.length}`
+      );
 
       const actionStartTime = Date.now();
-      console.log(`[CHAT] Starting Convex action at ${new Date().toISOString()}`);
-      console.log(`[CHAT] Convex action timeout: ${CONVEX_ACTION_TIMEOUT_MS}ms`);
-      
+      console.log(
+        `[CHAT] Starting Convex action at ${new Date().toISOString()}`
+      );
+      console.log(
+        `[CHAT] Convex action timeout: ${CONVEX_ACTION_TIMEOUT_MS}ms`
+      );
+
       const actionPromise = convexClient.action(
         api.streaming.streamChatWithTools,
         {
@@ -899,14 +986,16 @@ These are specific instructions from the user that should be followed throughout
           },
         }
       );
-      
+
       const streamResult = await withTimeout(
         actionPromise,
         CONVEX_ACTION_TIMEOUT_MS,
         `streamChatWithTools for task ${taskId}`
       );
       const actionDuration = Date.now() - actionStartTime;
-      console.log(`[CHAT] streamChatWithTools returned after ${actionDuration}ms: success=${streamResult?.success}, messageId=${streamResult?.messageId}`);
+      console.log(
+        `[CHAT] streamChatWithTools returned after ${actionDuration}ms: success=${streamResult?.success}, messageId=${streamResult?.messageId}`
+      );
 
       responseText = streamResult.text ?? "";
       console.log(`[CHAT] Response text length: ${responseText.length}`);
@@ -985,7 +1074,10 @@ These are specific instructions from the user that should be followed throughout
       // Process any queued actions
       await this.processQueuedActions(taskId);
     } catch (error) {
-      console.error(`[CHAT] Error processing user message for task ${taskId}:`, error);
+      console.error(
+        `[CHAT] Error processing user message for task ${taskId}:`,
+        error
+      );
       if (error instanceof Error) {
         console.error(`[CHAT] Error stack:`, error.stack);
       }
@@ -1018,7 +1110,7 @@ These are specific instructions from the user that should be followed throughout
       this.activeConvexMessageIds.delete(taskId);
       this.activeStreams.delete(taskId);
       this.stopRequested.delete(taskId);
-      
+
       try {
         handleStreamError(error, taskId);
       } catch (streamError) {
@@ -1037,33 +1129,38 @@ These are specific instructions from the user that should be followed throughout
 
       // Clear any queued actions (don't process them after error)
       this.clearQueuedAction(taskId);
-      
+
       // Check if this is a model-related error that was already saved to the chat
       // For these errors, don't re-throw - the error is visible in the chat UI
       const errorStr = String(error);
-      const isModelError = errorMessage.includes('No output generated') ||
-        errorMessage.includes('Model returned no output') ||
-        errorMessage.includes('rate limit') ||
-        errorMessage.includes('Rate limit') ||
-        errorMessage.includes('quota') ||
-        errorMessage.includes('Stream error') ||
-        errorMessage.includes('401') ||
-        errorMessage.includes('403') ||
-        errorMessage.includes('Unauthorized') ||
-        errorMessage.includes('Forbidden') ||
-        errorStr.includes('401') ||
-        errorStr.includes('403');
-      
+      const isModelError =
+        errorMessage.includes("No output generated") ||
+        errorMessage.includes("Model returned no output") ||
+        errorMessage.includes("rate limit") ||
+        errorMessage.includes("Rate limit") ||
+        errorMessage.includes("quota") ||
+        errorMessage.includes("Stream error") ||
+        errorMessage.includes("401") ||
+        errorMessage.includes("403") ||
+        errorMessage.includes("Unauthorized") ||
+        errorMessage.includes("Forbidden") ||
+        errorStr.includes("401") ||
+        errorStr.includes("403");
+
       if (isModelError) {
-        console.log(`[CHAT] Model/API error for task ${taskId} - not re-throwing (error visible in chat)`);
+        console.log(
+          `[CHAT] Model/API error for task ${taskId} - not re-throwing (error visible in chat)`
+        );
         return; // Don't throw - error is already in the chat
       }
-      
+
       throw error;
     } finally {
       // ALWAYS clean up processing state - this guarantees follow-up messages can be processed
       this.processingTasks.delete(taskId);
-      console.log(`[CHAT] Task ${taskId} removed from processing set (finally block)`);
+      console.log(
+        `[CHAT] Task ${taskId} removed from processing set (finally block)`
+      );
     }
   }
 
@@ -1237,16 +1334,23 @@ These are specific instructions from the user that should be followed throughout
 
     await updateTaskActivity(taskId, "MESSAGE");
 
-    const editedMessage = await getMessage(toConvexId<"chatMessages">(messageId));
+    const editedMessage = await getMessage(
+      toConvexId<"chatMessages">(messageId)
+    );
 
     if (!editedMessage) {
       throw new Error("Edited message not found");
     }
 
     await checkpointService.restoreCheckpoint(taskId, messageId);
-    console.log(`[CHAT] ✅ Checkpoint restoration completed for message editing`);
+    console.log(
+      `[CHAT] ✅ Checkpoint restoration completed for message editing`
+    );
 
-    await removeMessagesAfterSequence(toConvexId<"tasks">(taskId), editedMessage.sequence);
+    await removeMessagesAfterSequence(
+      toConvexId<"tasks">(taskId),
+      editedMessage.sequence
+    );
 
     // Start streaming from the edited message
     // Update context with new model if it has changed

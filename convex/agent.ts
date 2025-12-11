@@ -25,7 +25,8 @@ function makeOpenRouterClient() {
     apiKey,
     baseURL: "https://openrouter.ai/api/v1",
     defaultHeaders: {
-      "HTTP-Referer": process.env.OPENROUTER_REFERRER || "https://code.opulentia.ai",
+      "HTTP-Referer":
+        process.env.OPENROUTER_REFERRER || "https://code.opulentia.ai",
       "X-Title": process.env.OPENROUTER_TITLE || "Opulent Code",
     },
   });
@@ -219,7 +220,9 @@ export const agentStreamText: ReturnType<typeof action> = action({
   handler: async (ctx, args) => {
     // If no task context is provided, bail out early to avoid validation errors downstream.
     if (!args.taskId) {
-      console.warn("[agent.agentStreamText] missing taskId, skipping streaming");
+      console.warn(
+        "[agent.agentStreamText] missing taskId, skipping streaming"
+      );
       return {
         threadId: args.threadId ?? null,
         text: "",
@@ -236,7 +239,8 @@ export const agentStreamText: ReturnType<typeof action> = action({
 
     const client = new OpenAI({
       apiKey,
-      baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+      baseURL:
+        process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
       defaultHeaders: {
         ...(process.env.OPENROUTER_REFERRER
           ? { "HTTP-Referer": process.env.OPENROUTER_REFERRER }
@@ -248,10 +252,13 @@ export const agentStreamText: ReturnType<typeof action> = action({
     });
 
     // Create streaming assistant message
-    const start = await ctx.runMutation(internal.messages.internalStartStreaming, {
-      taskId: args.taskId as any,
-      llmModel: args.model,
-    });
+    const start = await ctx.runMutation(
+      internal.messages.internalStartStreaming,
+      {
+        taskId: args.taskId as any,
+        llmModel: args.model,
+      }
+    );
     const messageId = start.messageId;
 
     let fullText = "";
