@@ -67,10 +67,10 @@ PLANNING: comprehensive file analysis → dependency mapping → test identifica
 EXECUTION: edit_file (Morph-powered) → run_terminal_cmd (test) → verify changes
 VERIFICATION: lint → unit tests → integration tests → manual verification
 
-DATA LAYER SELECTION:
-- If the codebase contains Convex signals (e.g., convex.json, convex/ directory, convex deps), use Convex queries/mutations and the Convex CLI.
-- If the codebase contains Prisma signals (e.g., schema.prisma, @prisma/client), use Prisma client patterns and Prisma migrations.
-- Never assume Convex exists in a repo; if you can't find Convex config, do not propose "npx convex ..." commands.
+DATA LAYER (THIS CODEBASE):
+- PRIMARY: Convex - use convex/ mutations and queries (api.tasks, api.messages, api.todos, etc.) via convex-operations.ts wrappers.
+- Use "npx convex dev" for local dev; "npx convex deploy" for production pushes.
+- Prisma (@repo/db) is legacy/auth-only; prefer Convex for all new database operations.
 </tool_usage>`;
 
 const MORPH_SDK_TOOLS = `<morph_sdk_tools>
