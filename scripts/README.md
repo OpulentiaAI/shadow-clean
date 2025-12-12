@@ -42,3 +42,46 @@ aws configure sso --profile=ID
 # Clean up infrastructure
 ./scripts/cleanup-infrastructure.sh
 ```
+
+## Production agent E2E (Convex)
+
+Run an end-to-end agent/tool-calling smoke test against the production Convex deployment using real tasks from your existing task history.
+
+This script:
+- Selects recent, repo-backed tasks for a user (not scratchpads)
+- Runs `streaming:streamChatWithTools` across a production model matrix
+- Verifies tool execution via `toolCallTracking:byMessage` (flags schema/tool-call errors and stuck RUNNING calls)
+
+### Run
+
+From repo root:
+
+```bash
+E2E_USER_EMAIL="you@example.com" npm run e2e:prod-agent
+```
+
+Or, if you already know your Convex `users` table id:
+
+```bash
+E2E_USER_ID="<convex-users-id>" npm run e2e:prod-agent
+```
+
+### Environment variables
+
+- `CONVEX_URL` (optional): defaults to `https://veracious-alligator-638.convex.cloud`
+- `E2E_USER_EMAIL` (required if `E2E_USER_ID` is not set)
+- `E2E_USER_ID` (optional): skips email lookup
+
+### Optional knobs
+
+- `E2E_TASK_LIMIT` (default: `3`)
+- `E2E_ACTION_TIMEOUT_MS` (default: `120000`)
+- `E2E_BETWEEN_RUNS_MS` (default: `200`)
+- `E2E_MODELS` (comma-separated): override the model list
+
+### Output
+
+The script prints:
+- A one-line status per `(task, model)` run
+- A final summary (`failures=X/Y`)
+- A full JSON report prefixed with `E2E_REPORT_JSON` (for copy/paste into issues/CI logs)

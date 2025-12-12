@@ -5,6 +5,7 @@
     "build": "turbo run build",
     "dev": "turbo run dev --filter=!sidecar",
     "dev:app": "turbo run dev --filter=server --filter=frontend",
+    "e2e:prod-agent": "node ./scripts/prod-agent-e2e.mjs",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "check-types": "turbo run check-types",
