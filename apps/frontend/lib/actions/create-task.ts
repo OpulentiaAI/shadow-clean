@@ -325,7 +325,10 @@ export async function createTask(formData: FormData) {
           }
         }
       } catch (error) {
-        console.error(`[TASK_CREATION] Error initiating task ${taskId}:`, error);
+        console.error(
+          `[TASK_CREATION] Error initiating task ${taskId}:`,
+          error
+        );
 
         await updateTask({
           taskId,

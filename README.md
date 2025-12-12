@@ -36,6 +36,8 @@ Sets up isolated execution environments for AI agents to work on GitHub reposito
 - Hybrid fallback remains: legacy Socket.IO sidecar events and REST are still available while UI wiring catches up. Use `NEXT_PUBLIC_USE_CONVEX_REALTIME=true` (frontend) to opt into Convex streaming.
 - Provider routing now prefers OpenRouter (first-party), with Anthropic/OpenAI fallbacks and abortable cancellation; presence cleanup runs via `convex/crons.ts`.
 - Streaming tools (file/terminal/search/memory/todos) execute through the tool API and are tracked in the `agentTools` table. Some OpenRouter models (notably Kimi) may emit `tool-input-*` parts without streaming args; `streamChatWithTools` includes CLI-friendly fallbacks to recover args and still execute tools reliably.
+- Enhanced task creation with automatic Convex streaming integration, background initialization, and comprehensive error handling.
+- Multi-provider API key management with secure server-side resolution for Anthropic, OpenAI, and OpenRouter.
 
 ### Convex streaming quick test (local)
 - Set frontend env: `NEXT_PUBLIC_CONVEX_URL=<your convex>`, `NEXT_PUBLIC_USE_CONVEX_REALTIME=true`, `NEXT_PUBLIC_API_URL=http://localhost:4000`.
