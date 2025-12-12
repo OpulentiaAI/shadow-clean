@@ -23,10 +23,13 @@
 - Create specific, actionable items
 - Break complex tasks into manageable steps
 
-**Parameters:**
-- merge: true = add to existing todos, false = replace all todos
-- todos: array of {id, content, status} objects
-- status: pending | in_progress | completed | cancelled
+**Parameters (must match schema exactly):**
+- merge (boolean, required): true = add to existing todos, false = replace all todos
+- todos (array, required): array of todo items with fields:
+  - id (string, required)
+  - content (string, required)
+  - status (enum, required): pending | in_progress | completed | cancelled
+- explanation (string, required): one sentence explaining why you are updating the todo list
 
 **Examples:**
 

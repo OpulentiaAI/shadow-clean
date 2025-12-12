@@ -15,8 +15,9 @@
 Memories are automatically organized by category and show creation dates. Categories include:
 - INFRA, SETUP, STYLES, ARCHITECTURE, TESTING, PATTERNS, BUGS, PERFORMANCE, CONFIG, GENERAL
 
-**Parameters:**
-- explanation: Brief description of why you're retrieving memories (helps with context)
+**Parameters (must match schema exactly):**
+- category (string enum, optional)
+- explanation (string, required): Brief description of why you're retrieving memories
 
 **Examples:**
 

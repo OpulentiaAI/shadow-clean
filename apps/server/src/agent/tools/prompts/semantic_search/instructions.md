@@ -1,5 +1,9 @@
 **Purpose**: Search the codebase for relevant code snippets using semantic search
 
+**Parameters (must match schema exactly):**
+- query (string, required)
+- explanation (string, required)
+
 **When to Use:**
 - Find code by meaning and context rather than exact text matches
 - Explore code functionality when you don't know exact keywords

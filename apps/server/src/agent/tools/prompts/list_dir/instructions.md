@@ -1,5 +1,9 @@
 **Purpose**: Quick directory exploration for discovery
 
+**Parameters (must match schema exactly):**
+- relative_workspace_path (string, required)
+- explanation (string, required)
+
 **Best For:**
 - Initial project structure understanding
 - Exploring before semantic search

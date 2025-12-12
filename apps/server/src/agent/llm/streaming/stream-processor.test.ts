@@ -1,7 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StreamProcessor } from './stream-processor';
-import { Message, ModelType, ApiKeys, AvailableModels } from '@repo/types';
+import { Message, ApiKeys, AvailableModels } from '@repo/types';
 import * as aiSdk from 'ai';
+
+type RepairToolCallFn = (args: {
+  system: string | undefined;
+  messages: unknown[];
+  toolCall: {
+    toolCallType: 'function';
+    toolCallId: string;
+    toolName: string;
+    args: unknown;
+  };
+  tools: Record<string, unknown>;
+  error: Error;
+}) => Promise<
+  | {
+      toolCallType: 'function';
+      toolCallId: string;
+      toolName: string;
+      args: string;
+    }
+  | null
+>;
 
 // Mock dependencies
 vi.mock('ai', () => ({
@@ -50,15 +71,20 @@ describe('StreamProcessor-unit-test', () => {
         role: 'user',
         content: 'Hello',
         id: 'msg-1',
-        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        llmModel: AvailableModels.CLAUDE_SONNET_4,
       },
     ];
   });
 
   it('initializes with model provider and chunk handlers', () => {
     expect(streamProcessor).toBeDefined();
-    expect((streamProcessor as any).modelProvider).toBeDefined();
-    expect((streamProcessor as any).chunkHandlers).toBeDefined();
+    const internal = streamProcessor as unknown as {
+      modelProvider: unknown;
+      chunkHandlers: unknown;
+    };
+    expect(internal.modelProvider).toBeDefined();
+    expect(internal.chunkHandlers).toBeDefined();
   });
 
   it('creates message stream with Anthropic model and proper configuration', async () => {
@@ -74,7 +100,9 @@ describe('StreamProcessor-unit-test', () => {
       textStream: null,
     };
 
-    vi.mocked(aiSdk.streamText).mockReturnValue(mockStreamResult as any);
+    vi.mocked(aiSdk.streamText).mockReturnValue(
+      mockStreamResult as unknown as ReturnType<typeof aiSdk.streamText>
+    );
 
     const systemPrompt = 'You are a helpful assistant';
     const model = AvailableModels.CLAUDE_SONNET_4;
@@ -145,7 +173,9 @@ describe('StreamProcessor-unit-test', () => {
       textStream: null,
     };
 
-    vi.mocked(aiSdk.streamText).mockReturnValue(mockStreamResult as any);
+    vi.mocked(aiSdk.streamText).mockReturnValue(
+      mockStreamResult as unknown as ReturnType<typeof aiSdk.streamText>
+    );
 
     const systemPrompt = 'You are a helpful assistant';
     const model = AvailableModels.CLAUDE_SONNET_4;
@@ -169,6 +199,149 @@ describe('StreamProcessor-unit-test', () => {
     const streamConfig = vi.mocked(aiSdk.streamText).mock.calls[0][0];
     expect(streamConfig).toHaveProperty('tools');
     expect(streamConfig).toHaveProperty('toolCallStreaming', true);
+  });
+
+  it('auto-normalizes read_file args during repair without re-asking the model', async () => {
+    const mockFullStream = {
+      [Symbol.asyncIterator]: async function* () {
+        yield {
+          type: 'finish',
+          finishReason: 'stop',
+          usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        };
+      },
+    };
+
+    const mockStreamResult = {
+      fullStream: mockFullStream,
+      textStream: null,
+    };
+
+    vi.mocked(aiSdk.streamText).mockReturnValue(
+      mockStreamResult as unknown as ReturnType<typeof aiSdk.streamText>
+    );
+    vi.mocked(aiSdk.generateText).mockResolvedValue(
+      { toolCalls: [] } as unknown as Awaited<ReturnType<typeof aiSdk.generateText>>
+    );
+
+    const systemPrompt = 'You are a helpful assistant';
+    const model = AvailableModels.CLAUDE_SONNET_4;
+
+    const stream = streamProcessor.createMessageStream(
+      systemPrompt,
+      mockMessages,
+      model,
+      mockApiKeys,
+      true,
+      'task-args-normalize'
+    );
+
+    for await (const _ of stream) {
+      // consume
+    }
+
+    const streamConfig =
+      vi.mocked(aiSdk.streamText).mock.calls[0]?.[0] as unknown as {
+        experimental_repairToolCall?: unknown;
+      };
+    const repairFn =
+      streamConfig.experimental_repairToolCall as unknown as RepairToolCallFn;
+    expect(typeof repairFn).toBe('function');
+
+    const toolCall = {
+      toolCallType: 'function' as const,
+      toolCallId: 'tc-1',
+      toolName: 'read_file',
+      args: JSON.stringify({ file_path: 'src/index.ts' }),
+    };
+
+    const repaired = await repairFn({
+      system: undefined,
+      messages: [],
+      toolCall,
+      tools: {},
+      error: new aiSdk.InvalidToolArgumentsError({
+        toolName: 'read_file',
+        toolArgs: toolCall.args as string,
+        cause: new Error('invalid args'),
+      }),
+    });
+
+    expect(aiSdk.generateText).not.toHaveBeenCalled();
+    expect(repaired).not.toBeNull();
+    if (!repaired) throw new Error('Expected repaired tool call');
+    expect(repaired.toolCallId).toBe('tc-1');
+    expect(repaired.toolName).toBe('read_file');
+
+    const repairedArgs = JSON.parse(repaired.args);
+    expect(repairedArgs.target_file).toBe('src/index.ts');
+    expect(repairedArgs.should_read_entire_file).toBe(false);
+    expect(typeof repairedArgs.explanation).toBe('string');
+    expect(repairedArgs.explanation.length).toBeGreaterThan(0);
+  });
+
+  it('caps repair attempts per toolCallId to prevent infinite loops', async () => {
+    const mockFullStream = {
+      [Symbol.asyncIterator]: async function* () {
+        yield {
+          type: 'finish',
+          finishReason: 'stop',
+          usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        };
+      },
+    };
+
+    const mockStreamResult = {
+      fullStream: mockFullStream,
+      textStream: null,
+    };
+
+    vi.mocked(aiSdk.streamText).mockReturnValue(
+      mockStreamResult as unknown as ReturnType<typeof aiSdk.streamText>
+    );
+    vi.mocked(aiSdk.generateText).mockResolvedValue(
+      { toolCalls: [] } as unknown as Awaited<ReturnType<typeof aiSdk.generateText>>
+    );
+
+    const stream = streamProcessor.createMessageStream(
+      'You are a helpful assistant',
+      mockMessages,
+      AvailableModels.CLAUDE_SONNET_4,
+      mockApiKeys,
+      true,
+      'task-repair-cap'
+    );
+
+    for await (const _ of stream) {
+      // consume
+    }
+
+    const streamConfig =
+      vi.mocked(aiSdk.streamText).mock.calls[0]?.[0] as unknown as {
+        experimental_repairToolCall?: unknown;
+      };
+    const repairFn =
+      streamConfig.experimental_repairToolCall as unknown as RepairToolCallFn;
+
+    const toolCall = {
+      toolCallType: 'function' as const,
+      toolCallId: 'tc-cap',
+      toolName: 'read_file',
+      args: JSON.stringify({}),
+    };
+
+    const error = new aiSdk.InvalidToolArgumentsError({
+      toolName: 'read_file',
+      toolArgs: toolCall.args as string,
+      cause: new Error('invalid args'),
+    });
+
+    await repairFn({ system: undefined, messages: [], toolCall, tools: {}, error });
+    await repairFn({ system: undefined, messages: [], toolCall, tools: {}, error });
+    await repairFn({ system: undefined, messages: [], toolCall, tools: {}, error });
+    await repairFn({ system: undefined, messages: [], toolCall, tools: {}, error });
+
+    expect(aiSdk.generateText).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -194,7 +367,8 @@ describe('StreamProcessor-integration-test', () => {
           role: 'user',
           content: 'Say "test successful" and nothing else',
           id: 'msg-1',
-          timestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          llmModel: AvailableModels.CLAUDE_3_5_HAIKU,
         },
       ];
 

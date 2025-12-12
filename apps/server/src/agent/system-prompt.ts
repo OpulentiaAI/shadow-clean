@@ -3,13 +3,7 @@ import {
   generateToolGuidance,
 } from "./tools/prompts/tools-prompt";
 import type { ToolSet } from "ai";
-import {
-  getTask,
-  getCodebaseUnderstanding,
-  getCodebaseByRepo,
-  updateTask,
-  toConvexId,
-} from "../lib/convex-operations";
+import { prisma } from "@repo/db";
 
 const IDENTITY_AND_CAPABILITIES = `You are an AI coding assistant working within Shadow, an autonomous coding platform. You operate in an isolated microVM with full system access to complete long-running coding tasks. Your environment is streamed live to a user who can observe, interrupt, or provide guidance at any time.
 
@@ -40,7 +34,7 @@ When starting a new task, you must first comprehensively understand:
 1. Repository structure and technology stack
 2. Existing code patterns and conventions
 3. Test infrastructure and development workflows
-4. Dependencies and external integrations
+4. Data/persistence layer (e.g., Prisma vs Convex) and external integrations
 5. Areas of code your task will impact
 
 Use semantic search extensively. Start broad, then narrow down.
@@ -72,6 +66,11 @@ UNDERSTANDING: warp_grep → semantic_search → targeted reading → pattern an
 PLANNING: comprehensive file analysis → dependency mapping → test identification
 EXECUTION: edit_file (Morph-powered) → run_terminal_cmd (test) → verify changes
 VERIFICATION: lint → unit tests → integration tests → manual verification
+
+DATA LAYER SELECTION:
+- If the codebase contains Convex signals (e.g., convex.json, convex/ directory, convex deps), use Convex queries/mutations and the Convex CLI.
+- If the codebase contains Prisma signals (e.g., schema.prisma, @prisma/client), use Prisma client patterns and Prisma migrations.
+- Never assume Convex exists in a repo; if you can't find Convex config, do not propose "npx convex ..." commands.
 </tool_usage>`;
 
 const MORPH_SDK_TOOLS = `<morph_sdk_tools>
@@ -140,14 +139,14 @@ PARALLEL OPPORTUNITIES:
 
 EXAMPLES:
 ✅ GOOD - Parallel Discovery:
-- semantic_search("authentication system")
-- list_dir("src/auth") 
-- read_file("package.json")
+- semantic_search({ query: "authentication system", explanation: "Find relevant code paths for auth" })
+- list_dir({ relative_workspace_path: "src/auth", explanation: "Explore auth folder structure" })
+- read_file({ target_file: "package.json", should_read_entire_file: false, explanation: "Inspect scripts and dependencies" })
 
 ❌ BAD - Sequential Discovery:
-- semantic_search("authentication system") → wait for result
-- list_dir("src/auth") → wait for result
-- read_file("package.json") → wait for result
+- semantic_search({ query: "authentication system", explanation: "Find relevant code paths for auth" }) → wait for result
+- list_dir({ relative_workspace_path: "src/auth", explanation: "Explore auth folder structure" }) → wait for result
+- read_file({ target_file: "package.json", should_read_entire_file: false, explanation: "Inspect scripts and dependencies" }) → wait for result
 
 WHEN TO AVOID PARALLEL:
 - Operations with dependencies (read file → edit based on content)
@@ -290,32 +289,40 @@ async function getExistingShadowWikiContent(taskId: string): Promise<string> {
 
   try {
     // Get task details
-    const task = await getTask(toConvexId<"tasks">(taskId));
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { codebaseUnderstanding: true },
+    });
 
     if (!task) return "";
 
-    // Get codebase understanding if task has a reference
-    let codebaseUnderstanding = task.codebaseUnderstandingId
-      ? await getCodebaseUnderstanding(task.codebaseUnderstandingId)
-      : null;
+    let codebaseUnderstanding = task.codebaseUnderstanding;
 
     // If no codebase understanding exists for this task, check if one exists for the repo
     if (!codebaseUnderstanding) {
-      codebaseUnderstanding = await getCodebaseByRepo(task.repoFullName);
+      codebaseUnderstanding = await prisma.codebaseUnderstanding.findUnique({
+        where: { repoFullName: task.repoFullName },
+      });
 
       // If we found one for the repo, link it to this task
       if (codebaseUnderstanding) {
-        await updateTask({
-          taskId: toConvexId<"tasks">(taskId),
-          codebaseUnderstandingId: codebaseUnderstanding._id,
+        await prisma.task.update({
+          where: { id: taskId },
+          data: { codebaseUnderstandingId: codebaseUnderstanding.id },
         });
       }
     }
 
     // Extract content if available (never generate - that happens during initialization)
     if (codebaseUnderstanding?.content) {
-      const content = codebaseUnderstanding.content as Record<string, unknown>;
-      const rootSummary = (content.rootSummary as string) || "";
+      const content: unknown = codebaseUnderstanding.content;
+      const rootSummary =
+        content &&
+        typeof content === "object" &&
+        "rootSummary" in content &&
+        typeof (content as Record<string, unknown>).rootSummary === "string"
+          ? ((content as Record<string, unknown>).rootSummary as string)
+          : "";
 
       if (rootSummary) {
         return `

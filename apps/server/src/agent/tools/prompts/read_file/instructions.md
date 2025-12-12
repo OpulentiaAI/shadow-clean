@@ -3,6 +3,13 @@
 **Critical Responsibility**: Ensure you have COMPLETE context for your task
 **Path Requirement**: Always use relative paths from workspace root, not absolute paths
 
+**Parameters (must match schema exactly):**
+- target_file (string, required)
+- should_read_entire_file (boolean, required)
+- start_line_one_indexed (number, optional)
+- end_line_one_indexed_inclusive (number, optional)
+- explanation (string, required)
+
 **Strategy:**
 1. Assess if contents viewed are sufficient to proceed
 2. Note where there are lines not shown  
