@@ -17,9 +17,11 @@ const BOTTOM_PADDING = 200;
 export default function InitializingAnimation({
   taskId,
   userMessageWrapperRef,
+  variant = "overlay",
 }: {
   taskId: string;
   userMessageWrapperRef: React.RefObject<HTMLButtonElement | null>;
+  variant?: "overlay" | "inline";
 }) {
   const { data } = useTaskStatus(taskId);
   const { data: userSettings } = useUserSettings();
@@ -27,10 +29,12 @@ export default function InitializingAnimation({
 
   const [topSpacing, setTopSpacing] = useState(0);
   useEffect(() => {
-    if (userMessageWrapperRef.current) {
+    if (variant === "overlay" && userMessageWrapperRef.current) {
       setTopSpacing(userMessageWrapperRef.current.clientHeight + 32);
+      return;
     }
-  }, [userMessageWrapperRef]);
+    setTopSpacing(0);
+  }, [userMessageWrapperRef, variant]);
 
   const mode =
     process.env.NEXT_PUBLIC_VERCEL_ENV === "production" ||
@@ -52,7 +56,9 @@ export default function InitializingAnimation({
   return (
     <div
       className={cn(
-        "font-departureMono bg-background pointer-events-none absolute z-20 flex w-full select-none flex-col gap-1 px-3 tracking-tight transition-[visibility,opacity,transform] duration-1000 ease-in-out",
+        variant === "overlay"
+          ? "font-departureMono bg-background pointer-events-none absolute z-20 flex w-full select-none flex-col gap-1 px-3 tracking-tight transition-[visibility,opacity,transform] duration-1000 ease-in-out"
+          : "font-departureMono bg-background/80 relative z-10 flex w-full select-none flex-col gap-1 px-3 pb-2 pt-2 tracking-tight backdrop-blur transition-[visibility,opacity,transform] duration-300 ease-in-out",
         currentStepIndex === steps.length ||
           status !== "INITIALIZING" ||
           // hasBeenInitialized serves as a check for
@@ -63,8 +69,8 @@ export default function InitializingAnimation({
           : "visible opacity-100"
       )}
       style={{
-        paddingBottom: `${BOTTOM_PADDING}px`,
-        top: `${topSpacing}px`,
+        paddingBottom: variant === "overlay" ? `${BOTTOM_PADDING}px` : undefined,
+        top: variant === "overlay" ? `${topSpacing}px` : undefined,
       }}
     >
       <AnimationHeader />

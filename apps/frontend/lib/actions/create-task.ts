@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth/auth";
 import { headers } from "next/headers";
-import { z, ZodIssue } from "zod";
+import { z, type ZodIssue } from "zod";
 import { generateTaskTitleAndBranch } from "./generate-title-branch";
 import {
   generateTaskId,
@@ -17,7 +17,6 @@ import { makeBackendRequest } from "../make-backend-request";
 import {
   createTask as createConvexTask,
   countActiveTasks,
-  initiateTask as initiateConvexTask,
   upsertUser,
   appendMessage,
   updateTask,
@@ -236,60 +235,72 @@ export async function createTask(formData: FormData) {
       llmModel: model,
     });
 
-    // Initiate the task immediately (synchronously) instead of using after()
-    // This ensures workspace initialization begins right after task creation
-    try {
-      console.log(`[TASK_CREATION] Initiating task ${taskId} immediately`, {
-        model,
-        isScratchpad,
-      });
+    // IMPORTANT: Do not block task creation on workspace initialization / streaming.
+    // We want to redirect to the task page immediately so the user can see init progress
+    // and streaming tool calls as they happen.
+    console.log(`[TASK_CREATION] Scheduling task initiation in background`, {
+      taskId,
+      model,
+      isScratchpad,
+    });
 
-      // Forward cookies from the original request
-      const requestHeaders = await headers();
-      const cookieHeader = requestHeaders.get("cookie");
+    // Forward cookies from the original request (must capture inside request scope).
+    const requestHeaders = await headers();
+    const cookieHeader = requestHeaders.get("cookie");
 
-      // Check if Convex streaming is enabled to skip backend LLM processing
-      const useConvexStreaming =
-        process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
+    // Check if Convex streaming is enabled to skip backend LLM processing
+    const useConvexStreaming =
+      process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
 
-      const response = await makeBackendRequest(
-        `/api/tasks/${taskId}/initiate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(cookieHeader && { Cookie: cookieHeader }),
-          },
-          body: JSON.stringify({
-            message,
-            model,
-            userId: userId,
-            // When Convex streaming is enabled, skip backend LLM processing
-            // Convex streamChatWithTools action will handle the LLM call
-            useConvexStreaming,
-          }),
-        }
-      );
+    void (async () => {
+      try {
+        console.log(`[TASK_CREATION] Initiating task ${taskId} (background)`, {
+          model,
+          isScratchpad,
+          useConvexStreaming,
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `[TASK_CREATION] Failed to initiate task ${taskId}: status=${response.status}`,
-          errorText
+        const response = await makeBackendRequest(
+          `/api/tasks/${taskId}/initiate`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(cookieHeader && { Cookie: cookieHeader }),
+            },
+            body: JSON.stringify({
+              message,
+              model,
+              userId: userId,
+              // When Convex streaming is enabled, skip backend LLM processing
+              // Convex streamChatWithTools action will handle the LLM call
+              useConvexStreaming,
+            }),
+          }
         );
 
-        // Update task status to failed if initialization fails
-        await updateTask({
-          taskId,
-          status: "FAILED",
-          initializationError: `Initialization failed: ${errorText}`,
-        });
-      } else {
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `[TASK_CREATION] Failed to initiate task ${taskId}: status=${response.status}`,
+            errorText
+          );
+
+          await updateTask({
+            taskId,
+            status: "FAILED",
+            initializationError: `Initialization failed: ${errorText}`,
+          });
+          return;
+        }
+
         console.log(`[TASK_CREATION] Successfully initiated task ${taskId}`);
-        
+
         // Trigger Convex streaming for initial message when enabled
         if (useConvexStreaming) {
-          console.log(`[TASK_CREATION] Triggering Convex streaming for task ${taskId}`);
+          console.log(
+            `[TASK_CREATION] Triggering Convex streaming for task ${taskId}`
+          );
           try {
             await streamChatWithTools({
               taskId,
@@ -303,23 +314,26 @@ export async function createTask(formData: FormData) {
                 openrouter: undefined,
               },
             });
-            console.log(`[TASK_CREATION] Convex streaming completed for task ${taskId}`);
+            console.log(
+              `[TASK_CREATION] Convex streaming completed for task ${taskId}`
+            );
           } catch (streamError) {
-            console.error(`[TASK_CREATION] Convex streaming error for task ${taskId}:`, streamError);
-            // Don't fail the task creation - streaming error is recoverable
+            console.error(
+              `[TASK_CREATION] Convex streaming error for task ${taskId}:`,
+              streamError
+            );
           }
         }
-      }
-    } catch (error) {
-      console.error(`[TASK_CREATION] Error initiating task ${taskId}:`, error);
+      } catch (error) {
+        console.error(`[TASK_CREATION] Error initiating task ${taskId}:`, error);
 
-      // Update task status to failed if there's an error
-      await updateTask({
-        taskId,
-        status: "FAILED",
-        initializationError: `Initialization error: ${error instanceof Error ? error.message : String(error)}`,
-      });
-    }
+        await updateTask({
+          taskId,
+          status: "FAILED",
+          initializationError: `Initialization error: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
+    })();
   } catch (error) {
     console.error("Failed to create task:", error);
     throw new Error("Failed to create task");
