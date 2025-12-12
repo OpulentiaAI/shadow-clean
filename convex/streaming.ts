@@ -200,7 +200,7 @@ export const streamChat = action({
 
     try {
       // Import AI SDK dynamically (server-side only)
-      const { streamText, stepCountIs } = await import("ai");
+      const { streamText } = await import("ai");
       const providerModel = resolveProvider({
         model: args.model,
         apiKeys: args.apiKeys || {},
@@ -465,7 +465,7 @@ export const streamChatWithTools = action({
             `[STREAMING] Received first stream part, type: ${partType}`
           );
         }
-        if (partType && partType.includes("tool")) {
+        if (partType?.includes("tool")) {
           console.log(
             `[STREAMING] TOOL STREAM PART type=${partType} payload=${JSON.stringify(part).substring(0, 500)}`
           );
@@ -501,8 +501,12 @@ export const streamChatWithTools = action({
           partType === "tool-call-start"
         ) {
           const rawToolCallId = (part as any).toolCallId ?? (part as any).id;
-          const toolCallIdRaw = rawToolCallId ? String(rawToolCallId).trim() : "";
-          const toolCallId = toolCallIdRaw ? normalizeToolCallId(toolCallIdRaw) : "";
+          const toolCallIdRaw = rawToolCallId
+            ? String(rawToolCallId).trim()
+            : "";
+          const toolCallId = toolCallIdRaw
+            ? normalizeToolCallId(toolCallIdRaw)
+            : "";
 
           const rawToolName =
             (part as any).toolName ?? (part as any).name ?? "unknown-tool";
@@ -584,7 +588,13 @@ export const streamChatWithTools = action({
             ],
           });
         } else if (partType === "tool-call") {
-          const toolCallId = (part as any).toolCallId ?? (part as any).id;
+          const rawToolCallId = (part as any).toolCallId ?? (part as any).id;
+          const toolCallIdRaw = rawToolCallId
+            ? String(rawToolCallId).trim()
+            : "";
+          const toolCallId = toolCallIdRaw
+            ? normalizeToolCallId(toolCallIdRaw)
+            : "";
           const toolName =
             (part as any).toolName ?? (part as any).name ?? "unknown-tool";
           const toolArgs = (part as any).args ?? (part as any).input;
@@ -630,8 +640,17 @@ export const streamChatWithTools = action({
             ],
           });
         } else if (partType === "tool-result") {
-          const toolCallId = (part as any).toolCallId ?? (part as any).id;
-          const toolName = (part as any).toolName ?? "unknown-tool";
+          const rawToolCallId = (part as any).toolCallId ?? (part as any).id;
+          const toolCallIdRaw = rawToolCallId
+            ? String(rawToolCallId).trim()
+            : "";
+          const toolCallId = toolCallIdRaw
+            ? normalizeToolCallId(toolCallIdRaw)
+            : "";
+          const toolName =
+            (part as any).toolName ??
+            toolCallStates.get(toolCallId)?.toolName ??
+            "unknown-tool";
           const toolResult = (part as any).result ?? (part as any).output;
           if (!toolCallId) continue;
 
@@ -684,7 +703,8 @@ export const streamChatWithTools = action({
           prompt: string
         ): Record<string, unknown> | null => {
           const markerIdx = prompt.indexOf("JSON args:");
-          const searchStart = markerIdx >= 0 ? markerIdx + "JSON args:".length : 0;
+          const searchStart =
+            markerIdx >= 0 ? markerIdx + "JSON args:".length : 0;
           const s = prompt.slice(searchStart);
 
           const firstBrace = s.indexOf("{");
@@ -759,8 +779,7 @@ export const streamChatWithTools = action({
                 | string
                 | undefined;
               const workspacePathOverride =
-                candidateTaskWorkspace ||
-                "/workspace";
+                candidateTaskWorkspace || "/workspace";
               const serverUrl =
                 process.env.SHADOW_SERVER_URL || "http://localhost:4000";
               const toolApiKey =
@@ -785,7 +804,9 @@ export const streamChatWithTools = action({
                 );
                 if (!resp.ok) {
                   const errorText = await resp.text();
-                  throw new Error(`Tool API error: ${resp.status} - ${errorText}`);
+                  throw new Error(
+                    `Tool API error: ${resp.status} - ${errorText}`
+                  );
                 }
                 toolResult = await resp.json();
                 // If the workspace path doesn't exist on the tool server, retry against /workspace
@@ -831,13 +852,67 @@ export const streamChatWithTools = action({
                 result: toolResult,
                 status: "COMPLETED",
               });
-              // Tool result stored in tracking; no need to add to parts here
+              // IMPORTANT: Also append tool-call + tool-result parts to the message metadata
+              // so the streaming UI (which primarily renders `message.metadata.parts`) can
+              // display the completed tool output even when the model stops after emitting
+              // only tool-input-* deltas.
+              await ctx.runMutation(api.messages.appendStreamDelta, {
+                messageId,
+                deltaText: "",
+                isFinal: false,
+                parts: [
+                  {
+                    type: "tool-call",
+                    toolCallId,
+                    toolName: state.toolName,
+                    args: execArgs,
+                    partialArgs: execArgs,
+                    streamingState: "complete",
+                    argsComplete: true,
+                    accumulatedArgsText: state.accumulatedArgsText,
+                  },
+                  {
+                    type: "tool-result",
+                    toolCallId,
+                    toolName: state.toolName,
+                    result: toolResult,
+                  },
+                ],
+              });
             } catch (toolErr) {
               console.error(`[STREAMING] [v6] Tool failed:`, toolErr);
+              const failedResult = {
+                success: false,
+                error: String(toolErr),
+              };
               await ctx.runMutation(api.toolCallTracking.updateResult, {
                 toolCallId,
-                result: { error: String(toolErr) },
+                result: failedResult,
                 status: "FAILED",
+              });
+              // Also surface failures in message parts so the UI doesn't "die silently".
+              await ctx.runMutation(api.messages.appendStreamDelta, {
+                messageId,
+                deltaText: "",
+                isFinal: false,
+                parts: [
+                  {
+                    type: "tool-call",
+                    toolCallId,
+                    toolName: state.toolName,
+                    args: execArgs,
+                    partialArgs: execArgs,
+                    streamingState: "complete",
+                    argsComplete: true,
+                    accumulatedArgsText: state.accumulatedArgsText,
+                  },
+                  {
+                    type: "tool-result",
+                    toolCallId,
+                    toolName: state.toolName,
+                    result: failedResult,
+                  },
+                ],
               });
             }
           }
