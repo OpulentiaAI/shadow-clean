@@ -1430,6 +1430,17 @@ Continue now.`;
           typeof finalFinishReason === "string" ? finalFinishReason : undefined,
       });
 
+      // Cleanup: mark any stale RUNNING/PENDING tool calls as FAILED
+      const staleCleanup = await ctx.runMutation(
+        api.toolCallTracking.failStaleRunning,
+        { messageId }
+      );
+      if (staleCleanup.marked > 0) {
+        console.log(
+          `[STREAMING] Marked ${staleCleanup.marked} stale tool calls as FAILED`
+        );
+      }
+
       console.log(
         `[STREAMING] Streaming completed successfully, text length: ${accumulatedText.length}`
       );

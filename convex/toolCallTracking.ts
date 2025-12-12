@@ -117,6 +117,32 @@ export const byToolCallId = query({
 });
 
 /**
+ * Mark all RUNNING tool calls for a message as FAILED (cleanup after streaming completes)
+ */
+export const failStaleRunning = mutation({
+  args: {
+    messageId: v.id("chatMessages"),
+  },
+  handler: async (ctx, args) => {
+    const tools = await ctx.db
+      .query("agentTools")
+      .withIndex("by_message", (q) => q.eq("messageId", args.messageId))
+      .collect();
+
+    const stale = tools.filter((t) => t.status === "RUNNING" || t.status === "PENDING");
+    for (const tool of stale) {
+      await ctx.db.patch(tool._id, {
+        status: "FAILED",
+        error: "Tool call did not complete before streaming ended",
+        completedAt: Date.now(),
+      });
+    }
+
+    return { marked: stale.length };
+  },
+});
+
+/**
  * Delete all tool calls for a task (cleanup)
  */
 export const deleteByTask = mutation({
