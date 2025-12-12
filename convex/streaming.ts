@@ -955,16 +955,66 @@ Continue now.`;
                 console.log(
                   `[STREAMING] [v6] Recovered tool args from prompt for ${state.toolName}: ${Object.keys(recovered).join(",")}`
                 );
-                Object.assign(execArgs, recovered);
+                // Only apply recovered args if they appear to match the current tool.
+                // Some models (notably Kimi) may include JSON for a different tool in the prompt.
+                if (
+                  state.toolName === "list_dir" &&
+                  typeof (recovered as any).relative_workspace_path === "string" &&
+                  typeof (recovered as any).explanation === "string"
+                ) {
+                  Object.assign(execArgs, recovered);
+                } else if (
+                  state.toolName === "read_file" &&
+                  typeof (recovered as any).target_file === "string" &&
+                  typeof (recovered as any).explanation === "string"
+                ) {
+                  Object.assign(execArgs, recovered);
+                } else if (
+                  state.toolName === "grep_search" &&
+                  typeof (recovered as any).query === "string" &&
+                  typeof (recovered as any).explanation === "string"
+                ) {
+                  Object.assign(execArgs, recovered);
+                } else if (
+                  state.toolName === "file_search" &&
+                  typeof (recovered as any).query === "string" &&
+                  typeof (recovered as any).explanation === "string"
+                ) {
+                  Object.assign(execArgs, recovered);
+                }
               }
             }
-            // Some providers emit tool-input-start without args; for list_dir we can safely default.
+            // Some providers (notably Kimi) emit tool-input-start without args; auto-fill when possible.
             if (
               state.toolName === "list_dir" &&
-              Object.keys(execArgs).length === 0
+              (typeof execArgs.relative_workspace_path !== "string" ||
+                typeof execArgs.explanation !== "string")
             ) {
               execArgs.relative_workspace_path = ".";
               execArgs.explanation = "Auto-filled missing tool args";
+            }
+            // For read_file, try to extract filename from prompt if args missing
+            if (
+              state.toolName === "read_file" &&
+              (!execArgs.target_file || Object.keys(execArgs).length === 0)
+            ) {
+              // Extract common file patterns from prompt
+              const filePatterns = [
+                /read\s+(?:the\s+)?([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)/i,
+                /([a-zA-Z0-9_\-./]+\.(?:md|txt|json|ts|tsx|js|jsx|py|yaml|yml|toml|env))/i,
+              ];
+              for (const pattern of filePatterns) {
+                const match = promptForRound.match(pattern);
+                if (match?.[1]) {
+                  execArgs.target_file = match[1];
+                  execArgs.should_read_entire_file = true;
+                  execArgs.explanation = "Auto-filled from prompt context";
+                  console.log(
+                    `[STREAMING] [v8] Auto-filled read_file args from prompt: ${match[1]}`
+                  );
+                  break;
+                }
+              }
             }
 
             if (toolDef?.execute && Object.keys(execArgs).length > 0) {
