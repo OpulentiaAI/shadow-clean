@@ -303,12 +303,15 @@ export function PromptForm({
       }
 
       // Check if this is a local repo (path starts with / or ~, or owner type is "local")
-      const isLocalRepo = repo.full_name.startsWith("/") || 
-                          repo.full_name.startsWith("~") ||
-                          repo.owner?.type === "local";
-      
+      const isLocalRepo =
+        repo.full_name.startsWith("/") ||
+        repo.full_name.startsWith("~") ||
+        repo.owner?.type === "local";
+
       // For local repos, use the full_name as the path; for GitHub, construct the URL
-      const repoUrl = isLocalRepo ? repo.full_name : `https://github.com/${repo.full_name}`;
+      const repoUrl = isLocalRepo
+        ? repo.full_name
+        : `https://github.com/${repo.full_name}`;
 
       const formData = new FormData();
       formData.append("message", message);

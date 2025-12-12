@@ -63,11 +63,11 @@ export function HomePageContent({
   const [isPending, startTransition] = useTransition();
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
   const [message, setMessage] = useState("");
-  
+
   const { session, isLoading } = useAuthSession();
   const { data: querySelectedModel } = useSelectedModel();
   const queryClient = useQueryClient();
-  
+
   const [selectedModel, setSelectedModel] = useState<ModelType | null>(
     initialSelectedModel ?? null
   );
@@ -79,32 +79,35 @@ export function HomePageContent({
     commitSha: string;
   } | null>(initialGitCookieState?.branch || null);
   const [isScratchpadMode, setIsScratchpadMode] = useState(false);
-  
+
   // Use refs to always have latest values in callbacks (avoids stale closure)
   const repoRef = useRef<FilteredRepository | null>(repo);
   const branchRef = useRef<{ name: string; commitSha: string } | null>(branch);
-  
+
   // Keep refs in sync with state (important for initial values and any external updates)
   useEffect(() => {
     repoRef.current = repo;
   }, [repo]);
-  
+
   useEffect(() => {
     branchRef.current = branch;
   }, [branch]);
-  
+
   // Wrapper setters that update both state and ref
   const setRepo = useCallback((newRepo: FilteredRepository | null) => {
     console.log("setRepo called with:", newRepo?.name);
     repoRef.current = newRepo;
     setRepoState(newRepo);
   }, []);
-  
-  const setBranch = useCallback((newBranch: { name: string; commitSha: string } | null) => {
-    console.log("setBranch called with:", newBranch?.name);
-    branchRef.current = newBranch;
-    setBranchState(newBranch);
-  }, []);
+
+  const setBranch = useCallback(
+    (newBranch: { name: string; commitSha: string } | null) => {
+      console.log("setBranch called with:", newBranch?.name);
+      branchRef.current = newBranch;
+      setBranchState(newBranch);
+    },
+    []
+  );
 
   // Sync model from query
   useEffect(() => {
@@ -136,142 +139,147 @@ export function HomePageContent({
     }
   };
 
-  const handleSelectModel = useCallback(
-    async (model: ModelType | null) => {
-      setSelectedModel(model);
-      try {
-        await saveModelSelectorCookie(model);
-      } catch (error) {
-        console.error("Failed to save model selection:", error);
+  const handleSelectModel = useCallback(async (model: ModelType | null) => {
+    setSelectedModel(model);
+    try {
+      await saveModelSelectorCookie(model);
+    } catch (error) {
+      console.error("Failed to save model selection:", error);
+    }
+  }, []);
+
+  const handleSubmit = useCallback(
+    (directMessage?: string) => {
+      if (isPending) return;
+
+      // Use refs for latest values (avoids stale closure issues)
+      const currentRepo = repoRef.current;
+      const currentBranch = branchRef.current;
+
+      // Use directly passed message if available, otherwise use state
+      const messageToSubmit = directMessage ?? message;
+
+      // Debug logging
+      console.log("handleSubmit called with:", {
+        repo: currentRepo?.name,
+        branch: currentBranch?.name,
+        selectedModel,
+        message: messageToSubmit.substring(0, 50),
+        directMessage: !!directMessage,
+      });
+
+      if (!selectedModel) {
+        toast.error("Please select a model first");
+        return;
       }
-    },
-    []
-  );
-
-  const handleSubmit = useCallback((directMessage?: string) => {
-    if (isPending) return;
-    
-    // Use refs for latest values (avoids stale closure issues)
-    const currentRepo = repoRef.current;
-    const currentBranch = branchRef.current;
-    
-    // Use directly passed message if available, otherwise use state
-    const messageToSubmit = directMessage ?? message;
-    
-    // Debug logging
-    console.log("handleSubmit called with:", { 
-      repo: currentRepo?.name, 
-      branch: currentBranch?.name, 
-      selectedModel, 
-      message: messageToSubmit.substring(0, 50),
-      directMessage: !!directMessage
-    });
-    
-    if (!selectedModel) {
-      toast.error("Please select a model first");
-      return;
-    }
-    if (!messageToSubmit.trim()) {
-      toast.error("Please enter a message");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("message", messageToSubmit);
-    formData.append("model", selectedModel);
-
-    if (isScratchpadMode) {
-      formData.append("isScratchpad", "true");
-    } else {
-      if (!currentRepo || !currentBranch) {
-        console.log("Missing repo or branch:", {
-          repo: currentRepo ? { name: currentRepo.name, full_name: currentRepo.full_name } : null,
-          branch: currentBranch ? { name: currentBranch.name } : null,
-        });
-        toast.error("Please select a repository first");
+      if (!messageToSubmit.trim()) {
+        toast.error("Please enter a message");
         return;
       }
 
-      const isLocalRepo =
-        currentRepo.full_name.startsWith("/") ||
-        currentRepo.full_name.startsWith("~") ||
-        currentRepo.owner?.type === "local";
+      const formData = new FormData();
+      formData.append("message", messageToSubmit);
+      formData.append("model", selectedModel);
 
-      const repoUrl = isLocalRepo
-        ? currentRepo.full_name
-        : `https://github.com/${currentRepo.full_name}`;
+      if (isScratchpadMode) {
+        formData.append("isScratchpad", "true");
+      } else {
+        if (!currentRepo || !currentBranch) {
+          console.log("Missing repo or branch:", {
+            repo: currentRepo
+              ? { name: currentRepo.name, full_name: currentRepo.full_name }
+              : null,
+            branch: currentBranch ? { name: currentBranch.name } : null,
+          });
+          toast.error("Please select a repository first");
+          return;
+        }
 
-      console.log("Submitting task with:", {
-        repoUrl,
-        repoFullName: currentRepo.full_name,
-        baseBranch: currentBranch.name,
+        const isLocalRepo =
+          currentRepo.full_name.startsWith("/") ||
+          currentRepo.full_name.startsWith("~") ||
+          currentRepo.owner?.type === "local";
+
+        const repoUrl = isLocalRepo
+          ? currentRepo.full_name
+          : `https://github.com/${currentRepo.full_name}`;
+
+        console.log("Submitting task with:", {
+          repoUrl,
+          repoFullName: currentRepo.full_name,
+          baseBranch: currentBranch.name,
+        });
+
+        formData.append("repoUrl", repoUrl);
+        formData.append("repoFullName", currentRepo.full_name);
+        formData.append("baseBranch", currentBranch.name);
+        formData.append("baseCommitSha", currentBranch.commitSha);
+      }
+
+      startTransition(async () => {
+        let taskId: string | null = null;
+        try {
+          taskId = await createTaskViaApi(formData);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          if (
+            errorMessage.includes("maximum of") &&
+            errorMessage.includes("active tasks")
+          ) {
+            toast.error("Task limit reached", { description: errorMessage });
+          } else {
+            toast.error("Failed to create task", { description: errorMessage });
+          }
+        }
+        if (taskId) {
+          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          setMessage("");
+          redirect(`/tasks/${taskId}`);
+        }
       });
+    },
+    [message, selectedModel, isPending, queryClient, isScratchpadMode]
+  );
 
-      formData.append("repoUrl", repoUrl);
+  const handleCreateTaskForIssue = useCallback(
+    (issue: GitHubIssue) => {
+      const currentRepo = repoRef.current;
+      const currentBranch = branchRef.current;
+
+      if (!currentRepo || !currentBranch || isPending || !selectedModel) {
+        if (!selectedModel) toast.error("Please select a model first");
+        return;
+      }
+
+      const completeRepoUrl = `https://github.com/${currentRepo.full_name}`;
+      const issuePrompt = generateIssuePrompt(issue);
+
+      const formData = new FormData();
+      formData.append("message", issuePrompt);
+      formData.append("model", selectedModel);
+      formData.append("repoUrl", completeRepoUrl);
       formData.append("repoFullName", currentRepo.full_name);
       formData.append("baseBranch", currentBranch.name);
       formData.append("baseCommitSha", currentBranch.commitSha);
-    }
 
-    startTransition(async () => {
-      let taskId: string | null = null;
-      try {
-        taskId = await createTaskViaApi(formData);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        if (
-          errorMessage.includes("maximum of") &&
-          errorMessage.includes("active tasks")
-        ) {
-          toast.error("Task limit reached", { description: errorMessage });
-        } else {
+      startTransition(async () => {
+        let taskId: string | null = null;
+        try {
+          taskId = await createTaskViaApi(formData);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
           toast.error("Failed to create task", { description: errorMessage });
         }
-      }
-      if (taskId) {
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-        setMessage("");
-        redirect(`/tasks/${taskId}`);
-      }
-    });
-  }, [message, selectedModel, isPending, queryClient, isScratchpadMode]);
-
-  const handleCreateTaskForIssue = useCallback((issue: GitHubIssue) => {
-    const currentRepo = repoRef.current;
-    const currentBranch = branchRef.current;
-    
-    if (!currentRepo || !currentBranch || isPending || !selectedModel) {
-      if (!selectedModel) toast.error("Please select a model first");
-      return;
-    }
-
-    const completeRepoUrl = `https://github.com/${currentRepo.full_name}`;
-    const issuePrompt = generateIssuePrompt(issue);
-
-    const formData = new FormData();
-    formData.append("message", issuePrompt);
-    formData.append("model", selectedModel);
-    formData.append("repoUrl", completeRepoUrl);
-    formData.append("repoFullName", currentRepo.full_name);
-    formData.append("baseBranch", currentBranch.name);
-    formData.append("baseCommitSha", currentBranch.commitSha);
-
-    startTransition(async () => {
-      let taskId: string | null = null;
-      try {
-        taskId = await createTaskViaApi(formData);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Unknown error";
-        toast.error("Failed to create task", { description: errorMessage });
-      }
-      if (taskId) {
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-        redirect(`/tasks/${taskId}`);
-      }
-    });
-  }, [isPending, selectedModel, queryClient]);
+        if (taskId) {
+          queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          redirect(`/tasks/${taskId}`);
+        }
+      });
+    },
+    [isPending, selectedModel, queryClient]
+  );
 
   return (
     <div className="mx-auto flex w-full flex-col items-center overflow-hidden">
@@ -301,15 +309,20 @@ export function HomePageContent({
       />
 
       {/* GitHub issues - only show for GitHub repos, not local repos */}
-      {repo && branch && !isScratchpadMode && !repo.full_name.startsWith("/") && !repo.full_name.startsWith("~") && repo.owner?.type !== "local" && (
-        <div className="mt-6 w-full max-w-[805px] px-4">
-          <RepoIssues
-            repository={repo}
-            isPending={isPending}
-            handleSubmit={handleCreateTaskForIssue}
-          />
-        </div>
-      )}
+      {repo &&
+        branch &&
+        !isScratchpadMode &&
+        !repo.full_name.startsWith("/") &&
+        !repo.full_name.startsWith("~") &&
+        repo.owner?.type !== "local" && (
+          <div className="mt-6 w-full max-w-[805px] px-4">
+            <RepoIssues
+              repository={repo}
+              isPending={isPending}
+              handleSubmit={handleCreateTaskForIssue}
+            />
+          </div>
+        )}
 
       <WelcomeModal
         open={showWelcomeModal}
