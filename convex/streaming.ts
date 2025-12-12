@@ -402,8 +402,34 @@ export const streamChatWithTools = action({
       >();
       const knownToolCalls = new Set<string>();
       const completedToolCalls = new Set<string>();
+      const completedToolSignatures = new Set<string>();
       let toolCallNamespace = 0;
       let toolTranscript = "";
+
+      const stableStringify = (value: unknown): string => {
+        const seen = new WeakSet<object>();
+        const helper = (v: unknown): unknown => {
+          if (v === null) return null;
+          if (typeof v !== "object") return v;
+          if (Array.isArray(v)) return v.map(helper);
+          if (seen.has(v as object)) return "[Circular]";
+          seen.add(v as object);
+          const obj = v as Record<string, unknown>;
+          const out: Record<string, unknown> = {};
+          for (const key of Object.keys(obj).sort()) {
+            out[key] = helper(obj[key]);
+          }
+          return out;
+        };
+        try {
+          return JSON.stringify(helper(value));
+        } catch {
+          return String(value);
+        }
+      };
+
+      const makeToolSignature = (toolName: string, toolArgs: unknown): string =>
+        `${toolName}::${stableStringify(toolArgs)}`;
 
       const formatForPrompt = (value: unknown): string => {
         try {
@@ -428,16 +454,89 @@ export const streamChatWithTools = action({
       };
 
       const buildContinuationPrompt = (): string => {
+        let planBlock = "";
+        if (planSteps.length > 0) {
+          const completed = completedPlanSteps.size;
+          const total = planSteps.length;
+          const nextIdx = planSteps.findIndex(
+            (_, idx) => !completedPlanSteps.has(idx)
+          );
+          const next = nextIdx >= 0 ? planSteps[nextIdx] : null;
+          planBlock = `\n\nTool plan progress: ${completed}/${total} steps completed.\n${
+            next
+              ? `Next required tool call (call this now):\nTool: ${next.toolName}\nJSON args: ${formatForPrompt(next.args)}\nIMPORTANT: Do not repeat already completed steps.`
+              : "All required tool steps are complete. Do not call more tools; write the final response."
+          }\n`;
+        }
         return `${basePrompt}
 
 You are exploring the codebase step-by-step. Continue from the latest tool results below.
 If you need more information, call another tool. If you have enough information, write your response.
+${planBlock}
 
 Latest tool results:
 ${toolTranscript || "(none)"}
 
 Continue now.`;
       };
+
+      const parseToolPlan = (
+        prompt: string,
+        allowedToolNames: Set<string>
+      ): Array<{ toolName: string; args: Record<string, unknown> }> => {
+        const lines = prompt.split("\n");
+        const plan: Array<{ toolName: string; args: Record<string, unknown> }> =
+          [];
+        for (const line of lines) {
+          const m = line.match(/^\s*\d+\)\s*([a-zA-Z0-9_.-]+)\s*(.*)$/);
+          if (!m) continue;
+          const toolName = m[1]?.trim();
+          if (!toolName || !allowedToolNames.has(toolName)) continue;
+          const rest = (m[2] ?? "").trim();
+
+          const args: Record<string, unknown> = {};
+          const re = /([a-zA-Z0-9_]+)=(".*?"|\S+)/g;
+          while (true) {
+            const match = re.exec(rest);
+            if (!match) break;
+            const key = match[1];
+            if (!key) continue;
+            let raw = match[2] ?? "";
+            if (raw.startsWith('"') && raw.endsWith('"') && raw.length >= 2) {
+              raw = raw.slice(1, -1);
+            }
+            if (raw === "true") args[key] = true;
+            else if (raw === "false") args[key] = false;
+            else if (!Number.isNaN(Number(raw)) && raw !== "")
+              args[key] = Number(raw);
+            else args[key] = raw;
+          }
+
+          if (Object.keys(args).length > 0) {
+            plan.push({ toolName, args });
+          }
+        }
+        return plan;
+      };
+
+      const matchesPlanStep = (
+        step: { toolName: string; args: Record<string, unknown> },
+        toolName: string,
+        toolArgs: Record<string, unknown>
+      ): boolean => {
+        if (step.toolName !== toolName) return false;
+        for (const [k, v] of Object.entries(step.args)) {
+          const candidate = toolArgs[k];
+          if (stableStringify(candidate) !== stableStringify(v)) return false;
+        }
+        return true;
+      };
+
+      const planSteps = parseToolPlan(
+        basePrompt,
+        new Set(Object.keys(aiTools))
+      );
+      const completedPlanSteps = new Set<number>();
 
       const extractJsonArgsFromPrompt = (
         prompt: string
@@ -530,7 +629,8 @@ Continue now.`;
         const roundToolCallIds = new Set<string>();
         let roundPartCount = 0;
 
-        const completedBefore = completedToolCalls.size;
+        const completedSignaturesBefore = completedToolSignatures.size;
+        const completedPlanBefore = completedPlanSteps.size;
         const textBeforeLen = accumulatedText.length;
 
         let result: Awaited<ReturnType<typeof streamText>>;
@@ -787,6 +887,23 @@ Continue now.`;
             });
 
             completedToolCalls.add(toolCallId);
+            completedToolSignatures.add(
+              makeToolSignature(
+                toolName,
+                toolCallStates.get(toolCallId)?.latestArgs ?? {}
+              )
+            );
+            if (planSteps.length > 0) {
+              const nextIdx = planSteps.findIndex(
+                (_, idx) => !completedPlanSteps.has(idx)
+              );
+              const step = nextIdx >= 0 ? planSteps[nextIdx] : undefined;
+              const candidateArgs = (toolCallStates.get(toolCallId)
+                ?.latestArgs ?? {}) as Record<string, unknown>;
+              if (step && matchesPlanStep(step, toolName, candidateArgs)) {
+                completedPlanSteps.add(nextIdx);
+              }
+            }
             appendToolTranscript({
               toolCallId,
               toolName,
@@ -871,62 +988,89 @@ Continue now.`;
                   process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
 
                 let toolResult: unknown;
-                if (state.toolName === "list_dir") {
+                const serverBackedTools = new Set([
+                  "read_file",
+                  "edit_file",
+                  "search_replace",
+                  "run_terminal_cmd",
+                  "list_dir",
+                  "grep_search",
+                  "file_search",
+                  "delete_file",
+                  "semantic_search",
+                  "warp_grep",
+                ]);
+
+                const callToolApiWithWorkspaceFallback = async () => {
                   console.log(
-                    `[STREAMING] [v7] Using direct tool API call (workspaceOverride=${workspacePathOverride})`
+                    `[STREAMING] [v7] Using direct tool API call (tool=${state.toolName}, workspaceOverride=${workspacePathOverride})`
                   );
-                  const resp = await fetch(
-                    `${serverUrl}/api/tools/${args.taskId}/list_dir`,
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        "x-convex-tool-key": toolApiKey,
-                        "x-shadow-workspace-path": workspacePathOverride,
-                      },
-                      body: JSON.stringify(execArgs),
-                    }
-                  );
-                  if (!resp.ok) {
-                    const errorText = await resp.text();
-                    throw new Error(
-                      `Tool API error: ${resp.status} - ${errorText}`
-                    );
-                  }
-                  toolResult = await resp.json();
-                  // If the workspace path doesn't exist on the tool server, retry against /workspace
-                  // so we can still validate tool execution end-to-end in CLI.
-                  if (
-                    (toolResult as any)?.success === false &&
-                    typeof (toolResult as any)?.error === "string" &&
-                    ((toolResult as any).error as string).includes("ENOENT") &&
-                    workspacePathOverride !== "/workspace"
-                  ) {
-                    console.log(
-                      `[STREAMING] [v7] list_dir ENOENT on ${workspacePathOverride}, retrying with /workspace`
-                    );
-                    const retryResp = await fetch(
-                      `${serverUrl}/api/tools/${args.taskId}/list_dir`,
+                  const callOnce = async (workspacePath: string) => {
+                    const resp = await fetch(
+                      `${serverUrl}/api/tools/${args.taskId}/${state.toolName}`,
                       {
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
                           "x-convex-tool-key": toolApiKey,
-                          "x-shadow-workspace-path": "/workspace",
+                          "x-shadow-workspace-path": workspacePath,
                         },
                         body: JSON.stringify(execArgs),
                       }
                     );
-                    if (!retryResp.ok) {
-                      const retryText = await retryResp.text();
+                    if (!resp.ok) {
+                      const errorText = await resp.text();
                       throw new Error(
-                        `Tool API error: ${retryResp.status} - ${retryText}`
+                        `Tool API error: ${resp.status} - ${errorText}`
                       );
                     }
-                    toolResult = await retryResp.json();
+                    return (await resp.json()) as unknown;
+                  };
+
+                  const first = await callOnce(workspacePathOverride);
+                  if (
+                    (first as any)?.success === false &&
+                    typeof (first as any)?.error === "string" &&
+                    ((first as any).error as string).includes("ENOENT") &&
+                    workspacePathOverride !== "/workspace"
+                  ) {
+                    console.log(
+                      `[STREAMING] [v7] ${state.toolName} ENOENT on ${workspacePathOverride}, retrying with /workspace`
+                    );
+                    return await callOnce("/workspace");
                   }
+                  return first;
+                };
+
+                const toolSignature = makeToolSignature(
+                  state.toolName,
+                  execArgs
+                );
+                if (completedToolSignatures.has(toolSignature)) {
+                  toolResult = {
+                    success: true,
+                    skipped: true,
+                    reason: "DUPLICATE_TOOL_CALL",
+                    toolName: state.toolName,
+                    args: execArgs,
+                  };
                 } else {
-                  toolResult = await toolDef.execute(execArgs);
+                  toolResult = serverBackedTools.has(state.toolName)
+                    ? await callToolApiWithWorkspaceFallback()
+                    : await toolDef.execute(execArgs);
+                  completedToolSignatures.add(toolSignature);
+                  if (planSteps.length > 0) {
+                    const nextIdx = planSteps.findIndex(
+                      (_, idx) => !completedPlanSteps.has(idx)
+                    );
+                    const step = nextIdx >= 0 ? planSteps[nextIdx] : undefined;
+                    if (
+                      step &&
+                      matchesPlanStep(step, state.toolName, execArgs)
+                    ) {
+                      completedPlanSteps.add(nextIdx);
+                    }
+                  }
                 }
                 console.log(
                   `[STREAMING] [v6] Tool result:`,
@@ -1021,6 +1165,162 @@ Continue now.`;
           }
         }
 
+        // If the user prompt includes an explicit numbered tool plan (e.g. "1) list_dir ..."),
+        // proactively enforce forward progress in cases where a provider repeats the same call.
+        if (planSteps.length > 0) {
+          const nextIdx = planSteps.findIndex(
+            (_, idx) => !completedPlanSteps.has(idx)
+          );
+          const planComplete = nextIdx < 0;
+          const progressedPlanThisRound =
+            completedPlanSteps.size > completedPlanBefore;
+
+          if (!planComplete && !progressedPlanThisRound) {
+            const step = planSteps[nextIdx];
+            if (step) {
+              // Safety: only force read-only tools. Never force write/exec tools.
+              const safeForcedTools = new Set([
+                "list_dir",
+                "read_file",
+                "grep_search",
+                "file_search",
+                "semantic_search",
+                "warp_grep",
+              ]);
+              if (!safeForcedTools.has(step.toolName)) {
+                // Do not force non-read-only tools; let the model decide.
+              } else {
+                const forcedToolCallId = normalizeToolCallId(`plan:${nextIdx}`);
+                const forcedArgs: Record<string, unknown> = {
+                  ...step.args,
+                  explanation:
+                    step.args.explanation ??
+                    `Forced execution of step ${nextIdx + 1}/${planSteps.length} from user tool plan`,
+                };
+
+                await ensureToolTracking(
+                  forcedToolCallId,
+                  step.toolName,
+                  forcedArgs
+                );
+
+                const candidateTaskWorkspace = (task as any)?.workspacePath as
+                  | string
+                  | undefined;
+                const workspacePathOverride =
+                  candidateTaskWorkspace || "/workspace";
+                const serverUrl =
+                  process.env.SHADOW_SERVER_URL || "http://localhost:4000";
+                const toolApiKey =
+                  process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
+
+                const serverBackedTools = new Set([
+                  "read_file",
+                  "edit_file",
+                  "search_replace",
+                  "run_terminal_cmd",
+                  "list_dir",
+                  "grep_search",
+                  "file_search",
+                  "delete_file",
+                  "semantic_search",
+                  "warp_grep",
+                ]);
+
+                const callToolApiWithWorkspaceFallback = async () => {
+                  const callOnce = async (workspacePath: string) => {
+                    const resp = await fetch(
+                      `${serverUrl}/api/tools/${args.taskId}/${step.toolName}`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "x-convex-tool-key": toolApiKey,
+                          "x-shadow-workspace-path": workspacePath,
+                        },
+                        body: JSON.stringify(forcedArgs),
+                      }
+                    );
+                    if (!resp.ok) {
+                      const errorText = await resp.text();
+                      throw new Error(
+                        `Tool API error: ${resp.status} - ${errorText}`
+                      );
+                    }
+                    return (await resp.json()) as unknown;
+                  };
+
+                  const first = await callOnce(workspacePathOverride);
+                  if (
+                    (first as any)?.success === false &&
+                    typeof (first as any)?.error === "string" &&
+                    ((first as any).error as string).includes("ENOENT") &&
+                    workspacePathOverride !== "/workspace"
+                  ) {
+                    return await callOnce("/workspace");
+                  }
+                  return first;
+                };
+
+                let forcedResult: unknown;
+                try {
+                  const toolDef = (aiTools as any)[step.toolName];
+                  forcedResult = serverBackedTools.has(step.toolName)
+                    ? await callToolApiWithWorkspaceFallback()
+                    : await toolDef.execute(forcedArgs);
+                } catch (e) {
+                  forcedResult = { success: false, error: String(e) };
+                }
+
+                await ctx.runMutation(api.toolCallTracking.updateResult, {
+                  toolCallId: forcedToolCallId,
+                  result: forcedResult,
+                  status:
+                    (forcedResult as any)?.success === false
+                      ? "FAILED"
+                      : "COMPLETED",
+                });
+
+                await ctx.runMutation(api.messages.appendStreamDelta, {
+                  messageId,
+                  deltaText: "",
+                  isFinal: false,
+                  parts: [
+                    {
+                      type: "tool-call",
+                      toolCallId: forcedToolCallId,
+                      toolName: step.toolName,
+                      args: forcedArgs,
+                      partialArgs: forcedArgs,
+                      streamingState: "complete",
+                      argsComplete: true,
+                      accumulatedArgsText: "",
+                    },
+                    {
+                      type: "tool-result",
+                      toolCallId: forcedToolCallId,
+                      toolName: step.toolName,
+                      result: forcedResult,
+                    },
+                  ],
+                });
+
+                completedToolCalls.add(forcedToolCallId);
+                completedToolSignatures.add(
+                  makeToolSignature(step.toolName, forcedArgs)
+                );
+                completedPlanSteps.add(nextIdx);
+                appendToolTranscript({
+                  toolCallId: forcedToolCallId,
+                  toolName: step.toolName,
+                  args: forcedArgs,
+                  result: forcedResult,
+                });
+              }
+            }
+          }
+        }
+
         const usage = normalizeUsage(await result.usage);
         const finishReason = await result.finishReason;
         if (usage) {
@@ -1035,7 +1335,8 @@ Continue now.`;
         );
 
         const progressed =
-          completedToolCalls.size > completedBefore ||
+          completedToolSignatures.size > completedSignaturesBefore ||
+          completedPlanSteps.size > completedPlanBefore ||
           accumulatedText.length > textBeforeLen;
 
         // Stop if we are not making progress; prevents infinite loops with buggy providers.
@@ -1043,6 +1344,14 @@ Continue now.`;
           console.log(
             `[STREAMING] [v9] No progress in round=${round}; stopping continuation loop`
           );
+          break;
+        }
+
+        // If we completed an explicit tool plan, stop immediately after writing tool results.
+        if (
+          planSteps.length > 0 &&
+          completedPlanSteps.size >= planSteps.length
+        ) {
           break;
         }
 
