@@ -65,22 +65,6 @@ export default function AuthPage() {
         </div>
 
         <LandingPagePromptForm />
-
-        <div className="animate-in fade-in fill-mode-both ease-out-quad delay-2000 mt-6 flex flex-col gap-2 duration-500">
-          <div className="text-muted-foreground text-center text-sm">
-            Opulent OS is an{" "}
-            <a
-              href="https://github.com/ishaan1013/shadow"
-              target="_blank"
-              className="text-foreground inline-block cursor-pointer font-medium hover:underline hover:opacity-90"
-              rel="noreferrer"
-            >
-              open-source
-            </a>{" "}
-            background coding agent. Designed to understand, reason about, and
-            contribute to existing codebases.
-          </div>
-        </div>
       </div>
     </div>
   );
