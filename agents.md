@@ -4,8 +4,8 @@ This doc captures the current agent execution flow, Convex integration, and work
 
 ## High-level flow
 
-- **Frontend (Next.js, app router)**: Uses Convex reactive queries for messages. Chat can stream via Convex actions (`streamChat`, `streamChatWithTools`) through `useConvexChatStreaming`; legacy Socket.IO path is still present while UI migration finishes. Task IDs are validated via `asConvexId`.
-- **Backend (apps/server)**: `/api/tasks/:taskId/initiate` still runs `TaskInitializationEngine`. ChatService retains Socket.IO bridge for compatibility but Convex-native streaming is available.
+- **Frontend (Next.js, app router)**: Uses Convex reactive queries for messages. Chat can stream via Convex actions (`streamChat`, `streamChatWithTools`) through `useConvexChatStreaming`; legacy Socket.IO path is still present while UI migration finishes. Task IDs are validated via `asConvexId`. Task creation includes automatic Convex streaming integration with background initialization and comprehensive error handling.
+- **Backend (apps/server)**: `/api/tasks/:taskId/initiate` still runs `TaskInitializationEngine`. ChatService retains Socket.IO bridge for compatibility but Convex-native streaming is available. Enhanced task creation flow with multi-provider API key management (Anthropic, OpenAI, OpenRouter) resolved server-side.
 - **Convex**: Agent actions live in `convex/agent.ts`; streaming lives in `convex/streaming.ts`; tools are defined in `convex/agentTools.ts`; tool-call tracking for streaming in `agentTools` table; presence/activity in `presence` and `activities`; sidecar-native telemetry in `fileChanges`, `toolLogs`, `terminalOutput`, `workspaceStatus`.
 
 ## Chat & streaming
@@ -14,6 +14,7 @@ This doc captures the current agent execution flow, Convex integration, and work
 - **Legacy Socket.IO bridge**: `convex-agent-bridge` still emits stream chunks and `tool-call-update`/`tool-call-history` events for existing UI until full migration. Socket path remains the default unless the Convex streaming flag is enabled.
 - Message parts (text/tool-call/tool-result/reasoning/error) are stored in Convex; tool calls also logged to `toolCalls` (server tools) and `agentTools` (streaming tool calls).
 - Streaming provider routing prefers OpenRouter first (with Anthropic/OpenAI fallbacks) and supports abortable cancellation via `cancelStream`.
+- Enhanced task creation automatically triggers Convex streaming for initial messages when `NEXT_PUBLIC_USE_CONVEX_REALTIME=true` is set, with comprehensive error handling and status tracking.
 - Streaming tools execute through the tool API (server route) and are tracked in `agentTools`:
   - Some OpenRouter models (notably Kimi) may emit `tool-input-*` parts without streaming args deltas; `streamChatWithTools` includes fallbacks to recover args for CLI verification and still execute tools reliably.
   - Tool call IDs can be provider-local (e.g. `read_file:0`) and are namespaced by `messageId` for safe tracking.
