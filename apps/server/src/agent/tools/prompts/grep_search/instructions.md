@@ -1,5 +1,12 @@
 **Purpose**: Fast, exact regex searches for known symbols/patterns
 
+**Parameters (must match schema exactly):**
+- query (string, required)
+- include_pattern (string, optional)
+- exclude_pattern (string, optional)
+- case_sensitive (boolean, optional)
+- explanation (string, required)
+
 **When to Use:**
 - Know exact symbol/function name
 - Need regex pattern matching

@@ -28,6 +28,9 @@ ${readToolInstructions("run_terminal_cmd")}
 ### list_dir
 ${readToolInstructions("list_dir")}
 
+### warp_grep
+${readToolInstructions("warp_grep")}
+
 ### grep_search
 ${readToolInstructions("grep_search")}
 
@@ -63,6 +66,7 @@ export function generateToolGuidance(availableTools?: ToolSet): string {
     "read_file",
     "run_terminal_cmd",
     "list_dir",
+    "warp_grep",
     "grep_search",
     "edit_file",
     "search_replace",

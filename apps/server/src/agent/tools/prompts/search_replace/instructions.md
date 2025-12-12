@@ -1,5 +1,11 @@
 **Purpose**: Precise, targeted single-instance replacements
 
+**Parameters (must match schema exactly):**
+- file_path (string, required)
+- old_string (string, required)
+- new_string (string, required)
+- is_new_file (boolean, optional)
+
 **Critical Requirements:**
 1. old_string must UNIQUELY identify the change location
 2. Include 3-5 lines context BEFORE and AFTER change point

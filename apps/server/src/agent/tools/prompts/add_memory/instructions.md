@@ -25,10 +25,10 @@
 - CONFIG: Configuration details, environment variables, settings
 - GENERAL: Other important repository-specific information
 
-**Parameters:**
-- content: Clear, concise description of the information to remember
-- category: One of the categories above (defaults to GENERAL)
-- explanation: Brief reason why this should be remembered
+**Parameters (must match schema exactly):**
+- content (string, required): Clear, concise description of the information to remember
+- category (string enum, required): One of the categories above
+- explanation (string, required): Brief reason why this should be remembered
 
 **Examples:**
 

@@ -17,9 +17,9 @@
 2. Identify the specific memory by its content or context
 3. Use the exact memory ID or enough content to uniquely identify it
 
-**Parameters:**
-- memoryId: The unique identifier of the memory to remove (preferred method)
-- explanation: Brief reason for removing this memory
+**Parameters (must match schema exactly):**
+- memoryId (string, required): The unique identifier of the memory to remove
+- explanation (string, required): Brief reason for removing this memory
 
 **Examples:**
 

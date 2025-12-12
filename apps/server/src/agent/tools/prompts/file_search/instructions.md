@@ -1,5 +1,9 @@
 **Purpose**: Fuzzy file path matching when you know partial path
 
+**Parameters (must match schema exactly):**
+- query (string, required)
+- explanation (string, required)
+
 **Best For:**
 - Know part of filename but not location
 - Quick file discovery
