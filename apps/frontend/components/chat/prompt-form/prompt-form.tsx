@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ModelSelector } from "./model-selector";
 
-import { createTask } from "@/lib/actions/create-task";
 import { saveModelSelectorCookie } from "@/lib/actions/model-selector-cookie";
 import { cn } from "@/lib/utils";
 import { type ModelType } from "@repo/types";
@@ -39,6 +38,37 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 import { QueuedAction } from "../messages/queued-message";
 import { generateIssuePrompt } from "@/lib/github/issue-prompt";
 import { useSelectedModel } from "@/hooks/chat/use-selected-model";
+
+async function createTaskViaApi(formData: FormData): Promise<string> {
+  const res = await fetch("/api/tasks", {
+    method: "POST",
+    body: formData,
+  });
+
+  let data: unknown = null;
+  try {
+    data = await res.json();
+  } catch {
+    // ignore
+  }
+
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+  if (!res.ok) {
+    const message =
+      (isRecord(data) && typeof data.error === "string" && data.error) ||
+      `Failed to create task (HTTP ${res.status})`;
+    throw new Error(String(message));
+  }
+
+  const taskId =
+    isRecord(data) && typeof data.taskId === "string" ? data.taskId : null;
+  if (!taskId) {
+    throw new Error("Task creation failed: missing taskId");
+  }
+  return taskId;
+}
 
 export function PromptForm({
   onSubmit,
@@ -291,7 +321,7 @@ export function PromptForm({
       startTransition?.(async () => {
         let taskId: string | null = null;
         try {
-          taskId = await createTask(formData);
+          taskId = await createTaskViaApi(formData);
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Unknown error";
@@ -444,7 +474,7 @@ export function PromptForm({
     startTransition?.(async () => {
       let taskId: string | null = null;
       try {
-        taskId = await createTask(formData);
+        taskId = await createTaskViaApi(formData);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";

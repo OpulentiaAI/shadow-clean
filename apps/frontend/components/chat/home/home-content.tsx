@@ -6,7 +6,6 @@ import { RichTextEditor } from "../prompt-form/rich-text-editor";
 import { RepoIssues } from "./repo-issues";
 import { WelcomeModal } from "../../welcome-modal";
 import { useAuthSession } from "../../auth/session-provider";
-import { createTask } from "@/lib/actions/create-task";
 import { saveModelSelectorCookie } from "@/lib/actions/model-selector-cookie";
 import { useSelectedModel } from "@/hooks/chat/use-selected-model";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,6 +18,37 @@ import type { ModelType, GitHubIssue } from "@repo/types";
 const WELCOME_MODAL_SHOWN_KEY = "shadow-welcome-modal-shown";
 const WELCOME_MODAL_COMPLETED_KEY = "shadow-welcome-modal-completed";
 const WELCOME_MODAL_DELAY = 300;
+
+async function createTaskViaApi(formData: FormData): Promise<string> {
+  const res = await fetch("/api/tasks", {
+    method: "POST",
+    body: formData,
+  });
+
+  let data: unknown = null;
+  try {
+    data = await res.json();
+  } catch {
+    // ignore
+  }
+
+  const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+  if (!res.ok) {
+    const message =
+      (isRecord(data) && typeof data.error === "string" && data.error) ||
+      `Failed to create task (HTTP ${res.status})`;
+    throw new Error(String(message));
+  }
+
+  const taskId =
+    isRecord(data) && typeof data.taskId === "string" ? data.taskId : null;
+  if (!taskId) {
+    throw new Error("Task creation failed: missing taskId");
+  }
+  return taskId;
+}
 
 export function HomePageContent({
   initialGitCookieState,
@@ -186,7 +216,7 @@ export function HomePageContent({
     startTransition(async () => {
       let taskId: string | null = null;
       try {
-        taskId = await createTask(formData);
+        taskId = await createTaskViaApi(formData);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
@@ -230,7 +260,7 @@ export function HomePageContent({
     startTransition(async () => {
       let taskId: string | null = null;
       try {
-        taskId = await createTask(formData);
+        taskId = await createTaskViaApi(formData);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
