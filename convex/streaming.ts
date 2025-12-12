@@ -443,7 +443,8 @@ Continue now.`;
         prompt: string
       ): Record<string, unknown> | null => {
         const markerIdx = prompt.indexOf("JSON args:");
-        const searchStart = markerIdx >= 0 ? markerIdx + "JSON args:".length : 0;
+        const searchStart =
+          markerIdx >= 0 ? markerIdx + "JSON args:".length : 0;
         const s = prompt.slice(searchStart);
 
         const firstBrace = s.indexOf("{");
@@ -492,7 +493,9 @@ Continue now.`;
         // which collide across messages. Namespace them by messageId.
         // If we need to re-invoke streamText (some providers finish with stop after tool-input-*),
         // add a namespace to avoid collisions when providers reuse small ids across calls.
-        return toolCallNamespace > 0 ? `${messageId}:${toolCallNamespace}:${id}` : `${messageId}:${id}`;
+        return toolCallNamespace > 0
+          ? `${messageId}:${toolCallNamespace}:${id}`
+          : `${messageId}:${id}`;
       };
 
       const ensureToolTracking = async (
@@ -724,7 +727,11 @@ Continue now.`;
             }
 
             toolCallStates.set(toolCallId, currentState);
-            await ensureToolTracking(toolCallId, toolName, currentState.latestArgs);
+            await ensureToolTracking(
+              toolCallId,
+              toolName,
+              currentState.latestArgs
+            );
 
             await ctx.runMutation(api.messages.appendStreamDelta, {
               messageId,
@@ -861,8 +868,7 @@ Continue now.`;
                 const serverUrl =
                   process.env.SHADOW_SERVER_URL || "http://localhost:4000";
                 const toolApiKey =
-                  process.env.CONVEX_TOOL_API_KEY ||
-                  "shadow-internal-tool-key";
+                  process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
 
                 let toolResult: unknown;
                 if (state.toolName === "list_dir") {
