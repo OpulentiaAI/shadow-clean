@@ -14,7 +14,15 @@ import {
   DeleteFileParamsSchema,
   SemanticSearchParamsSchema,
   WarpGrepParamsSchema,
+  WebReadUrlParamsSchema,
+  WebGetMarkdownParamsSchema,
+  WebExtractLinksParamsSchema,
 } from "@repo/types";
+import {
+  webReadUrl,
+  webGetMarkdown,
+  webExtractLinks,
+} from "../../services/deepcrawl-service";
 import { createToolExecutor, isLocalMode } from "../../execution";
 import { LocalFileSystemWatcher } from "../../services/local-filesystem-watcher";
 import { emitTerminalOutput, emitStreamChunk, emitToolCallUpdate } from "../../socket";
@@ -1015,6 +1023,90 @@ export async function createTools(taskId: string, workspacePath?: string) {
             success: false,
             error: error instanceof Error ? error.message : "Unknown error",
             message: "Failed to execute warp_grep",
+          };
+        });
+      },
+    }),
+
+    web_read_url: tool({
+      description: readDescription("web_read_url"),
+      inputSchema: WebReadUrlParamsSchema,
+      execute: async (
+        { url, include_markdown, include_metadata, include_cleaned_html, explanation },
+        metadata
+      ) => {
+        console.log(`[WEB_READ_URL] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "web_read_url",
+          { url, include_markdown, include_metadata, include_cleaned_html },
+          metadata,
+          async () =>
+            webReadUrl({
+              url,
+              includeMarkdown: include_markdown,
+              includeMetadata: include_metadata,
+              includeCleanedHtml: include_cleaned_html,
+            })
+        ).catch((error) => {
+          console.error(`[WEB_READ_URL_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to read URL",
+            url,
+          };
+        });
+      },
+    }),
+
+    web_get_markdown: tool({
+      description: readDescription("web_get_markdown"),
+      inputSchema: WebGetMarkdownParamsSchema,
+      execute: async ({ url, explanation }, metadata) => {
+        console.log(`[WEB_GET_MARKDOWN] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "web_get_markdown",
+          { url },
+          metadata,
+          async () => webGetMarkdown({ url })
+        ).catch((error) => {
+          console.error(`[WEB_GET_MARKDOWN_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to get markdown",
+            url,
+            markdown: "",
+          };
+        });
+      },
+    }),
+
+    web_extract_links: tool({
+      description: readDescription("web_extract_links"),
+      inputSchema: WebExtractLinksParamsSchema,
+      execute: async ({ url, include_tree, include_external, explanation }, metadata) => {
+        console.log(`[WEB_EXTRACT_LINKS] ${explanation}`);
+        return withToolLogging(
+          taskId,
+          "web_extract_links",
+          { url, include_tree, include_external },
+          metadata,
+          async () =>
+            webExtractLinks({
+              url,
+              includeTree: include_tree,
+              includeExternal: include_external,
+            })
+        ).catch((error) => {
+          console.error(`[WEB_EXTRACT_LINKS_ERROR]`, error);
+          return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            message: "Failed to extract links",
+            url,
           };
         });
       },
