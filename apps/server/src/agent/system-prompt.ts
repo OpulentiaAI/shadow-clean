@@ -73,6 +73,34 @@ DATA LAYER (THIS CODEBASE):
 - Prisma (@repo/db) is legacy/auth-only; prefer Convex for all new database operations.
 </tool_usage>`;
 
+const WEB_URL_ANALYSIS = `<web_url_analysis>
+WEB URL ANALYSIS TOOLS:
+When users share URLs or links, use these tools to read and analyze web content:
+
+AVAILABLE TOOLS:
+- web_read_url: Full page analysis with markdown, metadata, title, description
+- web_get_markdown: Quick, lightweight markdown extraction from any URL
+- web_extract_links: Discover all links from a webpage (internal/external)
+
+WHEN TO USE:
+✅ User shares a documentation URL → web_read_url to understand the content
+✅ User references an API or SDK page → web_get_markdown for quick content
+✅ User wants to explore a site structure → web_extract_links to map pages
+✅ GitHub README or repo link → web_read_url for full context
+
+USAGE PATTERNS:
+1. Documentation Links: Read with web_read_url, extract key information
+2. API References: Get markdown content, identify endpoints and usage
+3. Library/SDK Pages: Understand installation, configuration, usage patterns
+4. Site Discovery: Extract links first, then read most relevant pages
+
+TIPS:
+- Always read URLs the user provides before implementing related features
+- Combine with codebase tools to apply learnings from external documentation
+- For large documentation sites, extract links first to find relevant pages
+- Results are cached, so repeated reads are fast
+</web_url_analysis>`;
+
 const MORPH_SDK_TOOLS = `<morph_sdk_tools>
 MORPH FAST APPLY - Integrated with edit_file:
 The edit_file tool automatically uses Morph SDK for ultra-fast code editing at 10,500 tokens/sec with 98% accuracy.
@@ -361,6 +389,8 @@ ${OPERATION_MODES}
 
 ${TOOL_USAGE_STRATEGY}
 
+${WEB_URL_ANALYSIS}
+
 ${MORPH_SDK_TOOLS}
 
 ${PARALLEL_TOOL_EXECUTION}
@@ -398,6 +428,8 @@ ${ENVIRONMENT_CONTEXT}
 ${OPERATION_MODES}
 
 ${TOOL_USAGE_STRATEGY}
+
+${WEB_URL_ANALYSIS}
 
 ${MORPH_SDK_TOOLS}
 

@@ -36,6 +36,7 @@
     "braintrust": "^0.2.2",
     "convex": "^1.30.0",
     "cors": "^2.8.5",
+    "deepcrawl": "^0.5.4",
     "diff": "^8.0.2",
     "dotenv": "^17.2.1",
     "fast-glob": "^3.3.3",

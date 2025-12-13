@@ -158,6 +158,50 @@ export const WebSearchParamsSchema = z
   })
   .merge(ExplanationSchema);
 
+// === Deepcrawl Web Tools ===
+export const WebReadUrlParamsSchema = z
+  .object({
+    url: z.string().describe("The URL to read and analyze"),
+    include_markdown: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Include markdown content in response"),
+    include_metadata: z
+      .boolean()
+      .optional()
+      .default(true)
+      .describe("Include page metadata (title, description, etc.)"),
+    include_cleaned_html: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Include cleaned HTML content"),
+  })
+  .merge(ExplanationSchema);
+
+export const WebGetMarkdownParamsSchema = z
+  .object({
+    url: z.string().describe("The URL to convert to markdown"),
+  })
+  .merge(ExplanationSchema);
+
+export const WebExtractLinksParamsSchema = z
+  .object({
+    url: z.string().describe("The URL to extract links from"),
+    include_tree: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Return links as a hierarchical tree structure"),
+    include_external: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Include external links (links to other domains)"),
+  })
+  .merge(ExplanationSchema);
+
 export const AddMemoryParamsSchema = z.object({
   content: z.string().describe("Concise memory content to store"),
   category: z
@@ -337,6 +381,39 @@ export const WebSearchResultSchema = BaseResultSchema.extend({
   domain: z.string().optional(),
 });
 
+// === Deepcrawl Web Tool Results ===
+export const WebReadUrlResultSchema = BaseResultSchema.extend({
+  url: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  markdown: z.string().optional(),
+  cleanedHtml: z.string().optional(),
+  metadata: z
+    .object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      author: z.string().optional(),
+      publishedDate: z.string().optional(),
+    })
+    .optional(),
+  cached: z.boolean().optional(),
+});
+
+export const WebGetMarkdownResultSchema = BaseResultSchema.extend({
+  url: z.string(),
+  markdown: z.string(),
+  cached: z.boolean().optional(),
+});
+
+export const WebExtractLinksResultSchema = BaseResultSchema.extend({
+  url: z.string(),
+  links: z.array(z.string()).optional(),
+  internalLinks: z.array(z.string()).optional(),
+  externalLinks: z.array(z.string()).optional(),
+  tree: z.any().optional(),
+  cached: z.boolean().optional(),
+});
+
 export const AddMemoryResultSchema = BaseResultSchema.extend({
   memory: z
     .object({
@@ -408,6 +485,9 @@ export type DeleteFileParams = z.infer<typeof DeleteFileParamsSchema>;
 export type SemanticSearchParams = z.infer<typeof SemanticSearchParamsSchema>;
 export type WarpGrepParams = z.infer<typeof WarpGrepParamsSchema>;
 export type WebSearchParams = z.infer<typeof WebSearchParamsSchema>;
+export type WebReadUrlParams = z.infer<typeof WebReadUrlParamsSchema>;
+export type WebGetMarkdownParams = z.infer<typeof WebGetMarkdownParamsSchema>;
+export type WebExtractLinksParams = z.infer<typeof WebExtractLinksParamsSchema>;
 export type AddMemoryParams = z.infer<typeof AddMemoryParamsSchema>;
 export type ListMemoriesParams = z.infer<typeof ListMemoriesParamsSchema>;
 export type RemoveMemoryParams = z.infer<typeof RemoveMemoryParamsSchema>;
