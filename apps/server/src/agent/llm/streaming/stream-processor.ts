@@ -281,7 +281,7 @@ export class StreamProcessor {
       const modelProvider = getModelProvider(model);
       const isAnthropicModel = modelProvider === "anthropic";
       const isGPT5Family =
-        model === AvailableModels.GPT_5 || model === AvailableModels.GPT_5_MINI;
+        model === AvailableModels.OPENAI_GPT_5_2 || model === AvailableModels.OPENAI_GPT_5_1_CODEX;
 
       let finalMessages: CoreMessage[];
       if (isAnthropicModel) {

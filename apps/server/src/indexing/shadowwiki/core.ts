@@ -26,13 +26,13 @@ function getHardcodedMiniModel(
 ): ModelType {
   switch (provider) {
     case "anthropic":
-      return "claude-3-5-haiku-20241022";
+      return AvailableModels.CLAUDE_HAIKU_4_5;
     case "openai":
-      return "gpt-4o-mini";
+      return AvailableModels.OPENAI_GPT_5_1_CODEX;
     case "openrouter":
-      return AvailableModels.XAI_GROK_CODE_FAST_1;
+      return AvailableModels.CLAUDE_HAIKU_4_5;
     default:
-      return "claude-3-5-haiku-20241022";
+      return AvailableModels.CLAUDE_HAIKU_4_5;
   }
 }
 

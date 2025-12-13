@@ -86,8 +86,8 @@ function MessagesComponent({
 
         const showGPT5Reasoning = () => {
           const isGPT5Family =
-            lastMessage?.llmModel === AvailableModels.GPT_5 ||
-            lastMessage?.llmModel === AvailableModels.GPT_5_MINI;
+            lastMessage?.llmModel === AvailableModels.OPENAI_GPT_5_2 ||
+            lastMessage?.llmModel === AvailableModels.OPENAI_GPT_5_1_CODEX;
           if (!lastMessage || !isGPT5Family) return false;
 
           const isLastPartValid =
