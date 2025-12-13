@@ -60,7 +60,7 @@ export const streamPersistentDemo = httpAction(async (ctx, request) => {
     await appendChunk("Done.");
   };
 
-  const response = await pts.stream(ctx, request, streamId as any, generate);
+  const response = await pts.stream(ctx as any, request, streamId as any, generate);
   response.headers.set("Access-Control-Allow-Origin", "*");
   response.headers.set("Vary", "Origin");
   return response;
