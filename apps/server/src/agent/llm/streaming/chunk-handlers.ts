@@ -10,8 +10,11 @@ import {
 } from "@repo/types";
 import { ToolValidator } from "../validation/tool-validator";
 
+const MAX_CONSECUTIVE_SAME_TOOL_FAILURES = 2;
+
 export class ChunkHandlers {
   private toolValidator = new ToolValidator();
+  private consecutiveFailures: { toolName: string; count: number } = { toolName: "", count: 0 };
 
   handleTextDelta(
     chunk: AIStreamChunk & { type: "text-delta" }
@@ -140,7 +143,7 @@ export class ChunkHandlers {
   }
 
   /**
-   * Handle tool-result chunks
+   * Handle tool-result chunks with loop detection
    */
   handleToolResult(
     chunk: AIStreamChunk & { type: "tool-result" },
@@ -159,6 +162,45 @@ export class ChunkHandlers {
       toolName,
       chunk.result
     );
+
+    // Check if this is a failed tool result
+    const resultObj = chunk.result as Record<string, unknown> | undefined;
+    const isFailure = resultObj?.success === false || !validation.isValid;
+
+    // Track consecutive failures of the same tool
+    if (isFailure) {
+      if (this.consecutiveFailures.toolName === toolName) {
+        this.consecutiveFailures.count++;
+      } else {
+        this.consecutiveFailures = { toolName, count: 1 };
+      }
+
+      // If we've hit the limit, inject loop-breaking guidance
+      if (this.consecutiveFailures.count >= MAX_CONSECUTIVE_SAME_TOOL_FAILURES) {
+        console.warn(`[LOOP_DETECTION] Tool "${toolName}" failed ${this.consecutiveFailures.count} times consecutively. Injecting guidance.`);
+        
+        const loopGuidance = `\n\n⚠️ LOOP DETECTED: You have tried "${toolName}" ${this.consecutiveFailures.count} times and it keeps failing. DO NOT try this tool again. You MUST either:\n1. Try a COMPLETELY DIFFERENT tool (e.g., semantic_search, grep_search, read_file)\n2. Inform the user that you cannot complete this task due to repeated failures\n\nDo NOT retry the same tool.`;
+        
+        // Append guidance to the result
+        const enhancedResult = {
+          ...validation.validatedResult,
+          _loopWarning: loopGuidance,
+          message: ((validation.validatedResult as Record<string, unknown>)?.message || "") + loopGuidance,
+        };
+
+        return {
+          type: "tool-result",
+          toolResult: {
+            id: chunk.toolCallId,
+            result: enhancedResult,
+            isValid: false,
+          },
+        };
+      }
+    } else {
+      // Success - reset consecutive failure counter
+      this.consecutiveFailures = { toolName: "", count: 0 };
+    }
 
     if (validation.isValid) {
       // Valid result - emit normal tool-result
