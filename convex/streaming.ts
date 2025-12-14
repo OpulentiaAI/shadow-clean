@@ -1528,7 +1528,7 @@ Continue now.`;
 });
 
 /**
- * Cancel streaming action
+ * Cancel streaming action by message ID
  */
 export const cancelStream = action({
   args: {
@@ -1549,6 +1549,45 @@ export const cancelStream = action({
     });
 
     return { success: true };
+  },
+});
+
+/**
+ * Stop a running task - sets task status to STOPPED and aborts any active streams
+ */
+export const stopTask = action({
+  args: {
+    taskId: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    console.log(`[STREAMING] Stopping task: ${args.taskId}`);
+    
+    // Find and abort any active streams for this task
+    // Stream controllers are keyed by messageId, so we need to find messages for this task
+    const messages = await ctx.runQuery(api.messages.byTask, {
+      taskId: args.taskId,
+    });
+    
+    // Abort any active stream controllers for this task's messages
+    let abortedCount = 0;
+    for (const message of messages) {
+      const controller = streamControllers.get(message._id);
+      if (controller) {
+        controller.abort();
+        streamControllers.delete(message._id);
+        abortedCount++;
+        console.log(`[STREAMING] Aborted stream for message: ${message._id}`);
+      }
+    }
+    
+    // Update task status to STOPPED
+    await ctx.runMutation(api.tasks.update, {
+      taskId: args.taskId,
+      status: "STOPPED",
+    });
+    
+    console.log(`[STREAMING] Task stopped. Aborted ${abortedCount} active streams.`);
+    return { success: true, abortedStreams: abortedCount };
   },
 });
 

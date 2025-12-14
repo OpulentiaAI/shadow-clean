@@ -32,7 +32,7 @@ function TaskPageContent() {
 
   const {
     startStreamWithTools,
-    cancelStream,
+    stopTask,
     isStreaming: convexStreaming,
   } = useConvexChatStreaming();
 
@@ -42,7 +42,10 @@ function TaskPageContent() {
     [taskId]
   );
 
-  const isStreaming = USE_CONVEX_STREAMING ? convexStreaming : legacyStreaming;
+  // Use task status as source of truth for running state, combined with local streaming state
+  // Task is "streaming" if: task is RUNNING, or we're actively in a stream call, or mutation is pending
+  const isTaskRunning = task?.status === "RUNNING";
+  const isStreaming = isTaskRunning || (USE_CONVEX_STREAMING ? convexStreaming : legacyStreaming);
 
   const handleSendMessage = useCallback(
     async (message: string, model: ModelType, queue: boolean) => {
@@ -127,13 +130,14 @@ function TaskPageContent() {
   );
 
   const handleStopStream = useCallback(async () => {
-    if (!USE_CONVEX_STREAMING) return;
+    if (!USE_CONVEX_STREAMING || !convexTaskId) return;
     try {
-      await cancelStream();
+      console.log("[TASK_CONTENT] Stopping task:", convexTaskId);
+      await stopTask(convexTaskId);
     } catch (error) {
-      console.error("[CONVEX_STREAMING] Error cancelling stream:", error);
+      console.error("[TASK_CONTENT] Error stopping task:", error);
     }
-  }, [cancelStream]);
+  }, [convexTaskId, stopTask]);
 
   const displayMessages = useMemo(() => {
     // Debug: Log what messages we're receiving from Convex

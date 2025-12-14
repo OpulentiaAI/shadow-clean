@@ -11,10 +11,12 @@ export function useConvexChatStreaming() {
   const streamChatAction = useAction(api.streaming.streamChat);
   const streamChatWithToolsAction = useAction(api.streaming.streamChatWithTools);
   const cancelStreamAction = useAction(api.streaming.cancelStream);
+  const stopTaskAction = useAction(api.streaming.stopTask);
   const resumeStreamAction = useAction(api.streaming.resumeStream);
 
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentMessageId, setCurrentMessageId] = useState<Id<"chatMessages"> | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<Id<"tasks"> | null>(null);
 
   /**
    * Start a basic chat stream (text only)
@@ -88,11 +90,11 @@ export function useConvexChatStreaming() {
   );
 
   /**
-   * Cancel the current stream
+   * Cancel the current stream by message ID (legacy)
    */
   const cancelStream = useCallback(async () => {
     if (!currentMessageId) {
-      console.warn("No active stream to cancel");
+      console.warn("No active stream to cancel via messageId");
       return;
     }
 
@@ -105,6 +107,25 @@ export function useConvexChatStreaming() {
       throw error;
     }
   }, [currentMessageId, cancelStreamAction]);
+
+  /**
+   * Stop a running task - works even after stream action returns
+   * This is the preferred method for stopping tasks
+   */
+  const stopTask = useCallback(async (taskId: Id<"tasks">) => {
+    console.log("[CONVEX_STREAMING] Stopping task:", taskId);
+    try {
+      const result = await stopTaskAction({ taskId });
+      setIsStreaming(false);
+      setCurrentMessageId(null);
+      setCurrentTaskId(null);
+      console.log("[CONVEX_STREAMING] Task stopped:", result);
+      return result;
+    } catch (error) {
+      console.error("[CONVEX_STREAMING] Stop task error:", error);
+      throw error;
+    }
+  }, [stopTaskAction]);
 
   /**
    * Resume streaming from a previous message
@@ -143,9 +164,11 @@ export function useConvexChatStreaming() {
   return {
     isStreaming,
     currentMessageId,
+    currentTaskId,
     startStream,
     startStreamWithTools,
     cancelStream,
+    stopTask,
     resumeStream,
   };
 }
