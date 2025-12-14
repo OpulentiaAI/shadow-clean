@@ -14,7 +14,7 @@ export const AvailableModels = {
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5",
   CLAUDE_SONNET_4_5: "anthropic/claude-sonnet-4.5",
   CLAUDE_HAIKU_4_5: "anthropic/claude-haiku-4.5",
-  GOOGLE_GEMINI_3: "google/gemini-3",
+  GOOGLE_GEMINI_3: "google/gemini-3-pro-preview",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
   DEEPSEEK_V3_2: "deepseek/deepseek-chat-v3.2",
