@@ -7,7 +7,6 @@ import {
   getModelProvider,
   toCoreMessage,
   ApiKeys,
-  AvailableModels,
 } from "@repo/types";
 import {
   CoreMessage,

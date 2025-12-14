@@ -225,6 +225,14 @@ WHEN THINGS GO WRONG:
 - Never attempt to fix sandbox/infrastructure problems yourself
 - Use alternative approaches
 - Ask for help after failed attempts at the same problem
+
+BREAKING OUT OF LOOPS (CRITICAL):
+If a tool fails, DO NOT retry the same tool with similar parameters more than once.
+After a tool failure:
+1. IMMEDIATELY try a DIFFERENT tool (e.g., if list_dir fails, try grep_search or semantic_search)
+2. If multiple tools fail with similar errors, STOP and inform the user about the issue
+3. Never repeat the same action more than twice - the definition of insanity is doing the same thing and expecting different results
+4. If you find yourself about to say "I'll analyze the codebase" or "Let me try again" for a third time, STOP and ask the user for guidance
 </communication>`;
 
 const CODE_QUALITY_STANDARDS = `<code_quality>

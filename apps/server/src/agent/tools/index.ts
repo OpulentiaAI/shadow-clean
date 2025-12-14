@@ -642,10 +642,15 @@ export async function createTools(taskId: string, workspacePath?: string) {
           );
         } catch (error) {
           console.error(`[LIST_DIR_ERROR]`, error);
+          const errorMsg = error instanceof Error ? error.message : "Unknown error";
+          const isENOENT = errorMsg.includes("ENOENT") || errorMsg.includes("no such file");
+          const guidance = isENOENT
+            ? "The directory does not exist. Try listing the root directory with '.' first, or use a different path. If the workspace is not initialized, wait for initialization to complete."
+            : "Try an alternative approach: use grep_search or semantic_search to find files, or try listing a parent directory.";
           return {
             success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
-            message: "Failed to list directory",
+            error: errorMsg,
+            message: `Failed to list directory: ${relative_workspace_path}. ${guidance}`,
           };
         }
       },
@@ -679,10 +684,11 @@ export async function createTools(taskId: string, workspacePath?: string) {
           );
         } catch (error) {
           console.error(`[GREP_SEARCH_ERROR]`, error);
+          const errorMsg = error instanceof Error ? error.message : "Unknown error";
           return {
             success: false,
-            error: error instanceof Error ? error.message : "Unknown error",
-            message: "Failed to search",
+            error: errorMsg,
+            message: `Failed to search for "${query}". Try semantic_search or warp_grep as alternatives, or verify the workspace is initialized.`,
           };
         }
       },

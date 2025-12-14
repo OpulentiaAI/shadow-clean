@@ -5,7 +5,6 @@ import fs from "fs";
 import { ModelProvider } from "@/agent/llm/models/model-provider";
 import { TaskModelContext } from "./task-model-context";
 import { braintrustService } from "../agent/llm/observability/braintrust-service";
-import { AvailableModels } from "@repo/types";
 
 const execFileAsync = promisify(execFile);
 
@@ -404,7 +403,10 @@ Commit message:`,
           throw err;
         }
       }
-      return { stdout: stdout ?? "", stderr: stderr ?? "" };
+      return { 
+        stdout: typeof stdout === "string" ? stdout : stdout?.toString() ?? "", 
+        stderr: typeof stderr === "string" ? stderr : stderr?.toString() ?? "" 
+      };
     } catch (error: unknown) {
       // Log the command and error for debugging
       const errorObj = error as {
