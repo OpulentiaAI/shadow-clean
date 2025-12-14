@@ -6,12 +6,17 @@ import "@xterm/xterm/css/xterm.css";
 import "./terminal.css";
 import { useEffect, useRef, memo, useCallback } from "react";
 import { useTerminalSocket } from "@/hooks/socket";
+import { useConvexTerminal } from "@/hooks/convex/use-convex-terminal";
 import { useParams } from "next/navigation";
 import type { TerminalEntry } from "@repo/types";
 import { useAgentEnvironment } from "./agent-environment-context";
 import { Button } from "../ui/button";
 import { ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+
+const USE_CONVEX_TERMINAL =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
 
 function TerminalComponent({ handleCollapse }: { handleCollapse: () => void }) {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -22,9 +27,13 @@ function TerminalComponent({ handleCollapse }: { handleCollapse: () => void }) {
   const params = useParams();
   const taskId = params?.taskId as string;
 
-  // Use our hook architecture but with enhanced terminal functionality
-  const { terminalEntries, clearTerminal: _clearTerminal } =
-    useTerminalSocket(taskId);
+  // Use Convex terminal if enabled, otherwise fall back to Socket.IO
+  const socketTerminal = useTerminalSocket(taskId);
+  const convexTerminal = useConvexTerminal(taskId);
+  
+  const { terminalEntries, clearTerminal: _clearTerminal } = USE_CONVEX_TERMINAL 
+    ? convexTerminal 
+    : socketTerminal;
 
   // Get terminal resize trigger from context
   const { terminalResizeTrigger } = useAgentEnvironment();
