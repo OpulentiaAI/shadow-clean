@@ -32,9 +32,7 @@ export class PRGenerator {
     try {
       const prompt = this.prPrompts.buildPRGenerationPrompt(options);
 
-      const prModel = userApiKeys.openai
-        ? AvailableModels.OPENAI_GPT_5_1_CODEX
-        : AvailableModels.CLAUDE_HAIKU_4_5;
+      const prModel = AvailableModels.CLAUDE_HAIKU_4_5;
 
       const { object } = await generateObject({
         model: this.modelProvider.getModel(prModel, userApiKeys),

@@ -22,7 +22,7 @@ export class ChatSummarizationService {
       case "anthropic":
         return AvailableModels.CLAUDE_HAIKU_4_5;
       case "openai":
-        return AvailableModels.OPENAI_GPT_5_1_CODEX;
+        return AvailableModels.CLAUDE_HAIKU_4_5;
       case "openrouter":
         return AvailableModels.CLAUDE_HAIKU_4_5;
       default:

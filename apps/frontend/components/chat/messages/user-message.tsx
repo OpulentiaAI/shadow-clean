@@ -40,7 +40,7 @@ export function UserMessage({
     if (message.llmModel) {
       return message.llmModel as ModelType;
     }
-    return AvailableModels.CLAUDE_SONNET_4_5;
+    return AvailableModels.CLAUDE_HAIKU_4_5;
   }, [message.llmModel]);
 
   const [editValue, setEditValue] = useState("");

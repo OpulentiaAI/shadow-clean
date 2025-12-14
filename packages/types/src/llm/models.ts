@@ -12,14 +12,11 @@ export interface LLMConfig {
 export const AvailableModels = {
   // OpenRouter models (all models routed via OpenRouter)
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5",
-  CLAUDE_SONNET_4_5: "anthropic/claude-sonnet-4.5",
   CLAUDE_HAIKU_4_5: "anthropic/claude-haiku-4.5",
   GOOGLE_GEMINI_3: "google/gemini-3-pro-preview",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
   DEEPSEEK_V3: "deepseek/deepseek-chat",
-  OPENAI_GPT_5_1_CODEX: "openai/gpt-5.1-codex",
-  OPENAI_GPT_5_1: "openai/gpt-5.1",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -35,11 +32,6 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.CLAUDE_OPUS_4_5]: {
     id: AvailableModels.CLAUDE_OPUS_4_5,
     name: "Claude Opus 4.5",
-    provider: "openrouter",
-  },
-  [AvailableModels.CLAUDE_SONNET_4_5]: {
-    id: AvailableModels.CLAUDE_SONNET_4_5,
-    name: "Claude Sonnet 4.5",
     provider: "openrouter",
   },
   [AvailableModels.CLAUDE_HAIKU_4_5]: {
@@ -65,16 +57,6 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.DEEPSEEK_V3]: {
     id: AvailableModels.DEEPSEEK_V3,
     name: "DeepSeek V3",
-    provider: "openrouter",
-  },
-  [AvailableModels.OPENAI_GPT_5_1_CODEX]: {
-    id: AvailableModels.OPENAI_GPT_5_1_CODEX,
-    name: "GPT-5.1 Codex",
-    provider: "openrouter",
-  },
-  [AvailableModels.OPENAI_GPT_5_1]: {
-    id: AvailableModels.OPENAI_GPT_5_1,
-    name: "GPT-5.1",
     provider: "openrouter",
   },
 };
@@ -136,9 +118,9 @@ export function getModelInfo(model: ModelType): ModelInfo {
 export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
   switch (provider) {
     case "anthropic":
-      return AvailableModels.CLAUDE_SONNET_4_5;
+      return AvailableModels.CLAUDE_HAIKU_4_5;
     case "openai":
-      return AvailableModels.OPENAI_GPT_5_1_CODEX;
+      return AvailableModels.CLAUDE_HAIKU_4_5;
     case "openrouter":
       return AvailableModels.CLAUDE_OPUS_4_5;
     default:
@@ -153,8 +135,7 @@ export function isReasoningModel(model: string): boolean {
   const reasoningModels = [
     "anthropic/claude-opus-4.5",
     "moonshotai/kimi-k2-thinking",
-    "openai/gpt-5.2",
-  ];
+      ];
   return reasoningModels.some((rm) =>
     model.toLowerCase().includes(rm.toLowerCase())
   );
@@ -174,13 +155,10 @@ export async function getAllPossibleModels(
     models.push(
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.GOOGLE_GEMINI_3,
-      AvailableModels.CLAUDE_SONNET_4_5,
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
-      AvailableModels.DEEPSEEK_V3,
-      AvailableModels.OPENAI_GPT_5_1_CODEX,
-      AvailableModels.OPENAI_GPT_5_1
+      AvailableModels.DEEPSEEK_V3
     );
   }
 
@@ -200,13 +178,10 @@ export async function getDefaultSelectedModels(
     defaultModels.push(
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.GOOGLE_GEMINI_3,
-      AvailableModels.CLAUDE_SONNET_4_5,
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
-      AvailableModels.DEEPSEEK_V3,
-      AvailableModels.OPENAI_GPT_5_1_CODEX,
-      AvailableModels.OPENAI_GPT_5_1
+      AvailableModels.DEEPSEEK_V3
     );
   }
 
