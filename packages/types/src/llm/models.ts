@@ -17,9 +17,9 @@ export const AvailableModels = {
   GOOGLE_GEMINI_3: "google/gemini-3-pro-preview",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
-  DEEPSEEK_V3_2: "deepseek/deepseek-chat-v3.2",
+  DEEPSEEK_V3: "deepseek/deepseek-chat",
   OPENAI_GPT_5_1_CODEX: "openai/gpt-5.1-codex",
-  OPENAI_GPT_5_2: "openai/gpt-5.2",
+  OPENAI_GPT_5_1: "openai/gpt-5.1",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -62,9 +62,9 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "Devstral 2 (Free)",
     provider: "openrouter",
   },
-  [AvailableModels.DEEPSEEK_V3_2]: {
-    id: AvailableModels.DEEPSEEK_V3_2,
-    name: "DeepSeek 3.2",
+  [AvailableModels.DEEPSEEK_V3]: {
+    id: AvailableModels.DEEPSEEK_V3,
+    name: "DeepSeek V3",
     provider: "openrouter",
   },
   [AvailableModels.OPENAI_GPT_5_1_CODEX]: {
@@ -72,9 +72,9 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "GPT-5.1 Codex",
     provider: "openrouter",
   },
-  [AvailableModels.OPENAI_GPT_5_2]: {
-    id: AvailableModels.OPENAI_GPT_5_2,
-    name: "GPT-5.2 (Reasoning)",
+  [AvailableModels.OPENAI_GPT_5_1]: {
+    id: AvailableModels.OPENAI_GPT_5_1,
+    name: "GPT-5.1",
     provider: "openrouter",
   },
 };
@@ -178,9 +178,9 @@ export async function getAllPossibleModels(
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
-      AvailableModels.DEEPSEEK_V3_2,
+      AvailableModels.DEEPSEEK_V3,
       AvailableModels.OPENAI_GPT_5_1_CODEX,
-      AvailableModels.OPENAI_GPT_5_2
+      AvailableModels.OPENAI_GPT_5_1
     );
   }
 
@@ -204,9 +204,9 @@ export async function getDefaultSelectedModels(
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
-      AvailableModels.DEEPSEEK_V3_2,
+      AvailableModels.DEEPSEEK_V3,
       AvailableModels.OPENAI_GPT_5_1_CODEX,
-      AvailableModels.OPENAI_GPT_5_2
+      AvailableModels.OPENAI_GPT_5_1
     );
   }
 

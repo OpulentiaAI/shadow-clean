@@ -229,7 +229,7 @@ export class GitManager {
       const modelInstance = modelProvider.getModel(model, context.getApiKeys());
 
       const isGPT5Family =
-        model === AvailableModels.OPENAI_GPT_5_2 || model === AvailableModels.OPENAI_GPT_5_1_CODEX;
+        model === AvailableModels.OPENAI_GPT_5_1 || model === AvailableModels.OPENAI_GPT_5_1_CODEX;
 
       const { text } = await generateText({
         model: modelInstance,
@@ -246,7 +246,7 @@ Commit message:`,
           {
             model,
             diffLength: diff.length,
-            ...(model === AvailableModels.OPENAI_GPT_5_2
+            ...(model === AvailableModels.OPENAI_GPT_5_1
               ? { maxCompletionTokens: 100 }
               : { maxTokens: 100 }),
             temperature: isGPT5Family ? 1 : 0.3,
