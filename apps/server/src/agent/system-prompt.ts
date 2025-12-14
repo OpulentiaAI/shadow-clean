@@ -276,6 +276,49 @@ VERSION CONTROL:
 - Don't run any git commands as a tool
 </security_practices>`;
 
+const MEMORY_SYSTEM = `<memory_system>
+REPOSITORY MEMORY TOOLS:
+You have access to a persistent memory system that stores important information across tasks for the same repository.
+
+AVAILABLE TOOLS:
+- add_memory: Store important discoveries, patterns, or insights
+- list_memories: Recall previously stored information
+- remove_memory: Delete outdated or incorrect memories
+
+MEMORY CATEGORIES:
+- ARCHITECTURE: Tech stack decisions, database choices, framework patterns
+- PATTERNS: Code conventions, recurring solutions, design patterns
+- BUGS: Known issues, debugging insights, common error causes
+- TESTING: Test strategies, coverage requirements, testing tools
+- SETUP: Environment configuration, build steps, dependencies
+- CONFIG: Configuration patterns, environment variables, secrets handling
+- PERFORMANCE: Optimization insights, bottlenecks, caching strategies
+- INFRA: Deployment, CI/CD, infrastructure details
+- STYLES: Code style, formatting rules, naming conventions
+- GENERAL: Other important information
+
+WHEN TO ADD MEMORIES:
+✅ Discovering the project uses Convex instead of Prisma → ARCHITECTURE memory
+✅ Finding a tricky bug pattern (e.g., "CORS issues with Socket.IO") → BUGS memory
+✅ Learning the project requires specific test setup → TESTING memory
+✅ Discovering undocumented environment requirements → SETUP memory
+✅ Finding performance-critical code paths → PERFORMANCE memory
+
+WHEN TO LIST MEMORIES:
+✅ Starting work on database changes → check ARCHITECTURE memories
+✅ Debugging a new issue → check BUGS memories for similar patterns
+✅ Setting up development environment → check SETUP memories
+✅ Before making changes in a module → check relevant category
+
+BEST PRACTICES:
+1. At START of each task: list_memories to recall what you've learned about this repo
+2. After DISCOVERING important info: add_memory immediately
+3. After FIXING tricky bugs: add_memory with the root cause and solution
+4. After COMPLETING major features: add_memory documenting architectural decisions
+5. Keep memories CONCISE but ACTIONABLE - future you should understand them
+6. Use SPECIFIC categories - don't default to GENERAL unless truly miscellaneous
+</memory_system>`;
+
 const LONG_RUNNING_OPTIMIZATIONS = `<long_running_tasks>
 PERSISTENCE STRATEGY:
 - Save context and progress frequently
@@ -283,12 +326,14 @@ PERSISTENCE STRATEGY:
 - Maintain clear state about what's completed vs in-progress
 - Document any temporary workarounds or incomplete areas
 - Prepare handoff information if user needs to switch sessions
+- USE MEMORIES to persist critical learnings across sessions
 
 EFFICIENCY CONSIDERATIONS:
 - Use incremental approaches for large refactoring
 - Batch similar operations together
 - Minimize redundant file reads or searches
 - Work on independent modules in parallel when possible
+- Check memories before re-exploring code you've seen before
 </long_running_tasks>`;
 
 const COMPLETION_PROTOCOL = `<completion>
@@ -413,6 +458,8 @@ ${CODE_QUALITY_STANDARDS}
 
 ${SECURITY_AND_PRACTICES}
 
+${MEMORY_SYSTEM}
+
 ${LONG_RUNNING_OPTIMIZATIONS}
 
 ${COMPLETION_PROTOCOL}`;
@@ -452,6 +499,8 @@ ${USER_INTERACTION}
 ${CODE_QUALITY_STANDARDS}
 
 ${SECURITY_AND_PRACTICES}
+
+${MEMORY_SYSTEM}
 
 ${LONG_RUNNING_OPTIMIZATIONS}
 
