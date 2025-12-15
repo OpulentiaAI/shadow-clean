@@ -1,16 +1,88 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 // import { createGroq } from "@ai-sdk/groq";
 // import { createOllama } from "ollama-ai-provider";
-import { ModelType, getModelProvider, ApiKeys } from "@repo/types";
+import { ModelType, getModelProvider, ApiKeys, isReasoningModel } from "@repo/types";
 import { LanguageModel } from "ai";
 
-const OPENROUTER_BASE_URL =
-  process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 const OPENROUTER_HEADERS = {
   "HTTP-Referer": "https://code.opulentia.ai",
   "X-Title": "Shadow Agent",
 };
+
+/**
+ * Get reasoning configuration for OpenRouter models
+ * See: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+ */
+function getOpenRouterReasoningConfig(modelId: string): {
+  reasoning?: {
+    enabled?: boolean;
+    exclude?: boolean;
+  } & ({ max_tokens: number } | { effort: "high" | "medium" | "low" });
+} | undefined {
+  if (!isReasoningModel(modelId)) {
+    return undefined;
+  }
+
+  const isClaudeModel = modelId.includes("claude");
+  const isGeminiModel = modelId.includes("gemini");
+  const isGrokModel = modelId.includes("grok");
+  const isKimiModel = modelId.includes("kimi");
+
+  // Claude models on OpenRouter: use max_tokens (minimum 1024)
+  if (isClaudeModel) {
+    return {
+      reasoning: {
+        enabled: true,
+        max_tokens: 12000,
+        exclude: false,
+      },
+    };
+  }
+
+  // Gemini 2.5 Flash has built-in thinking capabilities
+  if (isGeminiModel) {
+    return {
+      reasoning: {
+        enabled: true,
+        max_tokens: 8000,
+        exclude: false,
+      },
+    };
+  }
+
+  // Grok Code Fast 1 - reasoning traces visible in response
+  if (isGrokModel) {
+    return {
+      reasoning: {
+        enabled: true,
+        effort: "high",
+        exclude: false,
+      },
+    };
+  }
+
+  // Kimi K2 Thinking - optimized for reasoning
+  if (isKimiModel) {
+    return {
+      reasoning: {
+        enabled: true,
+        effort: "high",
+        exclude: false,
+      },
+    };
+  }
+
+  // Default reasoning config for other reasoning models
+  return {
+    reasoning: {
+      enabled: true,
+      effort: "medium",
+      exclude: false,
+    },
+  };
+}
 
 export class ModelProvider {
   /**
@@ -59,18 +131,30 @@ export class ModelProvider {
           );
         }
 
-        console.log("Creating OpenRouter client");
+        console.log("Creating OpenRouter client with native provider");
 
         try {
-          const openrouterClient = createOpenAI({
+          // Use the native OpenRouter AI SDK provider for proper reasoning support
+          const openrouterClient = createOpenRouter({
             apiKey: userApiKeys.openrouter,
-            baseURL: OPENROUTER_BASE_URL,
             headers: OPENROUTER_HEADERS,
+            compatibility: "strict",
           });
-          const model = openrouterClient(modelId);
 
-          console.log(`[MODEL_PROVIDER] Created OpenRouter model: ${modelId}`);
-          return model;
+          // Get reasoning configuration for this model
+          const reasoningConfig = getOpenRouterReasoningConfig(modelId);
+
+          // Create the model with reasoning settings if applicable
+          const model = openrouterClient.chat(modelId, {
+            ...reasoningConfig,
+          });
+
+          console.log(`[MODEL_PROVIDER] Created OpenRouter model: ${modelId}`, {
+            hasReasoningConfig: !!reasoningConfig,
+            isReasoningModel: isReasoningModel(modelId),
+          });
+
+          return model as unknown as LanguageModel;
         } catch (error) {
           console.error("OpenRouter client creation failed:", error);
           throw error;

@@ -279,6 +279,7 @@ export class StreamProcessor {
 
       const modelProvider = getModelProvider(model);
       const isAnthropicModel = modelProvider === "anthropic";
+      const isOpenRouterModel = modelProvider === "openrouter";
       const isGPT5Family = false;
 
       let finalMessages: CoreMessage[];
@@ -305,20 +306,27 @@ export class StreamProcessor {
         finalMessages = coreMessages;
       }
 
+      // Build reasoning provider options based on model type
+      // Note: OpenRouter reasoning is configured at model creation level in model-provider.ts
+      // using the native @openrouter/ai-sdk-provider which handles reasoning configuration directly
       const reasoningProviderOptions: LanguageModelV1ProviderMetadata = {
-        anthropic: {
-          thinking: {
-            type: "enabled",
-            budgetTokens: 12000,
+        // Direct Anthropic API (not via OpenRouter)
+        ...(isAnthropicModel && !isOpenRouterModel && {
+          anthropic: {
+            thinking: {
+              type: "enabled",
+              budgetTokens: 12000,
+            },
           },
-        },
-        ...(isGPT5Family
-          ? {
-              openai: {
-                reasoningEffort: "medium",
-              },
-            }
-          : {}),
+        }),
+        // OpenAI GPT-5 family (direct API)
+        ...(isGPT5Family && {
+          openai: {
+            reasoningEffort: "medium",
+          },
+        }),
+        // OpenRouter models: reasoning is configured at model creation level
+        // via @openrouter/ai-sdk-provider in model-provider.ts
       };
 
       const repairAttemptsByToolCallId = new Map<string, number>();

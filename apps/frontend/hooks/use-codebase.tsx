@@ -10,10 +10,21 @@ export function useCodebase(taskId: string) {
     queryKey: ["codebase", codebaseId],
     queryFn: async (): Promise<CodebaseWithSummaries> => {
       const res = await fetch(`/api/codebases/${codebaseId}`);
-      if (!res.ok) throw new Error("Failed to fetch codebase");
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const message = errorData.error || "Failed to fetch codebase";
+        throw new Error(message);
+      }
       const data = await res.json();
       return data.codebase;
     },
     enabled: !!codebaseId,
+    // Don't retry on 404 errors - the codebase doesn't exist
+    retry: (failureCount, error) => {
+      if (error.message === "Codebase not found") return false;
+      return failureCount < 3;
+    },
+    // Cache stale data for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }

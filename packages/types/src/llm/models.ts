@@ -14,9 +14,11 @@ export const AvailableModels = {
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5",
   CLAUDE_HAIKU_4_5: "anthropic/claude-haiku-4.5",
   GOOGLE_GEMINI_3: "google/gemini-3-pro-preview",
+  GOOGLE_GEMINI_2_5_FLASH: "google/gemini-2.5-flash",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
   DEEPSEEK_V3: "deepseek/deepseek-chat",
+  GROK_CODE_FAST_1: "x-ai/grok-code-fast-1",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -44,6 +46,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "Gemini 3",
     provider: "openrouter",
   },
+  [AvailableModels.GOOGLE_GEMINI_2_5_FLASH]: {
+    id: AvailableModels.GOOGLE_GEMINI_2_5_FLASH,
+    name: "Gemini 2.5 Flash",
+    provider: "openrouter",
+  },
   [AvailableModels.MOONSHOT_KIMI_K2_THINKING]: {
     id: AvailableModels.MOONSHOT_KIMI_K2_THINKING,
     name: "Kimi K2 Thinking",
@@ -57,6 +64,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.DEEPSEEK_V3]: {
     id: AvailableModels.DEEPSEEK_V3,
     name: "DeepSeek V3",
+    provider: "openrouter",
+  },
+  [AvailableModels.GROK_CODE_FAST_1]: {
+    id: AvailableModels.GROK_CODE_FAST_1,
+    name: "Grok Code Fast 1",
     provider: "openrouter",
   },
 };
@@ -135,7 +147,10 @@ export function isReasoningModel(model: string): boolean {
   const reasoningModels = [
     "anthropic/claude-opus-4.5",
     "moonshotai/kimi-k2-thinking",
-      ];
+    "google/gemini-2.5-flash",
+    "google/gemini-3-pro-preview",
+    "x-ai/grok-code-fast-1",
+  ];
   return reasoningModels.some((rm) =>
     model.toLowerCase().includes(rm.toLowerCase())
   );
@@ -155,10 +170,12 @@ export async function getAllPossibleModels(
     models.push(
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.GOOGLE_GEMINI_3,
+      AvailableModels.GOOGLE_GEMINI_2_5_FLASH,
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
-      AvailableModels.DEEPSEEK_V3
+      AvailableModels.DEEPSEEK_V3,
+      AvailableModels.GROK_CODE_FAST_1
     );
   }
 
@@ -178,10 +195,12 @@ export async function getDefaultSelectedModels(
     defaultModels.push(
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.GOOGLE_GEMINI_3,
+      AvailableModels.GOOGLE_GEMINI_2_5_FLASH,
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
-      AvailableModels.DEEPSEEK_V3
+      AvailableModels.DEEPSEEK_V3,
+      AvailableModels.GROK_CODE_FAST_1
     );
   }
 

@@ -72,7 +72,7 @@ describe('StreamProcessor-unit-test', () => {
         content: 'Hello',
         id: 'msg-1',
         createdAt: new Date().toISOString(),
-        llmModel: AvailableModels.CLAUDE_SONNET_4,
+        llmModel: AvailableModels.CLAUDE_OPUS_4_5,
       },
     ];
   });
@@ -105,7 +105,7 @@ describe('StreamProcessor-unit-test', () => {
     );
 
     const systemPrompt = 'You are a helpful assistant';
-    const model = AvailableModels.CLAUDE_SONNET_4;
+    const model = AvailableModels.CLAUDE_OPUS_4_5;
 
     const stream = streamProcessor.createMessageStream(
       systemPrompt,
@@ -138,7 +138,7 @@ describe('StreamProcessor-unit-test', () => {
     });
 
     const systemPrompt = 'You are a helpful assistant';
-    const model = AvailableModels.CLAUDE_SONNET_4;
+    const model = AvailableModels.CLAUDE_OPUS_4_5;
 
     const stream = streamProcessor.createMessageStream(
       systemPrompt,
@@ -178,7 +178,7 @@ describe('StreamProcessor-unit-test', () => {
     );
 
     const systemPrompt = 'You are a helpful assistant';
-    const model = AvailableModels.CLAUDE_SONNET_4;
+    const model = AvailableModels.CLAUDE_OPUS_4_5;
 
     const stream = streamProcessor.createMessageStream(
       systemPrompt,
@@ -225,7 +225,7 @@ describe('StreamProcessor-unit-test', () => {
     );
 
     const systemPrompt = 'You are a helpful assistant';
-    const model = AvailableModels.CLAUDE_SONNET_4;
+    const model = AvailableModels.CLAUDE_OPUS_4_5;
 
     const stream = streamProcessor.createMessageStream(
       systemPrompt,
@@ -306,7 +306,7 @@ describe('StreamProcessor-unit-test', () => {
     const stream = streamProcessor.createMessageStream(
       'You are a helpful assistant',
       mockMessages,
-      AvailableModels.CLAUDE_SONNET_4,
+      AvailableModels.CLAUDE_OPUS_4_5,
       mockApiKeys,
       true,
       'task-repair-cap'
@@ -368,12 +368,12 @@ describe('StreamProcessor-integration-test', () => {
           content: 'Say "test successful" and nothing else',
           id: 'msg-1',
           createdAt: new Date().toISOString(),
-          llmModel: AvailableModels.CLAUDE_3_5_HAIKU,
+          llmModel: AvailableModels.CLAUDE_HAIKU_4_5,
         },
       ];
 
       const systemPrompt = 'You are a helpful assistant. Follow instructions exactly.';
-      const model = AvailableModels.CLAUDE_3_5_HAIKU;
+      const model = AvailableModels.CLAUDE_HAIKU_4_5;
 
       const stream = streamProcessor.createMessageStream(
         systemPrompt,

@@ -139,7 +139,7 @@ describe('ChunkHandlers-unit-test', () => {
       },
     };
 
-    const results = chunkHandlers.handleFinish(chunk, AvailableModels.CLAUDE_SONNET_4);
+    const results = chunkHandlers.handleFinish(chunk, AvailableModels.CLAUDE_OPUS_4_5);
 
     expect(results).toHaveLength(2);
     expect(results[0]).toHaveProperty('type', 'usage');
@@ -242,7 +242,7 @@ describe('ChunkHandlers-integration-test', () => {
             processedChunks++;
             break;
           case 'finish':
-            chunkHandlers.handleFinish(chunk as any, AvailableModels.CLAUDE_SONNET_4);
+            chunkHandlers.handleFinish(chunk as any, AvailableModels.CLAUDE_OPUS_4_5);
             hasCompletion = true;
             processedChunks++;
             break;

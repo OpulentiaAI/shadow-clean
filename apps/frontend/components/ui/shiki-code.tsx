@@ -22,22 +22,32 @@ export function ShikiCode({
     async function highlightCode() {
       try {
         const highlighter = await getHighlighter();
+        const requestedLang = language || className?.replace(/language-/, "") || "plaintext";
+        
+        // Get loaded languages and check if requested language is available
+        const loadedLangs = highlighter.getLoadedLanguages();
+        const langToUse = loadedLangs.includes(requestedLang) ? requestedLang : "plaintext";
+        
         const html = highlighter.codeToHtml(children, {
-          lang: language || className?.replace(/language-/, "") || "plaintext",
+          lang: langToUse,
           theme: "vesper",
         });
         setHighlightedCode(html);
       } catch (error) {
         console.warn("Failed to highlight code:", error);
-        // Fallback to plain text
-        setHighlightedCode(`<pre><code>${children}</code></pre>`);
+        // Fallback to plain text with HTML escaping
+        const escaped = children
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+        setHighlightedCode(`<pre><code>${escaped}</code></pre>`);
       } finally {
         setIsLoading(false);
       }
     }
 
     highlightCode();
-  }, [children, language]);
+  }, [children, language, className]);
 
   if (inline) {
     return (

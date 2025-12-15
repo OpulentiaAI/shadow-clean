@@ -28,6 +28,19 @@ export const LANGUAGES: { id: BundledLanguage }[] = [
   { id: "go" },
   { id: "rust" },
   { id: "java" },
+  { id: "bash" },
+  { id: "shell" },
+  { id: "shellscript" },
+  { id: "yaml" },
+  { id: "sql" },
+  { id: "dockerfile" },
+  { id: "ruby" },
+  { id: "php" },
+  { id: "swift" },
+  { id: "kotlin" },
+  { id: "scala" },
+  { id: "toml" },
+  { id: "graphql" },
 ];
 
 export const jsEngine = createJavaScriptRegexEngine({ forgiving: true });
