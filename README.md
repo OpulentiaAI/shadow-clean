@@ -308,6 +308,36 @@ Shadow provides a comprehensive set of tools for AI agents:
 - Maintain WebSocket event compatibility across frontend/backend changes
 - **Remote mode requires Amazon Linux 2023 nodes** for Kata Containers compatibility
 
+## Production Status
+
+| Feature | Status | Flag |
+|---------|--------|------|
+| Direct Streaming | ✅ Active | N/A |
+| Durable Workflows | 🔄 Available | `ENABLE_WORKFLOW` |
+| Retry with Backoff | 🔄 Available | `ENABLE_RETRY_WITH_BACKOFF` |
+| Message Compression | 🔄 Available | `ENABLE_MESSAGE_COMPRESSION` |
+
+### Quick Commands
+
+```bash
+# Check system health
+npx convex run monitoring/dashboard:getSystemHealth
+
+# Check alerts
+npx convex run monitoring/dashboard:checkAlerts
+
+# Run tests
+./scripts/test-workflow.sh
+
+# Pre-deploy checks
+./scripts/pre-deploy-check.sh
+```
+
+### Runbooks
+
+- [Incident Response](docs/runbooks/INCIDENT_RESPONSE.md)
+- [Feature Rollout](docs/runbooks/FEATURE_ROLLOUT.md)
+
 ## Contributing
 
 1. Fork the repository

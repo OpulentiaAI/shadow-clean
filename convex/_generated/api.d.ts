@@ -21,6 +21,7 @@ import type * as lib_messageCompression from "../lib/messageCompression.js";
 import type * as lib_retry from "../lib/retry.js";
 import type * as memories from "../memories.js";
 import type * as messages from "../messages.js";
+import type * as monitoring_dashboard from "../monitoring/dashboard.js";
 import type * as observability from "../observability.js";
 import type * as persistentStreaming from "../persistentStreaming.js";
 import type * as presence from "../presence.js";
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   "lib/retry": typeof lib_retry;
   memories: typeof memories;
   messages: typeof messages;
+  "monitoring/dashboard": typeof monitoring_dashboard;
   observability: typeof observability;
   persistentStreaming: typeof persistentStreaming;
   presence: typeof presence;
