@@ -3,8 +3,19 @@ import { vi } from 'vitest';
 // Set CONVEX_URL environment variable for tests that need it
 process.env.CONVEX_URL = 'https://test.convex.cloud';
 
+// Mock convex-operations globally - individual tests can override with mockResolvedValueOnce
+vi.mock('./src/lib/convex-operations', () => ({
+  appendMessage: vi.fn().mockResolvedValue({ messageId: 'mock-msg-id', sequence: 1 }),
+  updateMessage: vi.fn().mockResolvedValue({}),
+  listMessagesByTask: vi.fn().mockResolvedValue([]),
+  getTask: vi.fn().mockResolvedValue({ _id: 'mock-task-id', status: 'RUNNING', workspacePath: '/tmp/mock' }),
+  updateTask: vi.fn().mockResolvedValue({}),
+  toConvexId: vi.fn((id: string) => id),
+  isConvexId: vi.fn(() => true),
+  getLatestMessageSequence: vi.fn().mockResolvedValue(0),
+}));
+
 // Mock Convex client to prevent actual network calls
-// Individual tests should mock convex-operations as needed for their specific use cases
 vi.mock('./src/lib/convex-client', () => {
   const mockClient = {
     query: vi.fn().mockResolvedValue(null),

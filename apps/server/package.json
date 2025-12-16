@@ -15,6 +15,7 @@
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "test:integration": "RUN_INTEGRATION_TESTS=true vitest run --config vitest.integration.config.ts",
     "docker:build": "docker build -f Dockerfile -t shadow-server ../../",
     "docker:run": "docker run -p 4000:4000 --env-file .env shadow-server"
   },

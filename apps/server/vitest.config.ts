@@ -9,12 +9,13 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     // Exclude e2e tests and integration tests that require Convex mocking refactor
     // These tests were designed for Prisma but code now uses Convex operations
+    // TODO: Refactor to use proper Convex mocking once module path resolution is fixed
     exclude: [
       '**/*.e2e.test.ts',
       '**/tests/*.test.ts',
-      '**/chat.test.ts',           // Needs convex-operations mocking
-      '**/initialization/*.test.ts', // Needs convex-operations mocking
-      '**/execution/*.test.ts',    // Needs convex-operations mocking
+      '**/agent/chat.test.ts',       // Needs Convex mock path resolution fix
+      '**/initialization/*.test.ts', // Needs convex-operations mocking refactor
+      '**/execution/*.test.ts',      // Needs convex-operations mocking refactor
     ],
     coverage: {
       provider: 'v8',

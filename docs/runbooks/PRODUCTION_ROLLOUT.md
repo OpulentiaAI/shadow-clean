@@ -176,3 +176,20 @@ npx convex env set ENABLE_MESSAGE_COMPRESSION false
 npx convex env set ENABLE_PROMPT_MESSAGE_ID false
 npx convex env set ENABLE_RETRY_WITH_BACKOFF false
 ```
+
+---
+
+## Known Issues
+
+### Health Status "degraded" After Testing
+
+**Cause:** Test artifacts (messages created by `testPromptMessageId` and other test helpers) remain in the database. These test messages have varying completion states which affects the calculated completion rate.
+
+**Impact:** Non-production issue. Health check reports "degraded" when completion rate < 100% due to pending/streaming test messages.
+
+**Resolution Options:**
+1. **Ignore for non-prod:** Test deployments will naturally have test artifacts
+2. **Clean up test data:** Delete test messages/tasks after verification
+3. **Filter test traffic:** Update health metrics to exclude messages from test tasks (tasks with names containing "Test")
+
+**Verification:** Production deployments without test artifacts should report "healthy".
