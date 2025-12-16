@@ -1,0 +1,456 @@
+{
+  "extractedAt": "2024-12-16T11:12:00Z",
+  "totalPractices": 25,
+  "practices": [
+    {
+      "id": "BP001",
+      "url": "https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling",
+      "section": "Multi-Step Calls (using stopWhen)",
+      "practice": "Use stopWhen with stepCountIs() to enable multi-step tool calling with automatic stop conditions",
+      "why": "Prevents infinite loops in agentic workflows; allows model to chain tool calls until a condition is met or max steps reached",
+      "how": "Pass stopWhen: stepCountIs(N) to generateText/streamText; use onStepFinish callback for per-step logging",
+      "tags": ["tools", "workflows", "streaming"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Already using stepCountIs in current implementation"
+        }
+      ]
+    },
+    {
+      "id": "BP002",
+      "url": "https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling",
+      "section": "onStepFinish callback",
+      "practice": "Implement onStepFinish callback for per-step observability and cost tracking",
+      "why": "Enables recording usage, tool calls, and results after each step for billing and debugging",
+      "how": "Add onStepFinish({ text, toolCalls, toolResults, finishReason, usage }) callback to streamText/generateText",
+      "tags": ["observability", "tools", "streaming"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts", "convex/toolCallTracking.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Callback available in AI SDK v5"
+        }
+      ]
+    },
+    {
+      "id": "BP003",
+      "url": "https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling",
+      "section": "prepareStep callback",
+      "practice": "Use prepareStep callback for dynamic model/tool selection per step and message compression in long loops",
+      "why": "Allows changing model, active tools, or compressing message history mid-workflow to optimize cost/latency",
+      "how": "Implement prepareStep: async ({ stepNumber, messages }) => { if (messages.length > 20) return { messages: messages.slice(-10) }; }",
+      "tags": ["workflows", "optimization", "tools"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts"],
+          "risk": "med",
+          "expectedImpact": "med",
+          "dependencyNotes": "New feature in AI SDK v5"
+        }
+      ]
+    },
+    {
+      "id": "BP004",
+      "url": "https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling",
+      "section": "Abort Signals",
+      "practice": "Forward abort signals from generateText/streamText to tool executions",
+      "why": "Enables clean cancellation of long-running tool operations when stream is cancelled",
+      "how": "Pass abortSignal to tool execute function: execute: async ({ location }, { abortSignal }) => fetch(url, { signal: abortSignal })",
+      "tags": ["tools", "reliability", "streaming"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts", "convex/agentTools.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Already have AbortController in streaming.ts"
+        }
+      ]
+    },
+    {
+      "id": "BP005",
+      "url": "https://docs.convex.dev/agents/streaming",
+      "section": "Streaming message deltas",
+      "practice": "Use saveStreamDeltas with throttleMs and chunking options for efficient async streaming",
+      "why": "Balances interactivity vs bandwidth; prevents excessive DB writes while maintaining responsive UX",
+      "how": "Pass { saveStreamDeltas: { chunking: 'line', throttleMs: 100 } } to agent.streamText",
+      "tags": ["streaming", "optimization", "data-model"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts", "convex/messages.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Requires @convex-dev/agent component pattern"
+        }
+      ]
+    },
+    {
+      "id": "BP006",
+      "url": "https://docs.convex.dev/agents/streaming",
+      "section": "Text smoothing with SmoothText",
+      "practice": "Use useSmoothText hook for smooth text rendering during streaming",
+      "why": "Adapts to incoming text speed; prevents choppy UX from variable chunk sizes",
+      "how": "const [visibleText] = useSmoothText(message.text, { startStreaming: message.status === 'streaming' })",
+      "tags": ["streaming", "client", "optimization"],
+      "implementationCandidates": [
+        {
+          "area": "client",
+          "filesLikelyTouched": ["apps/frontend/components/chat/StreamingMessage.tsx"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Requires @convex-dev/agent/react"
+        }
+      ]
+    },
+    {
+      "id": "BP007",
+      "url": "https://docs.convex.dev/agents/streaming",
+      "section": "DeltaStreamer class",
+      "practice": "Use DeltaStreamer for advanced streaming without Agent class wrapper",
+      "why": "Enables streaming deltas directly with AI SDK streamText while saving to Convex DB",
+      "how": "const streamer = new DeltaStreamer(components.agent, ctx, { throttleMs: 100, compress: compressUIMessageChunks })",
+      "tags": ["streaming", "server", "data-model"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts"],
+          "risk": "med",
+          "expectedImpact": "high",
+          "dependencyNotes": "Alternative to current appendStreamDelta pattern"
+        }
+      ]
+    },
+    {
+      "id": "BP008",
+      "url": "https://docs.convex.dev/agents/workflows",
+      "section": "Building reliable workflows",
+      "practice": "Use Workflow component for multi-step operations with retries, delays, and durability",
+      "why": "Survives server restarts; guarantees completion; handles transient LLM API failures",
+      "how": "const workflow = new WorkflowManager(components.workflow); workflow.define({ handler: async (step, args) => { await step.runAction(...) } })",
+      "tags": ["workflows", "reliability", "retries"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/workflows.ts", "convex/convex.config.ts"],
+          "risk": "med",
+          "expectedImpact": "high",
+          "dependencyNotes": "Requires @convex-dev/workflow component"
+        }
+      ]
+    },
+    {
+      "id": "BP009",
+      "url": "https://www.convex.dev/components/workflow",
+      "section": "Retry behavior",
+      "practice": "Configure retry behavior with exponential backoff and jitter for LLM calls",
+      "why": "Handles transient API failures; prevents thundering herd on retry; uses scheduler for backoff",
+      "how": "new WorkflowManager(components.workflow, { defaultRetryBehavior: { maxAttempts: 3, initialBackoffMs: 100, base: 2 } })",
+      "tags": ["workflows", "retries", "reliability"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/workflows.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Part of @convex-dev/workflow"
+        }
+      ]
+    },
+    {
+      "id": "BP010",
+      "url": "https://www.convex.dev/components/workflow",
+      "section": "maxParallelism",
+      "practice": "Set maxParallelism to control concurrent workflow steps and avoid resource exhaustion",
+      "why": "Prevents exceeding serverless function limits; batching is more efficient than many small workflows",
+      "how": "new WorkflowManager(components.workflow, { workpoolOptions: { maxParallelism: 10 } })",
+      "tags": ["workflows", "optimization", "infra"],
+      "implementationCandidates": [
+        {
+          "area": "infra",
+          "filesLikelyTouched": ["convex/workflows.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Free tier: max 20; Pro: max 100"
+        }
+      ]
+    },
+    {
+      "id": "BP011",
+      "url": "https://www.convex.dev/components/workflow",
+      "section": "awaitEvent",
+      "practice": "Use ctx.awaitEvent for human-in-the-loop flows and external event coordination",
+      "why": "Pauses workflow indefinitely without blocking resources; resumes when event is sent",
+      "how": "const event = await ctx.awaitEvent({ name: 'approval', validator: v.object({ approved: v.boolean() }) })",
+      "tags": ["workflows", "reliability"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/workflows.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "For approval/confirmation flows"
+        }
+      ]
+    },
+    {
+      "id": "BP012",
+      "url": "https://docs.convex.dev/agents/messages",
+      "section": "Saving messages",
+      "practice": "Save prompt message ahead of time with promptMessageId for idempotent generation",
+      "why": "Enables retry-safe generation; message exists before LLM call starts",
+      "how": "const { messageId } = await agent.saveMessage(ctx, { threadId, prompt }); await agent.generateText(ctx, { threadId, promptMessageId: messageId })",
+      "tags": ["messages", "reliability", "data-model"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/messages.ts", "convex/streaming.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Pattern from @convex-dev/agent"
+        }
+      ]
+    },
+    {
+      "id": "BP013",
+      "url": "https://docs.convex.dev/agents/messages",
+      "section": "Message ordering",
+      "practice": "Use order and stepOrder fields for deterministic message ordering in threads",
+      "why": "Ensures consistent message display; handles multi-step tool call responses correctly",
+      "how": "Messages indexed by [threadId, order, stepOrder]; response messages share same order with incrementing stepOrder",
+      "tags": ["messages", "data-model"],
+      "implementationCandidates": [
+        {
+          "area": "data-model",
+          "filesLikelyTouched": ["convex/schema.ts", "convex/messages.ts"],
+          "risk": "med",
+          "expectedImpact": "med",
+          "dependencyNotes": "May require schema migration"
+        }
+      ]
+    },
+    {
+      "id": "BP014",
+      "url": "https://docs.convex.dev/agents/messages",
+      "section": "useUIMessages hook",
+      "practice": "Use useUIMessages hook with stream: true for real-time message updates",
+      "why": "Combines pagination with streaming; handles optimistic updates; provides UIMessage type for rich UI",
+      "how": "const { results, loadMore } = useUIMessages(api.chat.listMessages, { threadId }, { initialNumItems: 10, stream: true })",
+      "tags": ["messages", "streaming", "client"],
+      "implementationCandidates": [
+        {
+          "area": "client",
+          "filesLikelyTouched": ["apps/frontend/hooks/convex/use-convex-streaming.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "From @convex-dev/agent/react"
+        }
+      ]
+    },
+    {
+      "id": "BP015",
+      "url": "https://stack.convex.dev/durable-workflows-and-strong-guarantees",
+      "section": "Transactions",
+      "practice": "Use transactional scheduling to ensure work is kicked off if and only if data commits",
+      "why": "Prevents orphaned work or missing work; either both data and scheduled function exist, or neither",
+      "how": "Within a mutation, call ctx.scheduler.runAfter() - if mutation rolls back, scheduled work never runs",
+      "tags": ["reliability", "workflows", "data-model"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts", "convex/tasks.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Built into Convex"
+        }
+      ]
+    },
+    {
+      "id": "BP016",
+      "url": "https://stack.convex.dev/durable-workflows-and-strong-guarantees",
+      "section": "Idempotency",
+      "practice": "Design tool operations with idempotency keys to safely retry failed LLM calls",
+      "why": "Prevents duplicate side effects (emails, charges) when retrying; enables safe resumption",
+      "how": "Use unique IDs (toolCallId) to dedupe; check if operation already completed before executing",
+      "tags": ["reliability", "tools", "retries"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/agentTools.ts", "convex/toolCallTracking.ts"],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Already have toolCallId tracking"
+        }
+      ]
+    },
+    {
+      "id": "BP017",
+      "url": "https://stack.convex.dev/durable-workflows-and-strong-guarantees",
+      "section": "Durable functions",
+      "practice": "Journal step results to enable resumption from last successful step",
+      "why": "Avoids re-running completed steps after failure; enables exactly-once step execution",
+      "how": "Store step results in DB; on workflow restart, replay journal to skip completed steps",
+      "tags": ["workflows", "reliability", "data-model"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/workflows.ts"],
+          "risk": "med",
+          "expectedImpact": "high",
+          "dependencyNotes": "Built into @convex-dev/workflow"
+        }
+      ]
+    },
+    {
+      "id": "BP018",
+      "url": "https://docs.convex.dev/production/integrations/log-streams",
+      "section": "function_execution events",
+      "practice": "Configure log streams to external observability platform for function-level metrics",
+      "why": "Enables tracking execution_time_ms, usage (bandwidth, memory), status, and errors for all functions",
+      "how": "Configure Axiom/Datadog/Webhook in Convex dashboard; events include database_read_bytes, memory_used_mb, etc.",
+      "tags": ["observability", "infra"],
+      "implementationCandidates": [
+        {
+          "area": "infra",
+          "filesLikelyTouched": [],
+          "risk": "low",
+          "expectedImpact": "high",
+          "dependencyNotes": "Requires Convex Pro plan"
+        }
+      ]
+    },
+    {
+      "id": "BP019",
+      "url": "https://docs.convex.dev/production/integrations/log-streams",
+      "section": "console events",
+      "practice": "Use structured console.log with consistent format for queryable logs",
+      "why": "console events include function path, request_id, log_level; enables correlation across calls",
+      "how": "console.log(JSON.stringify({ traceId, step, latencyMs, tokens })) - appears in log stream with function context",
+      "tags": ["observability", "server"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts", "convex/agentTools.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Already have logging; can structure better"
+        }
+      ]
+    },
+    {
+      "id": "BP020",
+      "url": "https://ai-sdk.dev/docs/agents/workflows",
+      "section": "Parallel Processing",
+      "practice": "Use Promise.all for independent LLM calls to reduce total latency",
+      "why": "Parallel execution reduces wall-clock time; useful for multi-reviewer or multi-aspect analysis",
+      "how": "const [security, performance, quality] = await Promise.all([generateObject({...}), generateObject({...}), generateObject({...})])",
+      "tags": ["workflows", "optimization"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Standard pattern"
+        }
+      ]
+    },
+    {
+      "id": "BP021",
+      "url": "https://ai-sdk.dev/docs/agents/workflows",
+      "section": "Evaluator-Optimizer",
+      "practice": "Implement evaluation loops with quality thresholds for self-improving outputs",
+      "why": "Catches low-quality outputs before returning to user; enables iterative refinement",
+      "how": "while (iterations < MAX) { const eval = await generateObject({schema: qualitySchema}); if (eval.score >= 8) break; output = await generateText({prompt: `Improve: ${eval.issues}`}); }",
+      "tags": ["workflows", "reliability"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts"],
+          "risk": "med",
+          "expectedImpact": "med",
+          "dependencyNotes": "Higher token cost for quality"
+        }
+      ]
+    },
+    {
+      "id": "BP022",
+      "url": "https://ai-sdk.dev/docs/agents/workflows",
+      "section": "Routing",
+      "practice": "Use classification step to route to appropriate model/prompt based on query type",
+      "why": "Reduces cost by using smaller models for simple queries; improves quality with specialized prompts",
+      "how": "const { type, complexity } = await generateObject({schema: classificationSchema}); const model = complexity === 'simple' ? 'gpt-4o-mini' : 'o4-mini'",
+      "tags": ["workflows", "optimization"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/streaming.ts"],
+          "risk": "med",
+          "expectedImpact": "med",
+          "dependencyNotes": "Requires query classification"
+        }
+      ]
+    },
+    {
+      "id": "BP023",
+      "url": "https://www.convex.dev/components/persistent-text-streaming",
+      "section": "Hybrid approach",
+      "practice": "Combine HTTP streaming for active session with DB persistence for durability",
+      "why": "Original browser gets low-latency streaming; other clients/reloads get persisted content; survives disconnects",
+      "how": "Use useStream hook that falls back to DB query when HTTP stream unavailable",
+      "tags": ["streaming", "reliability", "client"],
+      "implementationCandidates": [
+        {
+          "area": "client",
+          "filesLikelyTouched": ["apps/frontend/hooks/convex/use-convex-streaming.ts"],
+          "risk": "med",
+          "expectedImpact": "high",
+          "dependencyNotes": "@convex-dev/persistent-text-streaming component"
+        }
+      ]
+    },
+    {
+      "id": "BP024",
+      "url": "https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling",
+      "section": "Preliminary Tool Results",
+      "practice": "Use AsyncIterable in tool execute for streaming progress updates during long operations",
+      "why": "Provides user feedback during slow tool execution; yields intermediate status before final result",
+      "how": "async *execute({ location }) { yield { status: 'loading', text: `Processing ${location}` }; ... yield { status: 'success', data }; }",
+      "tags": ["tools", "streaming"],
+      "implementationCandidates": [
+        {
+          "area": "server",
+          "filesLikelyTouched": ["convex/agentTools.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Generator function pattern"
+        }
+      ]
+    },
+    {
+      "id": "BP025",
+      "url": "https://docs.convex.dev/agents/threads",
+      "section": "Thread management",
+      "practice": "Associate threads with userId for multi-tenant isolation and user-scoped queries",
+      "why": "Enables listing user's threads; provides access control boundary; supports user data deletion",
+      "how": "await createThread(ctx, components.agent, { userId, title, summary }); listThreadsByUserId(ctx, { userId, paginationOpts })",
+      "tags": ["data-model", "messages"],
+      "implementationCandidates": [
+        {
+          "area": "data-model",
+          "filesLikelyTouched": ["convex/schema.ts"],
+          "risk": "low",
+          "expectedImpact": "med",
+          "dependencyNotes": "Pattern from @convex-dev/agent"
+        }
+      ]
+    }
+  ]
+}

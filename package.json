@@ -63,6 +63,7 @@
     "packages/*"
   ],
   "dependencies": {
-    "@convex-dev/persistent-text-streaming": "^0.3.0"
+    "@convex-dev/persistent-text-streaming": "^0.3.0",
+    "@convex-dev/workflow": "^0.3.3"
   }
 }

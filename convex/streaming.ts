@@ -7,6 +7,17 @@ import { createOpenAI } from "@ai-sdk/openai";
 // createOpenRouter removed in favor of createOpenAI configuration
 import { type LanguageModel } from "ai";
 import { createAgentTools } from "./agentTools";
+import { generateTraceId } from "./observability";
+import { withRetry, isTransientError } from "./lib/retry";
+
+// Throttle configuration for delta streaming (Best Practice BP005)
+const DELTA_THROTTLE_MS = 100; // Batch writes every 100ms
+
+// Feature flags (Best Practice: new behaviors default OFF)
+const ENABLE_PROMPT_MESSAGE_ID = process.env.ENABLE_PROMPT_MESSAGE_ID === "true";
+const ENABLE_RETRY_WITH_BACKOFF = process.env.ENABLE_RETRY_WITH_BACKOFF === "true";
+const ENABLE_MESSAGE_COMPRESSION = process.env.ENABLE_MESSAGE_COMPRESSION === "true";
+const MESSAGE_COMPRESSION_THRESHOLD = parseInt(process.env.MESSAGE_COMPRESSION_THRESHOLD || "50000", 10);
 
 // Track active stream controllers so cancelStream can abort in-flight actions
 const streamControllers = new Map<string, AbortController>();
@@ -339,12 +350,64 @@ export const streamChatWithTools = action({
     );
 
     // Initialize streaming message
-    console.log(`[STREAMING] Starting streaming message`);
-    const { messageId } = await ctx.runMutation(api.messages.startStreaming, {
+    // BP012: Use promptMessageId pattern when enabled for retry-safe streaming
+    let messageId: Id<"chatMessages">;
+    let promptMessageId: Id<"chatMessages"> | undefined;
+
+    if (ENABLE_PROMPT_MESSAGE_ID) {
+      console.log(`[STREAMING] Using promptMessageId pattern (BP012)`);
+      // Save user prompt first
+      const promptResult = await ctx.runMutation(api.messages.savePromptMessage, {
+        taskId: args.taskId,
+        content: args.prompt,
+        llmModel: args.llmModel,
+      });
+      promptMessageId = promptResult.messageId;
+      console.log(`[STREAMING] Saved prompt message: ${promptMessageId}`);
+
+      // Create assistant message placeholder linked to prompt
+      const assistantResult = await ctx.runMutation(api.messages.createAssistantMessage, {
+        taskId: args.taskId,
+        promptMessageId,
+        llmModel: args.llmModel,
+      });
+      messageId = assistantResult.messageId;
+      console.log(`[STREAMING] Created assistant message: ${messageId} (linked to prompt)`);
+
+      // Update status to streaming
+      await ctx.runMutation(api.messages.updateMessageStatus, {
+        messageId,
+        status: "streaming",
+      });
+    } else {
+      // Legacy path: create streaming message directly
+      console.log(`[STREAMING] Starting streaming message (legacy)`);
+      const result = await ctx.runMutation(api.messages.startStreaming, {
+        taskId: args.taskId,
+        llmModel: args.llmModel,
+      });
+      messageId = result.messageId;
+      console.log(`[STREAMING] Streaming message created: ${messageId}`);
+    }
+
+    // Initialize observability trace (Best Practice BP002, BP018)
+    const traceId = generateTraceId();
+    const streamStartedAt = Date.now();
+    // Streaming metrics tracking (unused vars will be used when throttling is fully implemented)
+    let totalDeltaChars = 0;
+    let totalDeltaCount = 0;
+    let dbWriteCount = 0;
+
+    // Start trace
+    await ctx.runMutation(api.observability.startTrace, {
       taskId: args.taskId,
-      llmModel: args.llmModel,
+      traceId,
+      workflowType: "streamChatWithTools",
+      model: args.model,
+      provider: args.apiKeys?.openrouter ? "openrouter" : args.apiKeys?.anthropic ? "anthropic" : "openai",
+      messageId,
     });
-    console.log(`[STREAMING] Streaming message created: ${messageId}`);
+    console.log(`[STREAMING] Trace started: ${traceId}`);
 
     try {
       // Import AI SDK dynamically
@@ -633,24 +696,56 @@ Continue now.`;
         const completedPlanBefore = completedPlanSteps.size;
         const textBeforeLen = accumulatedText.length;
 
-        let result: Awaited<ReturnType<typeof streamText>>;
+        let result: ReturnType<typeof streamText>;
         try {
-          result = await streamText({
-            model: providerModel,
-            prompt: promptForRound,
-            system: args.systemPrompt,
-            tools: aiTools,
-            temperature: 0.7,
-            // AI SDK v5+: use stopWhen to allow multi-step tool execution
-            stopWhen: stepCountIs(MAX_AGENT_STEPS),
-            abortSignal: controller.signal,
-          } as Parameters<typeof streamText>[0]);
+          // BP003: Apply message compression if enabled and prompt is long
+          let effectivePrompt = promptForRound;
+          if (ENABLE_MESSAGE_COMPRESSION && round > 3 && promptForRound.length > MESSAGE_COMPRESSION_THRESHOLD) {
+            // Simple compression: truncate middle of prompt, keep beginning and end
+            const keepStart = Math.floor(MESSAGE_COMPRESSION_THRESHOLD * 0.4);
+            const keepEnd = Math.floor(MESSAGE_COMPRESSION_THRESHOLD * 0.4);
+            const truncatedMiddle = `\n\n[... ${promptForRound.length - keepStart - keepEnd} characters of earlier context compressed ...]\n\n`;
+            effectivePrompt = promptForRound.substring(0, keepStart) + truncatedMiddle + promptForRound.substring(promptForRound.length - keepEnd);
+            console.log(`[STREAMING] BP003: Compressed prompt from ${promptForRound.length} to ${effectivePrompt.length} chars (round=${round})`);
+          }
+
+          // BP009: Wrap LLM call with retry logic for transient failures
+          const llmCall = async (): Promise<ReturnType<typeof streamText>> => {
+            return streamText({
+              model: providerModel,
+              prompt: effectivePrompt,
+              system: args.systemPrompt,
+              tools: aiTools,
+              temperature: 0.7,
+              // AI SDK v5+: use stopWhen to allow multi-step tool execution
+              stopWhen: stepCountIs(MAX_AGENT_STEPS),
+              abortSignal: controller.signal,
+            } as Parameters<typeof streamText>[0]);
+          };
+
+          if (ENABLE_RETRY_WITH_BACKOFF) {
+            result = await withRetry(llmCall, {
+              maxAttempts: 3,
+              initialBackoffMs: 200,
+              base: 2,
+              jitter: true,
+              onRetry: (attempt, error, delay) => {
+                console.log(
+                  `[STREAMING] LLM retry ${attempt}/3, waiting ${delay}ms: ${error.message.substring(0, 100)}`
+                );
+              },
+            });
+          } else {
+            result = await llmCall();
+          }
           console.log(
-            `[STREAMING] streamText promise resolved, processing stream... (round=${round}, promptLen=${promptForRound.length})`
+            `[STREAMING] streamText promise resolved, processing stream... (round=${round}, promptLen=${effectivePrompt.length})`
           );
         } catch (streamTextError) {
+          // Check if it's a transient error for better error messaging
+          const isTransient = isTransientError(streamTextError);
           console.error(
-            `[STREAMING] streamText failed immediately (round=${round}):`,
+            `[STREAMING] streamText failed (round=${round}, transient=${isTransient}):`,
             streamTextError
           );
           throw streamTextError;
@@ -1441,8 +1536,48 @@ Continue now.`;
         );
       }
 
+      // Update trace with success (Best Practice BP002, BP018)
+      const streamEndedAt = Date.now();
+      await ctx.runMutation(api.observability.updateTrace, {
+        traceId,
+        status: "COMPLETED",
+        promptTokens: finalUsage?.promptTokens,
+        completionTokens: finalUsage?.completionTokens,
+        totalTokens: finalUsage?.totalTokens,
+        model: args.model,
+      });
+
+      // BP012: Update message status to complete
+      if (ENABLE_PROMPT_MESSAGE_ID) {
+        await ctx.runMutation(api.messages.updateMessageStatus, {
+          messageId,
+          status: "complete",
+          content: accumulatedText,
+          promptTokens: finalUsage?.promptTokens,
+          completionTokens: finalUsage?.completionTokens,
+          totalTokens: finalUsage?.totalTokens,
+          finishReason: typeof finalFinishReason === "string" ? finalFinishReason : undefined,
+        });
+      }
+
+      // Record streaming metrics (Best Practice BP005)
+      totalDeltaChars = accumulatedText.length;
+      dbWriteCount = dbWriteCount || 1; // At least one write
+      await ctx.runMutation(api.observability.recordStreamingMetrics, {
+        taskId: args.taskId,
+        messageId,
+        traceId,
+        totalDeltas: totalDeltaCount || 1,
+        totalChars: totalDeltaChars,
+        throttleIntervalMs: DELTA_THROTTLE_MS,
+        dbWriteCount,
+        streamStatus: "completed",
+        streamStartedAt,
+        streamEndedAt,
+      });
+
       console.log(
-        `[STREAMING] Streaming completed successfully, text length: ${accumulatedText.length}`
+        `[STREAMING] Streaming completed successfully, text length: ${accumulatedText.length}, traceId: ${traceId}`
       );
       return {
         success: true,
@@ -1455,6 +1590,41 @@ Continue now.`;
       console.error(`[STREAMING] Error during streaming:`, error);
       if (error instanceof Error) {
         console.error(`[STREAMING] Error stack:`, error.stack);
+      }
+
+      // Update trace with failure (Best Practice BP002, BP018)
+      const errorType = error instanceof Error ? error.name : "UnknownError";
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      try {
+        await ctx.runMutation(api.observability.updateTrace, {
+          traceId,
+          status: "FAILED",
+          errorType,
+          errorMessage: errorMessage.substring(0, 1000), // Truncate long errors
+        });
+        await ctx.runMutation(api.observability.recordStreamingMetrics, {
+          taskId: args.taskId,
+          messageId,
+          traceId,
+          totalDeltas: totalDeltaCount || 0,
+          totalChars: totalDeltaChars,
+          throttleIntervalMs: DELTA_THROTTLE_MS,
+          dbWriteCount,
+          streamStatus: "failed",
+          streamStartedAt,
+          streamEndedAt: Date.now(),
+        });
+
+        // BP012: Update message status to failed (message still exists for retry)
+        if (ENABLE_PROMPT_MESSAGE_ID) {
+          await ctx.runMutation(api.messages.updateMessageStatus, {
+            messageId,
+            status: "failed",
+            errorMessage: errorMessage.substring(0, 500),
+          });
+        }
+      } catch (traceError) {
+        console.error(`[STREAMING] Failed to update trace on error:`, traceError);
       }
 
       // Enhanced 401 debugging

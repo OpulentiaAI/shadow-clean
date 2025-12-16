@@ -1,0 +1,116 @@
+{
+  "createdAt": "2024-12-16T11:12:00Z",
+  "totalItems": 10,
+  "rankedPlan": [
+    {
+      "rank": 1,
+      "practiceIds": ["BP002", "BP019"],
+      "title": "Add onStepFinish callback with structured logging for per-step observability",
+      "impact": "high",
+      "difficulty": "low",
+      "risk": "low",
+      "rationale": "Already have streaming infrastructure; adding onStepFinish provides immediate visibility into step timing, token usage, and tool calls without architectural changes",
+      "filesLikelyTouched": ["convex/streaming.ts"],
+      "estimatedEffort": "1 hour"
+    },
+    {
+      "rank": 2,
+      "practiceIds": ["BP005", "BP007"],
+      "title": "Implement throttled delta streaming with compressUIMessageChunks pattern",
+      "impact": "high",
+      "difficulty": "low",
+      "risk": "low",
+      "rationale": "Current appendStreamDelta is called per-chunk; adding throttleMs reduces DB writes 10x while maintaining UX",
+      "filesLikelyTouched": ["convex/streaming.ts", "convex/messages.ts"],
+      "estimatedEffort": "2 hours"
+    },
+    {
+      "rank": 3,
+      "practiceIds": ["BP018"],
+      "title": "Add observability tables for workflow metrics and trace IDs",
+      "impact": "high",
+      "difficulty": "low",
+      "risk": "low",
+      "rationale": "Schema extension for storing traceId, step timing, token usage per request - enables post-hoc analysis",
+      "filesLikelyTouched": ["convex/schema.ts", "convex/streaming.ts"],
+      "estimatedEffort": "1 hour"
+    },
+    {
+      "rank": 4,
+      "practiceIds": ["BP004", "BP016"],
+      "title": "Propagate abort signals to tool executions and add idempotency checks",
+      "impact": "high",
+      "difficulty": "low",
+      "risk": "low",
+      "rationale": "AbortController already exists; need to pass signal to fetch calls in tools; adds duplicate tool call prevention",
+      "filesLikelyTouched": ["convex/streaming.ts", "convex/agentTools.ts"],
+      "estimatedEffort": "1 hour"
+    },
+    {
+      "rank": 5,
+      "practiceIds": ["BP012", "BP013"],
+      "title": "Implement promptMessageId pattern for idempotent message generation",
+      "impact": "high",
+      "difficulty": "med",
+      "risk": "low",
+      "rationale": "Enables retry-safe streaming; message exists before LLM call; supports order/stepOrder for multi-step responses",
+      "filesLikelyTouched": ["convex/messages.ts", "convex/streaming.ts"],
+      "estimatedEffort": "2 hours"
+    },
+    {
+      "rank": 6,
+      "practiceIds": ["BP003"],
+      "title": "Add prepareStep callback for message compression in long loops",
+      "impact": "med",
+      "difficulty": "med",
+      "risk": "med",
+      "rationale": "Prevents context overflow in long agentic loops; reduces token costs by trimming old messages",
+      "filesLikelyTouched": ["convex/streaming.ts"],
+      "estimatedEffort": "1 hour"
+    },
+    {
+      "rank": 7,
+      "practiceIds": ["BP008", "BP009", "BP017"],
+      "title": "Integrate @convex-dev/workflow component for durable multi-step workflows",
+      "impact": "high",
+      "difficulty": "high",
+      "risk": "med",
+      "rationale": "Major architectural change; provides retry, journaling, durability guarantees; requires component installation",
+      "filesLikelyTouched": ["convex/convex.config.ts", "convex/workflows.ts", "package.json"],
+      "estimatedEffort": "4 hours"
+    },
+    {
+      "rank": 8,
+      "practiceIds": ["BP006", "BP014"],
+      "title": "Add useSmoothText and useUIMessages hooks to frontend",
+      "impact": "med",
+      "difficulty": "low",
+      "risk": "low",
+      "rationale": "UX improvement; requires @convex-dev/agent/react dependency",
+      "filesLikelyTouched": ["apps/frontend/components/chat/StreamingMessage.tsx", "apps/frontend/hooks/convex/use-convex-streaming.ts"],
+      "estimatedEffort": "2 hours"
+    },
+    {
+      "rank": 9,
+      "practiceIds": ["BP024"],
+      "title": "Add AsyncIterable support for tool progress streaming",
+      "impact": "med",
+      "difficulty": "med",
+      "risk": "low",
+      "rationale": "Better UX for long-running tools; yields status updates before final result",
+      "filesLikelyTouched": ["convex/agentTools.ts"],
+      "estimatedEffort": "2 hours"
+    },
+    {
+      "rank": 10,
+      "practiceIds": ["BP021", "BP022"],
+      "title": "Implement evaluator-optimizer and routing patterns",
+      "impact": "med",
+      "difficulty": "high",
+      "risk": "med",
+      "rationale": "Advanced workflow patterns; higher token cost; requires careful tuning",
+      "filesLikelyTouched": ["convex/streaming.ts"],
+      "estimatedEffort": "4 hours"
+    }
+  ]
+}

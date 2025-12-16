@@ -181,10 +181,20 @@ export default defineSchema({
     editedAt: v.optional(v.number()),
     taskId: v.id("tasks"),
     stackedTaskId: v.optional(v.id("tasks")),
+    // BP012: Message status for promptMessageId pattern (retry-safe streaming)
+    status: v.optional(v.union(
+      v.literal("pending"),
+      v.literal("streaming"),
+      v.literal("complete"),
+      v.literal("failed")
+    )),
+    // BP012: Link response to its prompt message for retry correlation
+    promptMessageId: v.optional(v.id("chatMessages")),
   })
     .index("by_task_sequence", ["taskId", "sequence"])
     .index("by_task_role", ["taskId", "role"])
-    .index("by_model_created", ["llmModel", "createdAt"]),
+    .index("by_model_created", ["llmModel", "createdAt"])
+    .index("by_status", ["taskId", "status"]),
 
   pullRequestSnapshots: defineTable({
     status: PullRequestStatus,
@@ -402,4 +412,116 @@ export default defineSchema({
     .index("by_message", ["messageId"])
     .index("by_task", ["taskId"])
     .index("by_tool_call_id", ["toolCallId"]),
+
+  // Workflow execution traces for observability (Best Practice BP018)
+  workflowTraces: defineTable({
+    taskId: v.id("tasks"),
+    traceId: v.string(), // Unique trace ID for end-to-end correlation
+    messageId: v.optional(v.id("chatMessages")),
+    workflowType: v.union(
+      v.literal("streamChat"),
+      v.literal("streamChatWithTools"),
+      v.literal("generateText"),
+      v.literal("toolExecution")
+    ),
+    status: v.union(
+      v.literal("STARTED"),
+      v.literal("IN_PROGRESS"),
+      v.literal("COMPLETED"),
+      v.literal("FAILED"),
+      v.literal("CANCELLED")
+    ),
+    // Timing metrics
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    totalDurationMs: v.optional(v.number()),
+    // Token usage
+    promptTokens: v.optional(v.number()),
+    completionTokens: v.optional(v.number()),
+    totalTokens: v.optional(v.number()),
+    // Cost estimation (in millicents for precision)
+    estimatedCostMillicents: v.optional(v.number()),
+    // Provider info
+    model: v.optional(v.string()),
+    provider: v.optional(v.string()),
+    // Error tracking
+    errorType: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    retryCount: v.optional(v.number()),
+    // Metadata
+    metadata: v.optional(v.string()), // JSON string for flexible data
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task", ["taskId", "createdAt"])
+    .index("by_trace_id", ["traceId"])
+    .index("by_status", ["status", "createdAt"])
+    .index("by_model", ["model", "createdAt"]),
+
+  // Per-step metrics within a workflow trace (Best Practice BP002)
+  workflowSteps: defineTable({
+    traceId: v.string(), // Links to workflowTraces
+    taskId: v.id("tasks"),
+    stepNumber: v.number(),
+    stepType: v.union(
+      v.literal("llm_call"),
+      v.literal("tool_call"),
+      v.literal("tool_result"),
+      v.literal("text_delta"),
+      v.literal("retry")
+    ),
+    // Timing
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    durationMs: v.optional(v.number()),
+    // For tool calls
+    toolName: v.optional(v.string()),
+    toolCallId: v.optional(v.string()),
+    // For LLM calls
+    promptTokens: v.optional(v.number()),
+    completionTokens: v.optional(v.number()),
+    finishReason: v.optional(v.string()),
+    // Status
+    status: v.union(
+      v.literal("STARTED"),
+      v.literal("COMPLETED"),
+      v.literal("FAILED")
+    ),
+    errorMessage: v.optional(v.string()),
+    // Streaming metrics
+    chunkCount: v.optional(v.number()),
+    totalChars: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_trace", ["traceId", "stepNumber"])
+    .index("by_task", ["taskId", "createdAt"]),
+
+  // Streaming metrics for throttling optimization (Best Practice BP005)
+  streamingMetrics: defineTable({
+    taskId: v.id("tasks"),
+    messageId: v.id("chatMessages"),
+    traceId: v.optional(v.string()),
+    // Delta streaming metrics
+    totalDeltas: v.number(),
+    totalChars: v.number(),
+    avgChunkSize: v.number(),
+    throttleIntervalMs: v.number(),
+    // Timing
+    streamStartedAt: v.number(),
+    streamEndedAt: v.optional(v.number()),
+    totalDurationMs: v.optional(v.number()),
+    // Write efficiency
+    dbWriteCount: v.number(),
+    charsPerWrite: v.optional(v.number()),
+    // Status
+    streamStatus: v.union(
+      v.literal("streaming"),
+      v.literal("completed"),
+      v.literal("aborted"),
+      v.literal("failed")
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_task", ["taskId", "createdAt"])
+    .index("by_message", ["messageId"]),
 });

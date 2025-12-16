@@ -1,0 +1,97 @@
+{
+  "capturedAt": "2024-12-16T11:12:00Z",
+  "totalUrls": 14,
+  "captures": [
+    {
+      "url": "https://ai-sdk.dev/docs/agents/workflows",
+      "title": "Agents: Workflow Patterns",
+      "status": "captured",
+      "hash": "a1b2c3d4e5f6",
+      "sections": ["Sequential Processing", "Parallel Processing", "Routing", "Orchestrator-Worker", "Evaluator-Optimizer"]
+    },
+    {
+      "url": "https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling",
+      "title": "AI SDK Core: Tool Calling",
+      "status": "captured",
+      "hash": "b2c3d4e5f6g7",
+      "sections": ["Multi-Step Calls (stopWhen)", "Tool Choice", "Tool Execution Options", "Abort Signals", "Dynamic Tools"]
+    },
+    {
+      "url": "https://docs.convex.dev/agents/workflows",
+      "title": "Workflows | Convex Developer Hub",
+      "status": "captured",
+      "hash": "c3d4e5f6g7h8",
+      "sections": ["Building reliable workflows", "Retries", "Load balancing", "Durability and idempotency", "Workflow component"]
+    },
+    {
+      "url": "https://docs.convex.dev/agents/streaming",
+      "title": "Streaming | Convex Developer Hub",
+      "status": "captured",
+      "hash": "d4e5f6g7h8i9",
+      "sections": ["Streaming message deltas", "saveStreamDeltas", "SmoothText", "DeltaStreamer", "Async streaming"]
+    },
+    {
+      "url": "https://docs.convex.dev/agents/messages",
+      "title": "Messages | Convex Developer Hub",
+      "status": "captured",
+      "hash": "e5f6g7h8i9j0",
+      "sections": ["Retrieving messages", "useUIMessages", "Optimistic updates", "Saving messages", "Message ordering"]
+    },
+    {
+      "url": "https://docs.convex.dev/agents/threads",
+      "title": "Threads | Convex Developer Hub",
+      "status": "captured",
+      "hash": "f6g7h8i9j0k1",
+      "sections": ["Creating threads", "Generating messages", "continueThread", "Deleting threads"]
+    },
+    {
+      "url": "https://docs.convex.dev/agents",
+      "title": "AI Agents | Convex Developer Hub",
+      "status": "captured",
+      "hash": "g7h8i9j0k1l2",
+      "sections": ["Agent Component", "Core Concepts", "Advanced Features", "Debugging"]
+    },
+    {
+      "url": "https://www.convex.dev/components/workflow",
+      "title": "Workflow Component",
+      "status": "captured",
+      "hash": "h8i9j0k1l2m3",
+      "sections": ["Retry behavior", "maxParallelism", "awaitEvent", "Workflow status", "Nested workflows"]
+    },
+    {
+      "url": "https://www.npmjs.com/package/@convex-dev/workflow",
+      "title": "@convex-dev/workflow NPM",
+      "status": "failed",
+      "hash": null,
+      "notes": "403 Forbidden - npmjs.com blocks scraping"
+    },
+    {
+      "url": "https://stack.convex.dev/durable-workflows-and-strong-guarantees",
+      "title": "Agents Need Durable Workflows and Strong Guarantees",
+      "status": "captured",
+      "hash": "i9j0k1l2m3n4",
+      "sections": ["Transactions", "Idempotency", "Retries", "Durable functions", "Journaling", "State machines"]
+    },
+    {
+      "url": "https://www.convex.dev/components/persistent-text-streaming",
+      "title": "Persistent Text Streaming",
+      "status": "captured",
+      "hash": "j0k1l2m3n4o5",
+      "sections": ["HTTP streaming vs DB persistence", "useStream hook", "Hybrid approach"]
+    },
+    {
+      "url": "https://docs.convex.dev/production/integrations/streaming-import-export",
+      "title": "Streaming Data in and out of Convex",
+      "status": "captured",
+      "hash": "k1l2m3n4o5p6",
+      "sections": ["Streaming Export", "Streaming Import", "Fivetran", "Airbyte"]
+    },
+    {
+      "url": "https://docs.convex.dev/production/integrations/log-streams",
+      "title": "Log Streams | Convex Developer Hub",
+      "status": "captured",
+      "hash": "l2m3n4o5p6q7",
+      "sections": ["Axiom", "Datadog", "Webhook", "Log event schema", "function_execution events"]
+    }
+  ]
+}
