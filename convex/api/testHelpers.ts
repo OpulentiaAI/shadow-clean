@@ -15,17 +15,17 @@ export const createTestUser = mutation({
   handler: async (ctx) => {
     const now = Date.now();
     const testEmail = `test-${now}@test.local`;
-    
+
     // Check if test user exists
     const existing = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("email"), testEmail))
       .first();
-    
+
     if (existing) {
       return { userId: existing._id };
     }
-    
+
     const userId = await ctx.db.insert("users", {
       email: testEmail,
       name: "Test User",
@@ -46,14 +46,14 @@ export const createTestTask = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    
+
     // First create or get a test user
     const testEmail = `workflow-test@test.local`;
     let testUser = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("email"), testEmail))
       .first();
-    
+
     if (!testUser) {
       const userId = await ctx.db.insert("users", {
         email: testEmail,
@@ -64,7 +64,7 @@ export const createTestTask = mutation({
       });
       testUser = await ctx.db.get(userId);
     }
-    
+
     const taskId = await ctx.db.insert("tasks", {
       title: args.name || `Test Task ${now}`,
       status: "RUNNING",
@@ -112,17 +112,22 @@ export const deleteTestTask = mutation({
 export const testRunAgent = action({
   args: {
     prompt: v.string(),
-    apiKeys: v.optional(v.object({
-      anthropic: v.optional(v.string()),
-      openai: v.optional(v.string()),
-      openrouter: v.optional(v.string()),
-    })),
+    apiKeys: v.optional(
+      v.object({
+        anthropic: v.optional(v.string()),
+        openai: v.optional(v.string()),
+        openrouter: v.optional(v.string()),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     // Create test task
-    const { taskId } = await ctx.runMutation(api.api.testHelpers.createTestTask, {
-      name: `Test ${Date.now()}`,
-    });
+    const { taskId } = await ctx.runMutation(
+      api.api.testHelpers.createTestTask,
+      {
+        name: `Test ${Date.now()}`,
+      },
+    );
 
     try {
       // Run agent
@@ -157,6 +162,121 @@ export const checkWorkflowMode = query({
     return {
       ENABLE_WORKFLOW: enabled,
       mode: enabled ? "workflow" : "direct",
+    };
+  },
+});
+
+/**
+ * Test promptMessageId pattern (BP012)
+ * Tests that promptMessageId is properly generated, persisted, and retrievable
+ */
+export const testPromptMessageId = action({
+  args: {
+    taskId: v.optional(v.id("tasks")),
+  },
+  handler: async (ctx, args) => {
+    const ENABLE_PROMPT_MESSAGE_ID =
+      process.env.ENABLE_PROMPT_MESSAGE_ID === "true";
+
+    // Create test task if not provided
+    let taskId = args.taskId;
+    if (!taskId) {
+      const result = await ctx.runMutation(api.api.testHelpers.createTestTask, {
+        name: `PromptMessageId Test ${Date.now()}`,
+      });
+      taskId = result.taskId;
+    }
+
+    if (!ENABLE_PROMPT_MESSAGE_ID) {
+      return {
+        success: true,
+        flagEnabled: false,
+        taskId,
+        message:
+          "ENABLE_PROMPT_MESSAGE_ID is disabled - legacy behavior active",
+      };
+    }
+
+    // Test 1: Save prompt message
+    const promptResult = await ctx.runMutation(api.messages.savePromptMessage, {
+      taskId,
+      content: "Test prompt for promptMessageId verification",
+      llmModel: "test-model",
+    });
+
+    if (!promptResult.messageId) {
+      return {
+        success: false,
+        flagEnabled: true,
+        taskId,
+        error: "Failed to create prompt message",
+      };
+    }
+
+    // Test 2: Create assistant message linked to prompt
+    const assistantResult = await ctx.runMutation(
+      api.messages.createAssistantMessage,
+      {
+        taskId,
+        promptMessageId: promptResult.messageId,
+        llmModel: "test-model",
+      },
+    );
+
+    if (!assistantResult.messageId) {
+      return {
+        success: false,
+        flagEnabled: true,
+        taskId,
+        promptMessageId: promptResult.messageId,
+        error: "Failed to create assistant message",
+      };
+    }
+
+    // Test 3: Find assistant for prompt
+    const foundAssistant = await ctx.runQuery(
+      api.messages.findAssistantForPrompt,
+      {
+        taskId,
+        promptMessageId: promptResult.messageId,
+      },
+    );
+
+    if (!foundAssistant || foundAssistant._id !== assistantResult.messageId) {
+      return {
+        success: false,
+        flagEnabled: true,
+        taskId,
+        promptMessageId: promptResult.messageId,
+        assistantMessageId: assistantResult.messageId,
+        error: "Failed to find assistant message by promptMessageId",
+      };
+    }
+
+    // Test 4: Verify promptMessageId field is persisted
+    if (foundAssistant.promptMessageId !== promptResult.messageId) {
+      return {
+        success: false,
+        flagEnabled: true,
+        taskId,
+        error:
+          "promptMessageId field not properly persisted on assistant message",
+      };
+    }
+
+    return {
+      success: true,
+      flagEnabled: true,
+      taskId,
+      promptMessageId: promptResult.messageId,
+      assistantMessageId: assistantResult.messageId,
+      message: "promptMessageId pattern working correctly",
+      tests: {
+        savePromptMessage: "PASS",
+        createAssistantMessage: "PASS",
+        findAssistantForPrompt: "PASS",
+        fieldPersistence: "PASS",
+      },
     };
   },
 });
