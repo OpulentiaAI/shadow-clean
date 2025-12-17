@@ -14,6 +14,7 @@ export const AvailableModels = {
   CLAUDE_OPUS_4_5: "anthropic/claude-opus-4.5",
   CLAUDE_HAIKU_4_5: "anthropic/claude-haiku-4.5",
   GOOGLE_GEMINI_3: "google/gemini-3-pro-preview",
+  GOOGLE_GEMINI_3_FLASH: "google/gemini-3-flash-preview",
   GOOGLE_GEMINI_2_5_FLASH: "google/gemini-2.5-flash",
   MOONSHOT_KIMI_K2_THINKING: "moonshotai/kimi-k2-thinking",
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
@@ -43,7 +44,12 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   },
   [AvailableModels.GOOGLE_GEMINI_3]: {
     id: AvailableModels.GOOGLE_GEMINI_3,
-    name: "Gemini 3",
+    name: "Gemini 3 Pro",
+    provider: "openrouter",
+  },
+  [AvailableModels.GOOGLE_GEMINI_3_FLASH]: {
+    id: AvailableModels.GOOGLE_GEMINI_3_FLASH,
+    name: "Gemini 3 Flash",
     provider: "openrouter",
   },
   [AvailableModels.GOOGLE_GEMINI_2_5_FLASH]: {
@@ -149,6 +155,7 @@ export function isReasoningModel(model: string): boolean {
     "moonshotai/kimi-k2-thinking",
     "google/gemini-2.5-flash",
     "google/gemini-3-pro-preview",
+    "google/gemini-3-flash-preview",
     "x-ai/grok-code-fast-1",
   ];
   return reasoningModels.some((rm) =>
@@ -170,6 +177,7 @@ export async function getAllPossibleModels(
     models.push(
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.GOOGLE_GEMINI_3,
+      AvailableModels.GOOGLE_GEMINI_3_FLASH,
       AvailableModels.GOOGLE_GEMINI_2_5_FLASH,
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
@@ -195,6 +203,7 @@ export async function getDefaultSelectedModels(
     defaultModels.push(
       AvailableModels.CLAUDE_OPUS_4_5,
       AvailableModels.GOOGLE_GEMINI_3,
+      AvailableModels.GOOGLE_GEMINI_3_FLASH,
       AvailableModels.GOOGLE_GEMINI_2_5_FLASH,
       AvailableModels.CLAUDE_HAIKU_4_5,
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,

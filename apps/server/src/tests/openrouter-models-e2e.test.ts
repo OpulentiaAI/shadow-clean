@@ -13,6 +13,7 @@ const MODELS = [
   { id: "anthropic/claude-opus-4.5", name: "Claude Opus 4.5" },
   { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5" },
   { id: "google/gemini-3-pro-preview", name: "Gemini 3 Pro Preview" },
+  { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash Preview" },
   { id: "moonshotai/kimi-k2-thinking", name: "Kimi K2 Thinking" },
   { id: "mistralai/devstral-2512:free", name: "Devstral 2 (Free)" },
   { id: "deepseek/deepseek-chat", name: "DeepSeek V3" },
