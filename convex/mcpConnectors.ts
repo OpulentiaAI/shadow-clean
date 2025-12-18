@@ -1,7 +1,89 @@
-import { action, mutation, query } from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { McpTransportType } from "./schema";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
+
+/**
+ * SSRF Protection: Validate MCP server URLs
+ * Blocks internal IPs, loopback, link-local, and cloud metadata endpoints
+ */
+function validateMcpUrl(urlString: string): { ok: true } | { ok: false; error: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return { ok: false, error: "Invalid URL format" };
+  }
+
+  // Only allow HTTPS (or HTTP for localhost in dev - but we block localhost anyway)
+  if (parsed.protocol !== "https:") {
+    return { ok: false, error: "Only HTTPS URLs are allowed for security" };
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+
+  // Block localhost variants
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]" ||
+    hostname.endsWith(".localhost")
+  ) {
+    return { ok: false, error: "Localhost URLs are not allowed" };
+  }
+
+  // Block common internal hostnames
+  if (
+    hostname === "metadata" ||
+    hostname === "metadata.google.internal" ||
+    hostname.endsWith(".internal") ||
+    hostname.endsWith(".local")
+  ) {
+    return { ok: false, error: "Internal hostnames are not allowed" };
+  }
+
+  // Block IP address patterns (RFC 1918, loopback, link-local, metadata)
+  const ipv4Pattern = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+  const ipMatch = hostname.match(ipv4Pattern);
+  if (ipMatch) {
+    const parts = ipMatch.slice(1).map(Number);
+    const a = parts[0] ?? 0;
+    const b = parts[1] ?? 0;
+    const d = parts[3] ?? 0;
+    
+    // Loopback (127.0.0.0/8)
+    if (a === 127) {
+      return { ok: false, error: "Loopback IP addresses are not allowed" };
+    }
+    
+    // Private networks (RFC 1918)
+    // 10.0.0.0/8
+    if (a === 10) {
+      return { ok: false, error: "Private IP addresses (10.x.x.x) are not allowed" };
+    }
+    // 172.16.0.0/12
+    if (a === 172 && b >= 16 && b <= 31) {
+      return { ok: false, error: "Private IP addresses (172.16-31.x.x) are not allowed" };
+    }
+    // 192.168.0.0/16
+    if (a === 192 && b === 168) {
+      return { ok: false, error: "Private IP addresses (192.168.x.x) are not allowed" };
+    }
+    
+    // Link-local (169.254.0.0/16) - includes AWS/GCP/Azure metadata
+    if (a === 169 && b === 254) {
+      return { ok: false, error: "Link-local/metadata IP addresses are not allowed" };
+    }
+    
+    // Broadcast
+    if (a === 255 || (a === d && d === 255)) {
+      return { ok: false, error: "Broadcast addresses are not allowed" };
+    }
+  }
+
+  return { ok: true };
+}
 
 type McpDiscoveryResult = {
   tools: Array<{ name: string; description?: string }>;
@@ -44,6 +126,7 @@ function generateMcpNameId(name: string): { ok: true; nameId: string } | { ok: f
 
 /**
  * List all MCP connectors for a user (including global connectors)
+ * Note: oauthClientSecret is redacted for security
  */
 export const listByUser = query({
   args: { userId: v.id("users") },
@@ -60,17 +143,35 @@ export const listByUser = query({
       .withIndex("by_user", (q) => q.eq("userId", undefined))
       .collect();
 
-    // Combine and sort by createdAt descending
-    return [...userConnectors, ...globalConnectors].sort(
-      (a, b) => b.createdAt - a.createdAt
-    );
+    // Combine, sort, and redact secrets
+    return [...userConnectors, ...globalConnectors]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((c) => ({
+        ...c,
+        oauthClientSecret: c.oauthClientSecret ? "[REDACTED]" : undefined,
+      }));
   },
 });
 
 /**
- * Get a single MCP connector by ID
+ * Get a single MCP connector by ID (public - secrets redacted)
  */
 export const get = query({
+  args: { connectorId: v.id("mcpConnectors") },
+  handler: async (ctx, args) => {
+    const connector = await ctx.db.get(args.connectorId);
+    if (!connector) return null;
+    return {
+      ...connector,
+      oauthClientSecret: connector.oauthClientSecret ? "[REDACTED]" : undefined,
+    };
+  },
+});
+
+/**
+ * Get a single MCP connector by ID with secrets (internal use only for discover action)
+ */
+export const getWithSecrets = internalQuery({
   args: { connectorId: v.id("mcpConnectors") },
   handler: async (ctx, args) => {
     return ctx.db.get(args.connectorId);
@@ -437,7 +538,8 @@ export const discover = action({
     userId: v.id("users"),
   },
   handler: async (ctx, args): Promise<McpDiscoveryResult> => {
-    const connector = await ctx.runQuery(api.mcpConnectors.get, {
+    // Use internal query to get connector with secrets (not redacted)
+    const connector = await ctx.runQuery(internal.mcpConnectors.getWithSecrets, {
       connectorId: args.connectorId,
     });
 
@@ -447,6 +549,12 @@ export const discover = action({
 
     if (connector.userId && connector.userId !== args.userId) {
       throw new Error("Unauthorized");
+    }
+
+    // SSRF Protection: Validate URL before making external request
+    const urlValidation = validateMcpUrl(connector.url);
+    if (!urlValidation.ok) {
+      throw new Error(`Invalid MCP URL: ${urlValidation.error}`);
     }
 
     return discoverMcpCapabilities({

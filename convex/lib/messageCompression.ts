@@ -77,14 +77,14 @@ export function compressMessagesSimple(
   // Extract key facts from old messages (simple heuristic)
   const keyFacts: string[] = [];
   for (const msg of oldMessages) {
-    if (msg.role === "user" && msg.content.length > 20) {
+    if (msg.role === "user" && (msg.content?.length ?? 0) > 20) {
       // Extract first line of user messages as key points
-      const firstLine = (msg.content.split("\n")[0] ?? "").substring(0, 200);
+      const firstLine = (msg.content ?? "").split("\n")[0]?.substring(0, 200) ?? "";
       keyFacts.push(`- User: ${firstLine}`);
     }
-    if (msg.role === "tool" && msg.content.length > 100) {
+    if (msg.role === "tool" && (msg.content?.length ?? 0) > 100) {
       // Note tool usage
-      keyFacts.push(`- Tool result received (${msg.content.length} chars)`);
+      keyFacts.push(`- Tool result received (${msg.content?.length ?? 0} chars)`);
     }
   }
 
