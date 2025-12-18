@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Wrench, Settings, ExternalLink, ChevronDown } from "lucide-react";
+import { Wrench, Settings, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useModal } from "@/components/layout/modal-context";
 import {
@@ -32,7 +32,7 @@ export function ToolsDropdown({
 }: ToolsDropdownProps) {
   const { data: connectors, isLoading } = useMcpConnectors();
   const toggleMutation = useToggleMcpConnector();
-  const { openSettingsModal, setSettingsModalTab } = useModal();
+  const { openSettingsModal } = useModal();
 
   const enabledCount = connectors?.filter((c) => c.enabled).length ?? 0;
 
@@ -53,7 +53,7 @@ export function ToolsDropdown({
 
   const handleOpenSettings = () => {
     setIsOpen(false);
-    openSettingsModal("connectors" as any);
+    openSettingsModal("connectors");
   };
 
   const getFaviconUrl = (url: string) => {

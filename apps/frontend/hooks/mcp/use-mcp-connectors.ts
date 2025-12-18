@@ -1,201 +1,296 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { McpConnector, McpConnectorFormData, McpDiscoveryResult } from "@repo/types";
+import { useEffect, useMemo, useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "../../../../convex/_generated/api";
+import type {
+  McpConnector,
+  McpConnectorFormData,
+  McpDiscoveryResult,
+} from "@repo/types";
+import { useAuthSession } from "@/components/auth/session-provider";
+import {
+  useConvexUserByExternalId,
+  useUpsertUser,
+} from "@/lib/convex/hooks";
+import { toConvexId } from "@/lib/convex/id";
 
-const MCP_CONNECTORS_QUERY_KEY = ["mcp-connectors"];
+type MutationState<TArgs, TResult> = {
+  mutateAsync: (args: TArgs) => Promise<TResult>;
+  isPending: boolean;
+};
 
-interface McpConnectorResponse {
-  success: boolean;
-  connector?: McpConnector;
-  connectors?: McpConnector[];
-  error?: string;
+function mapConnector(doc: any): McpConnector {
+  return {
+    id: doc._id?.toString?.() ?? "",
+    userId: doc.userId ? doc.userId.toString() : null,
+    name: doc.name ?? "",
+    nameId: doc.nameId ?? "",
+    url: doc.url ?? "",
+    type: doc.type ?? "HTTP",
+    oauthClientId: doc.oauthClientId ?? null,
+    oauthClientSecret: doc.oauthClientSecret ?? null,
+    enabled: Boolean(doc.enabled),
+    createdAt: doc.createdAt ? new Date(doc.createdAt) : new Date(0),
+    updatedAt: doc.updatedAt ? new Date(doc.updatedAt) : new Date(0),
+  };
 }
 
-interface McpDiscoveryResponse {
-  success: boolean;
-  discovery?: McpDiscoveryResult;
-  error?: string;
+function useConvexUserId() {
+  const { session, isLoading: isLoadingSession } = useAuthSession();
+  const externalId = session?.user?.id;
+  const user = useConvexUserByExternalId(externalId);
+  const upsertUser = useUpsertUser();
+  const [isUpserting, setIsUpserting] = useState(false);
+
+  useEffect(() => {
+    if (!externalId || isLoadingSession || user !== null || isUpserting) {
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      setIsUpserting(true);
+      try {
+        await upsertUser({
+          externalId,
+          name: session?.user?.name ?? session?.user?.email ?? "Unknown User",
+          email: session?.user?.email ?? "unknown@user.local",
+          image: session?.user?.image ?? undefined,
+          emailVerified: false,
+        });
+      } catch (error) {
+        console.warn("[mcp-connectors] Failed to upsert user", error);
+      } finally {
+        if (!cancelled) {
+          setIsUpserting(false);
+        }
+      }
+    };
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    externalId,
+    isLoadingSession,
+    user,
+    isUpserting,
+    upsertUser,
+    session?.user?.name,
+    session?.user?.email,
+    session?.user?.image,
+  ]);
+
+  const userId = (user?._id ?? undefined) as Id<"users"> | undefined;
+  const isLoading =
+    isLoadingSession || (externalId ? user === undefined || isUpserting : false);
+
+  return {
+    userId,
+    isLoading,
+    hasSession: Boolean(session?.user),
+  };
 }
 
 /**
  * Fetch all MCP connectors for the current user
  */
-export function useMcpConnectors() {
-  return useQuery<McpConnector[]>({
-    queryKey: MCP_CONNECTORS_QUERY_KEY,
-    queryFn: async () => {
-      const response = await fetch("/api/mcp-connectors");
-      const data: McpConnectorResponse = await response.json();
+export function useMcpConnectors(): {
+  data: McpConnector[] | undefined;
+  isLoading: boolean;
+} {
+  const { userId, isLoading: isUserLoading, hasSession } = useConvexUserId();
+  const connectors = useQuery(
+    api.mcpConnectors.listByUser,
+    userId ? { userId } : "skip"
+  );
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to fetch MCP connectors");
-      }
+  const mapped = useMemo(
+    () => (connectors ? connectors.map(mapConnector) : []),
+    [connectors]
+  );
 
-      return data.connectors || [];
-    },
-  });
+  const isLoading =
+    isUserLoading || (userId ? connectors === undefined : false);
+  const data = connectors ? mapped : hasSession ? undefined : [];
+
+  return { data, isLoading };
 }
 
 /**
  * Create a new MCP connector
  */
-export function useCreateMcpConnector() {
-  const queryClient = useQueryClient();
+export function useCreateMcpConnector(): MutationState<
+  McpConnectorFormData,
+  { connectorId: Id<"mcpConnectors"> }
+> {
+  const { userId } = useConvexUserId();
+  const create = useMutation(api.mcpConnectors.create);
+  const [isPending, setIsPending] = useState(false);
 
-  return useMutation({
-    mutationFn: async (data: McpConnectorFormData) => {
-      const response = await fetch("/api/mcp-connectors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+  const mutateAsync = async (data: McpConnectorFormData) => {
+    if (!userId) {
+      throw new Error("User not available");
+    }
+    setIsPending(true);
+    try {
+      return await create({ userId, ...data });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
-      const result: McpConnectorResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to create MCP connector");
-      }
-
-      return result.connector;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MCP_CONNECTORS_QUERY_KEY });
-    },
-  });
+  return { mutateAsync, isPending };
 }
 
 /**
  * Update an MCP connector
  */
-export function useUpdateMcpConnector() {
-  const queryClient = useQueryClient();
+export function useUpdateMcpConnector(): MutationState<
+  {
+    id: string;
+    updates: Partial<McpConnectorFormData> & { enabled?: boolean };
+  },
+  { success: boolean }
+> {
+  const { userId } = useConvexUserId();
+  const update = useMutation(api.mcpConnectors.update);
+  const [isPending, setIsPending] = useState(false);
 
-  return useMutation({
-    mutationFn: async ({
-      id,
-      updates,
-    }: {
-      id: string;
-      updates: Partial<McpConnectorFormData> & { enabled?: boolean };
-    }) => {
-      const response = await fetch(`/api/mcp-connectors/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updates),
+  const mutateAsync = async ({
+    id,
+    updates,
+  }: {
+    id: string;
+    updates: Partial<McpConnectorFormData> & { enabled?: boolean };
+  }) => {
+    if (!userId) {
+      throw new Error("User not available");
+    }
+    setIsPending(true);
+    try {
+      return await update({
+        connectorId: toConvexId("mcpConnectors", id),
+        userId,
+        ...updates,
       });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
-      const result: McpConnectorResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to update MCP connector");
-      }
-
-      return result.connector;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MCP_CONNECTORS_QUERY_KEY });
-    },
-  });
+  return { mutateAsync, isPending };
 }
 
 /**
  * Delete an MCP connector
  */
-export function useDeleteMcpConnector() {
-  const queryClient = useQueryClient();
+export function useDeleteMcpConnector(): MutationState<string, { success: boolean }> {
+  const { userId } = useConvexUserId();
+  const remove = useMutation(api.mcpConnectors.remove);
+  const [isPending, setIsPending] = useState(false);
 
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/mcp-connectors/${id}`, {
-        method: "DELETE",
+  const mutateAsync = async (id: string) => {
+    if (!userId) {
+      throw new Error("User not available");
+    }
+    setIsPending(true);
+    try {
+      return await remove({
+        connectorId: toConvexId("mcpConnectors", id),
+        userId,
       });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
-      const result: McpConnectorResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to delete MCP connector");
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MCP_CONNECTORS_QUERY_KEY });
-    },
-  });
+  return { mutateAsync, isPending };
 }
 
 /**
- * Toggle connector enabled state with optimistic updates
+ * Toggle connector enabled state
  */
-export function useToggleMcpConnector() {
-  const queryClient = useQueryClient();
+export function useToggleMcpConnector(): MutationState<
+  { id: string; enabled: boolean },
+  { success: boolean }
+> {
+  const { userId } = useConvexUserId();
+  const toggle = useMutation(api.mcpConnectors.toggleEnabled);
+  const [isPending, setIsPending] = useState(false);
 
-  return useMutation({
-    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const response = await fetch(`/api/mcp-connectors/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled }),
+  const mutateAsync = async ({ id, enabled }: { id: string; enabled: boolean }) => {
+    if (!userId) {
+      throw new Error("User not available");
+    }
+    setIsPending(true);
+    try {
+      return await toggle({
+        connectorId: toConvexId("mcpConnectors", id),
+        userId,
+        enabled,
       });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
-      const result: McpConnectorResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || "Failed to toggle MCP connector");
-      }
-
-      return result.connector;
-    },
-    onMutate: async ({ id, enabled }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: MCP_CONNECTORS_QUERY_KEY });
-
-      // Snapshot the previous value
-      const previousConnectors = queryClient.getQueryData<McpConnector[]>(MCP_CONNECTORS_QUERY_KEY);
-
-      // Optimistically update
-      if (previousConnectors) {
-        queryClient.setQueryData<McpConnector[]>(
-          MCP_CONNECTORS_QUERY_KEY,
-          previousConnectors.map((c) =>
-            c.id === id ? { ...c, enabled } : c
-          )
-        );
-      }
-
-      return { previousConnectors };
-    },
-    onError: (_err, _variables, context) => {
-      // Rollback on error
-      if (context?.previousConnectors) {
-        queryClient.setQueryData(MCP_CONNECTORS_QUERY_KEY, context.previousConnectors);
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: MCP_CONNECTORS_QUERY_KEY });
-    },
-  });
+  return { mutateAsync, isPending };
 }
 
 /**
  * Discover tools from an MCP connector
  */
-export function useMcpDiscovery(connectorId: string | null) {
-  return useQuery<McpDiscoveryResult>({
-    queryKey: ["mcp-discovery", connectorId],
-    queryFn: async () => {
-      if (!connectorId) {
-        throw new Error("No connector ID provided");
+export function useMcpDiscovery(connectorId: string | null): {
+  data: McpDiscoveryResult | undefined;
+  isLoading: boolean;
+  error: Error | null;
+} {
+  const { userId, isLoading: isUserLoading } = useConvexUserId();
+  const discover = useAction(api.mcpConnectors.discover);
+  const [data, setData] = useState<McpDiscoveryResult | undefined>(undefined);
+  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!connectorId || !userId) {
+      setData(undefined);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const result = await discover({
+          connectorId: toConvexId("mcpConnectors", connectorId),
+          userId,
+        });
+        if (!cancelled) {
+          setData(result);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err as Error);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
+    };
 
-      const response = await fetch(`/api/mcp-connectors/${connectorId}/discover`);
-      const data: McpDiscoveryResponse = await response.json();
+    void run();
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to discover MCP capabilities");
-      }
+    return () => {
+      cancelled = true;
+    };
+  }, [connectorId, userId, discover]);
 
-      return data.discovery || { tools: [], resources: [], prompts: [] };
-    },
-    enabled: !!connectorId,
-    staleTime: 30000, // Cache for 30 seconds
-    retry: 1,
-  });
+  return { data, isLoading: isUserLoading || isLoading, error };
 }

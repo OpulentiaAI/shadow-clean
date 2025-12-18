@@ -3,7 +3,7 @@
  */
 
 /**
- * MCP transport type (matches Prisma enum)
+ * MCP transport type
  */
 export type McpTransportType = 'HTTP' | 'SSE';
 

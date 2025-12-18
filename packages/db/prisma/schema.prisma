@@ -23,7 +23,6 @@ model User {
   CodebaseUnderstanding CodebaseUnderstanding[]
   memories              Memory[]
   userSettings          UserSettings?
-  mcpConnectors         McpConnector[]
 
   @@map("user")
 }
@@ -305,31 +304,4 @@ enum MemoryCategory {
   PERFORMANCE
   CONFIG
   GENERAL
-}
-
-// MCP (Model Context Protocol) connector for external AI tools
-model McpConnector {
-  id        String   @id @default(cuid())
-  userId    String?  // null = global connector available to all users
-  name      String   @db.VarChar(256)
-  nameId    String   @db.VarChar(256) // unique per user, used as namespace for tool IDs
-  url       String   // MCP server URL
-  type      McpTransportType @default(HTTP)
-  oauthClientId     String?
-  oauthClientSecret String?
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, nameId])
-  @@index([userId])
-  @@index([userId, nameId])
-  @@map("mcp_connector")
-}
-
-enum McpTransportType {
-  HTTP
-  SSE
 }

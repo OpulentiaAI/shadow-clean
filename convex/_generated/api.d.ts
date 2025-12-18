@@ -19,6 +19,7 @@ import type * as fileChanges from "../fileChanges.js";
 import type * as http from "../http.js";
 import type * as lib_messageCompression from "../lib/messageCompression.js";
 import type * as lib_retry from "../lib/retry.js";
+import type * as mcpConnectors from "../mcpConnectors.js";
 import type * as memories from "../memories.js";
 import type * as messages from "../messages.js";
 import type * as monitoring_dashboard from "../monitoring/dashboard.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/messageCompression": typeof lib_messageCompression;
   "lib/retry": typeof lib_retry;
+  mcpConnectors: typeof mcpConnectors;
   memories: typeof memories;
   messages: typeof messages;
   "monitoring/dashboard": typeof monitoring_dashboard;
