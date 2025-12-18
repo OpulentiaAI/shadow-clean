@@ -9,9 +9,15 @@
 import { action, query } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 
-// Feature flag for workflow mode
-const ENABLE_WORKFLOW = process.env.ENABLE_WORKFLOW === "true";
+// Feature flag for workflow mode - disabled until agentWorkflow is fully wired
+const ENABLE_WORKFLOW = false; // process.env.ENABLE_WORKFLOW === "true";
+
+// Explicit return type to break circular type inference
+type RunAgentResult = 
+  | { mode: "workflow"; workflowId: string; taskId: Id<"tasks"> }
+  | { mode: "direct"; messageId: Id<"chatMessages">; text: string; toolCallIds: string[]; usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined; taskId: Id<"tasks"> };
 
 /**
  * Run an agent task - either via direct streaming or durable workflow
@@ -29,15 +35,17 @@ export const runAgent = action({
       openrouter: v.optional(v.string()),
     }),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<RunAgentResult> => {
     const model = args.model || "anthropic/claude-sonnet-4-20250514";
 
     if (ENABLE_WORKFLOW) {
       // Use durable workflow for restart resilience
+      // NOTE: Workflow mode is disabled until agentWorkflow is properly wired into Convex api types
       console.log(`[RunAgent] Starting durable workflow for task ${args.taskId}`);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const workflowResult = await ctx.runAction(
-        api.workflows.agentWorkflow.startAgentWorkflow,
+        (api.workflows as any).agentWorkflow.startAgentWorkflow,
         {
           taskId: args.taskId,
           prompt: args.prompt,
@@ -78,6 +86,12 @@ export const runAgent = action({
   },
 });
 
+// Explicit return type for getWorkflowStatus
+type WorkflowStatusResult = 
+  | { error: string }
+  | { workflowId: string; status: string; taskId: Id<"tasks">; startedAt: number; completedAt?: number; error?: string } 
+  | null;
+
 /**
  * Get workflow status - returns status of a workflow execution
  */
@@ -85,15 +99,16 @@ export const getWorkflowStatus = action({
   args: {
     workflowId: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<WorkflowStatusResult> => {
     if (!ENABLE_WORKFLOW) {
       return {
         error: "Workflow mode is not enabled. Set ENABLE_WORKFLOW=true to use workflows.",
       };
     }
 
-    const status = await ctx.runQuery(
-      api.workflows.agentWorkflow.getWorkflowStatus,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const status: WorkflowStatusResult = await ctx.runQuery(
+      (api.workflows as any).agentWorkflow.getWorkflowStatus,
       { workflowId: args.workflowId }
     );
 
