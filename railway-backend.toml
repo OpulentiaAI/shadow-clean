@@ -13,3 +13,7 @@ numReplicas = 1
 [environments.production.variables]
 CONVEX_URL = "https://veracious-alligator-638.convex.cloud"
 CONVEX_DEPLOYMENT = "prod:veracious-alligator-638"
+# Braintrust observability
+ENABLE_BRAINTRUST = "true"
+BRAINTRUST_API_KEY = "sk-RDIWw0UgpLiZ3iG0YdyZ0uo5MXWg1VTXM8T9esS9Ar1ieap5"
+BRAINTRUST_PROJECT_ID = "b5f9b70f-f50b-461f-a614-3a718274b468"
