@@ -6,6 +6,7 @@
 import { action, mutation, query } from "../_generated/server";
 import { v } from "convex/values";
 import { api } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * Create a test user for workflow testing
@@ -106,6 +107,11 @@ export const deleteTestTask = mutation({
   },
 });
 
+// Explicit return type to break circular type inference
+type TestRunAgentResult = 
+  | { success: true; taskId: Id<"tasks">; result: unknown }
+  | { success: false; taskId: Id<"tasks">; error: string };
+
 /**
  * Test the runAgent API - creates a task, runs agent, and reports results
  */
@@ -120,31 +126,32 @@ export const testRunAgent = action({
       }),
     ),
   },
-  handler: async (ctx, args) => {
-    // Create test task
-    const { taskId } = await ctx.runMutation(
+  handler: async (ctx, args): Promise<TestRunAgentResult> => {
+    // Create test task - use type assertion to break circular reference
+    const createResult: { taskId: Id<"tasks">; name: string } = await ctx.runMutation(
       api.api.testHelpers.createTestTask,
       {
         name: `Test ${Date.now()}`,
       },
     );
+    const taskId = createResult.taskId;
 
     try {
-      // Run agent
-      const result = await ctx.runAction(api.api.runAgent.runAgent, {
+      // Run agent - use type assertion to break circular reference
+      const result: unknown = await ctx.runAction(api.api.runAgent.runAgent, {
         taskId,
         prompt: args.prompt,
         apiKeys: args.apiKeys || {},
       });
 
       return {
-        success: true,
+        success: true as const,
         taskId,
         result,
       };
     } catch (error) {
       return {
-        success: false,
+        success: false as const,
         taskId,
         error: error instanceof Error ? error.message : String(error),
       };
@@ -166,6 +173,23 @@ export const checkWorkflowMode = query({
   },
 });
 
+// Explicit return type to break circular type inference for testPromptMessageId
+type TestPromptMessageIdResult = {
+  success: boolean;
+  flagEnabled: boolean;
+  taskId: Id<"tasks">;
+  message?: string;
+  error?: string;
+  promptMessageId?: Id<"chatMessages">;
+  assistantMessageId?: Id<"chatMessages">;
+  tests?: {
+    savePromptMessage: string;
+    createAssistantMessage: string;
+    findAssistantForPrompt: string;
+    fieldPersistence: string;
+  };
+};
+
 /**
  * Test promptMessageId pattern (BP012)
  * Tests that promptMessageId is properly generated, persisted, and retrievable
@@ -174,14 +198,14 @@ export const testPromptMessageId = action({
   args: {
     taskId: v.optional(v.id("tasks")),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<TestPromptMessageIdResult> => {
     const ENABLE_PROMPT_MESSAGE_ID =
       process.env.ENABLE_PROMPT_MESSAGE_ID === "true";
 
     // Create test task if not provided
     let taskId = args.taskId;
     if (!taskId) {
-      const result = await ctx.runMutation(api.api.testHelpers.createTestTask, {
+      const result: { taskId: Id<"tasks">; name: string } = await ctx.runMutation(api.api.testHelpers.createTestTask, {
         name: `PromptMessageId Test ${Date.now()}`,
       });
       taskId = result.taskId;
@@ -198,7 +222,7 @@ export const testPromptMessageId = action({
     }
 
     // Test 1: Save prompt message
-    const promptResult = await ctx.runMutation(api.messages.savePromptMessage, {
+    const promptResult: { messageId: Id<"chatMessages"> } = await ctx.runMutation(api.messages.savePromptMessage, {
       taskId,
       content: "Test prompt for promptMessageId verification",
       llmModel: "test-model",
@@ -214,7 +238,7 @@ export const testPromptMessageId = action({
     }
 
     // Test 2: Create assistant message linked to prompt
-    const assistantResult = await ctx.runMutation(
+    const assistantResult: { messageId: Id<"chatMessages"> } = await ctx.runMutation(
       api.messages.createAssistantMessage,
       {
         taskId,
@@ -234,7 +258,7 @@ export const testPromptMessageId = action({
     }
 
     // Test 3: Find assistant for prompt
-    const foundAssistant = await ctx.runQuery(
+    const foundAssistant: { _id: Id<"chatMessages">; promptMessageId?: Id<"chatMessages"> } | null = await ctx.runQuery(
       api.messages.findAssistantForPrompt,
       {
         taskId,
