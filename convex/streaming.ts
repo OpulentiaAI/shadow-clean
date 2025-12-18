@@ -9,6 +9,8 @@ import { type LanguageModel } from "ai";
 import { createAgentTools } from "./agentTools";
 import { generateTraceId } from "./observability";
 import { withRetry, isTransientError } from "./lib/retry";
+// Note: Braintrust integration is server-side only (apps/server) due to Node.js requirements
+// Convex actions use the default AI SDK without Braintrust wrapping
 
 // Throttle configuration for delta streaming (Best Practice BP005)
 const DELTA_THROTTLE_MS = 100; // Batch writes every 100ms
