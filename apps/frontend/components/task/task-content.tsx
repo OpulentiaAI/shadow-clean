@@ -8,7 +8,7 @@ import { useParams } from "next/navigation";
 import { ScrollToBottom } from "./scroll-to-bottom";
 import { useCallback, memo, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ModelType } from "@repo/types";
+import type { ModelType, Message } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
 import { useConvexChatStreaming } from "@/hooks/convex";
 import { asConvexId } from "@/lib/convex/id";
@@ -143,7 +143,7 @@ function TaskPageContent() {
     // Debug: Log what messages we're receiving from Convex
     console.log("[TASK_CONTENT] Messages received:", {
       count: messages.length,
-      messages: messages.map((m) => ({
+      messages: messages.map((m: Message) => ({
         id: m.id,
         role: m.role,
         hasContent: !!m.content,
