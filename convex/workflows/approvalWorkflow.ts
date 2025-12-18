@@ -164,10 +164,8 @@ export const durableAgentWithApproval: any = workflowManager.define({
   },
 });
 
-// NOTE: Workflow exports commented out until @convex-dev/workflow API is properly configured
-// The start/status methods require additional arguments in the current workflow version
-// export const startApprovalWorkflow = workflowManager.start(durableAgentWithApproval);
-// export const getApprovalWorkflowStatus = workflowManager.status(durableAgentWithApproval);
+// NOTE: Approval workflow start/status not needed currently - use agentWorkflow instead
+// The approval workflow can be enabled when human-in-the-loop features are required
 
 /**
  * Send approval event to a waiting workflow

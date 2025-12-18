@@ -16,7 +16,9 @@ import { UserSettings } from "./user-settings";
 import { ModelSettings } from "./model-settings";
 import { GitHubSettings } from "./github-settings";
 import { ProviderConfig } from "./provider-config";
+import { McpConnectorsSettings } from "@/components/settings/mcp-connectors-settings";
 import { API_KEY_PROVIDER_NAMES } from "@repo/types";
+import { Wrench } from "lucide-react";
 
 const tabs = [
   {
@@ -30,6 +32,12 @@ const tabs = [
     sidebarLabel: "Models",
     icon: <Box className="size-4" />,
     value: "models",
+  },
+  {
+    title: "MCP Connectors",
+    sidebarLabel: "Connectors",
+    icon: <Wrench className="size-4" />,
+    value: "connectors",
   },
   {
     title: "Preferences",
@@ -77,6 +85,8 @@ export function SettingsModal() {
         return <ModelSettings />;
       case "github":
         return <GitHubSettings />;
+      case "connectors":
+        return <McpConnectorsSettings />;
       default:
         return <UserSettings />;
     }
@@ -134,7 +144,7 @@ export function SettingsModal() {
                     onClick={() => {
                       closeProviderConfig();
                       setSettingsModalTab(
-                        tab.value as "user" | "models" | "github"
+                        tab.value as "user" | "models" | "github" | "connectors"
                       );
                     }}
                   >

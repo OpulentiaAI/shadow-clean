@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState } from "react";
 import { ApiKeyProvider } from "@repo/types";
 
-type SettingsTab = "user" | "models" | "github";
+type SettingsTab = "user" | "models" | "github" | "connectors";
 
 interface ModalContextType {
   // Settings modal state

@@ -8,8 +8,11 @@
  */
 
 import { v } from "convex/values";
+import { action, query } from "../_generated/server";
 import { workflowManager } from "./index";
 import { internal } from "../_generated/api";
+import { vWorkflowId } from "@convex-dev/workflow";
+import type { Id } from "../_generated/dataModel";
 
 /**
  * Durable agent workflow that survives server restarts.
@@ -129,7 +132,74 @@ export const durableAgentRun: any = workflowManager.define({
   },
 });
 
-// NOTE: Workflow exports commented out until @convex-dev/workflow API is properly configured
-// The start/status methods require additional arguments in the current workflow version
-// export const startAgentWorkflow = workflowManager.start(durableAgentRun);
-// export const getWorkflowStatus = workflowManager.status(durableAgentRun);
+// Explicit return type for startAgentWorkflow
+type StartAgentWorkflowResult = {
+  workflowId: string;
+  taskId: Id<"tasks">;
+};
+
+/**
+ * Start the durable agent workflow
+ * Called from runAgent.ts when ENABLE_WORKFLOW is true
+ */
+export const startAgentWorkflow = action({
+  args: {
+    taskId: v.id("tasks"),
+    prompt: v.string(),
+    model: v.string(),
+    systemPrompt: v.optional(v.string()),
+    llmModel: v.optional(v.string()),
+    apiKeys: v.object({
+      anthropic: v.optional(v.string()),
+      openai: v.optional(v.string()),
+      openrouter: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args): Promise<StartAgentWorkflowResult> => {
+    // Reference the workflow directly to avoid circular type reference
+    const workflowId = await workflowManager.start(
+      ctx,
+      durableAgentRun,
+      {
+        taskId: args.taskId,
+        prompt: args.prompt,
+        model: args.model,
+        systemPrompt: args.systemPrompt,
+        llmModel: args.llmModel,
+        apiKeys: args.apiKeys,
+      }
+    );
+    
+    return {
+      workflowId: workflowId as string,
+      taskId: args.taskId,
+    };
+  },
+});
+
+// Explicit return type for getWorkflowStatus
+type WorkflowStatusResult = {
+  workflowId: string;
+  status: string;
+  result?: unknown;
+  error?: string;
+};
+
+/**
+ * Get the status of a workflow
+ */
+export const getWorkflowStatus = query({
+  args: {
+    workflowId: vWorkflowId,
+  },
+  handler: async (ctx, args): Promise<WorkflowStatusResult> => {
+    const status = await workflowManager.status(ctx, args.workflowId);
+    
+    return {
+      workflowId: args.workflowId as string,
+      status: status.type,
+      result: status.type === "completed" ? status.result : undefined,
+      error: status.type === "failed" ? status.error : undefined,
+    };
+  },
+});

@@ -3,6 +3,75 @@
  */
 
 /**
+ * MCP transport type (matches Prisma enum)
+ */
+export type McpTransportType = 'HTTP' | 'SSE';
+
+/**
+ * MCP connector stored in database
+ */
+export interface McpConnector {
+  id: string;
+  userId: string | null; // null = global connector
+  name: string;
+  nameId: string;
+  url: string;
+  type: McpTransportType;
+  oauthClientId: string | null;
+  oauthClientSecret: string | null;
+  enabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Form data for creating/updating MCP connector
+ */
+export interface McpConnectorFormData {
+  name: string;
+  url: string;
+  type: McpTransportType;
+  oauthClientId?: string;
+  oauthClientSecret?: string;
+}
+
+/**
+ * MCP tool discovered from a connector
+ */
+export interface McpDiscoveredTool {
+  name: string;
+  description?: string;
+}
+
+/**
+ * MCP resource discovered from a connector
+ */
+export interface McpDiscoveredResource {
+  name: string;
+  uri: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/**
+ * MCP prompt discovered from a connector
+ */
+export interface McpDiscoveredPrompt {
+  name: string;
+  description?: string;
+  arguments?: Array<{ name: string; description?: string; required?: boolean }>;
+}
+
+/**
+ * Discovery result from an MCP connector
+ */
+export interface McpDiscoveryResult {
+  tools: McpDiscoveredTool[];
+  resources: McpDiscoveredResource[];
+  prompts: McpDiscoveredPrompt[];
+}
+
+/**
  * MCP tool metadata for tracking original and transformed names
  */
 export interface MCPToolMeta {

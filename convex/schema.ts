@@ -71,6 +71,11 @@ export const StreamType = v.union(
   v.literal("stderr")
 );
 
+export const McpTransportType = v.union(
+  v.literal("HTTP"),
+  v.literal("SSE")
+);
+
 export default defineSchema({
   users: defineTable({
     externalId: v.optional(v.string()),
@@ -290,6 +295,22 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"]),
+
+  // MCP (Model Context Protocol) connectors for external AI tools
+  mcpConnectors: defineTable({
+    userId: v.optional(v.id("users")), // null/undefined = global connector available to all users
+    name: v.string(),
+    nameId: v.string(), // unique per user, used as namespace for tool IDs
+    url: v.string(), // MCP server URL
+    type: McpTransportType,
+    oauthClientId: v.optional(v.string()),
+    oauthClientSecret: v.optional(v.string()),
+    enabled: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_name_id", ["userId", "nameId"]),
 
   // File changes tracked by sidecar (Convex-native mode)
   fileChanges: defineTable({

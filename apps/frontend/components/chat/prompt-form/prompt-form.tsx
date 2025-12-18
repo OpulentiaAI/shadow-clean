@@ -30,7 +30,7 @@ import {
 } from "react";
 import { toast } from "sonner";
 import { GithubConnection } from "./github";
-import { LocalRepoConnection } from "./local-repo";
+import { ToolsDropdown } from "./tools-dropdown";
 import { RepoIssues } from "../home/repo-issues";
 import type { GitHubIssue } from "@repo/types";
 import type { FilteredRepository as Repository } from "@/lib/github/types";
@@ -158,7 +158,7 @@ export function PromptForm({
 
   const [isMessageOptionsOpen, setIsMessageOptionsOpen] = useState(false);
   const [isGithubConnectionOpen, setIsGithubConnectionOpen] = useState(false);
-  const [isLocalRepoOpen, setIsLocalRepoOpen] = useState(false);
+  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
 
   const messageOptions = useMemo(() => {
     const queueAction = () => {
@@ -679,13 +679,9 @@ export function PromptForm({
                 />
                 {isHome && (
                   <>
-                    <LocalRepoConnection
-                      isOpen={isLocalRepoOpen}
-                      setIsOpen={setIsLocalRepoOpen}
-                      selectedRepo={repo}
-                      selectedBranch={branch}
-                      setSelectedRepo={setRepo}
-                      setSelectedBranch={setBranch}
+                    <ToolsDropdown
+                      isOpen={isToolsDropdownOpen}
+                      setIsOpen={setIsToolsDropdownOpen}
                     />
                     <GithubConnection
                       isOpen={isGithubConnectionOpen}
