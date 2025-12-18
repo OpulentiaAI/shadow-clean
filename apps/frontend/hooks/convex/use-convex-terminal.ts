@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { useMemo } from "react";
 import type { TerminalEntry } from "@repo/types";
 
@@ -23,7 +23,7 @@ export function useConvexTerminal(taskId: string | undefined) {
   const terminalEntries: TerminalEntry[] = useMemo(() => {
     if (!terminalOutput) return [];
 
-    return terminalOutput.map((output, index) => ({
+    return terminalOutput.map((output: { streamType: string; content: string; timestamp: number }, index: number) => ({
       id: index,
       type: output.streamType === "stderr" ? "stderr" as const : "stdout" as const,
       data: output.content,
