@@ -10,22 +10,6 @@
 import { v } from "convex/values";
 import { workflowManager } from "./index";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-
-// Explicit return type to break circular type inference
-type DurableAgentRunResult = {
-  traceId: Id<"agentTraces">;
-  promptMessageId: Id<"chatMessages">;
-  assistantMessageId: Id<"chatMessages">;
-  text: string;
-  toolCallIds: string[];
-  usage?: {
-    promptTokens?: number;
-    completionTokens?: number;
-    totalTokens?: number;
-  };
-  durationMs: number;
-};
 
 /**
  * Durable agent workflow that survives server restarts.
