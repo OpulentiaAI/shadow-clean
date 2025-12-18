@@ -79,7 +79,7 @@ export function compressMessagesSimple(
   for (const msg of oldMessages) {
     if (msg.role === "user" && msg.content.length > 20) {
       // Extract first line of user messages as key points
-      const firstLine = msg.content.split("\n")[0].substring(0, 200);
+      const firstLine = (msg.content.split("\n")[0] ?? "").substring(0, 200);
       keyFacts.push(`- User: ${firstLine}`);
     }
     if (msg.role === "tool" && msg.content.length > 100) {
