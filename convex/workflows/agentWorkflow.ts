@@ -129,8 +129,7 @@ export const durableAgentRun: any = workflowManager.define({
   },
 });
 
-// Export the start action for triggering workflows
-export const startAgentWorkflow = workflowManager.start(durableAgentRun);
-
-// Export status query for checking workflow progress
-export const getWorkflowStatus = workflowManager.status(durableAgentRun);
+// NOTE: Workflow exports commented out until @convex-dev/workflow API is properly configured
+// The start/status methods require additional arguments in the current workflow version
+// export const startAgentWorkflow = workflowManager.start(durableAgentRun);
+// export const getWorkflowStatus = workflowManager.status(durableAgentRun);
