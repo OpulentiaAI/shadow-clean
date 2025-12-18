@@ -10,13 +10,30 @@
 import { v } from "convex/values";
 import { workflowManager } from "./index";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
+
+// Explicit return type to break circular type inference
+type DurableAgentRunResult = {
+  traceId: Id<"agentTraces">;
+  promptMessageId: Id<"chatMessages">;
+  assistantMessageId: Id<"chatMessages">;
+  text: string;
+  toolCallIds: string[];
+  usage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+  };
+  durationMs: number;
+};
 
 /**
  * Durable agent workflow that survives server restarts.
  * Each step is checkpointed - if the process crashes,
  * it resumes from the last completed step.
  */
-export const durableAgentRun = workflowManager.define({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const durableAgentRun: any = workflowManager.define({
   args: {
     taskId: v.id("tasks"),
     prompt: v.string(),

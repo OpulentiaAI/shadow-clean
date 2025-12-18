@@ -28,7 +28,8 @@ const DANGEROUS_TOOLS = new Set([
 /**
  * Durable agent workflow with human approval for dangerous operations
  */
-export const durableAgentWithApproval = workflowManager.define({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const durableAgentWithApproval: any = workflowManager.define({
   args: {
     taskId: v.id("tasks"),
     prompt: v.string(),
