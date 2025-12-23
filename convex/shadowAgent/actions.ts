@@ -236,7 +236,7 @@ export const stopTask = action({
 
 /**
  * List messages from a thread
- * Uses Agent's listMessages which returns paginated results
+ * Uses Agent's listMessages exported function
  */
 export const listMessages = action({
   args: {
@@ -247,18 +247,19 @@ export const listMessages = action({
     })),
   },
   handler: async (ctx, args) => {
-    const { thread } = await shadowAgent.continueThread(ctx, {
+    // Import and use the listMessages function from Agent
+    const { listMessages: agentListMessages } = await import("@convex-dev/agent");
+    
+    const paginationOpts = {
+      cursor: args.paginationOpts?.cursor ?? null,
+      numItems: args.paginationOpts?.numItems ?? 50,
+    };
+
+    const result = await agentListMessages(ctx, shadowAgent.component, {
       threadId: args.threadId,
+      paginationOpts,
     });
 
-    // Get messages using the thread's context
-    const messages = await thread.listMessages({
-      paginationOpts: {
-        cursor: args.paginationOpts?.cursor ?? null,
-        numItems: args.paginationOpts?.numItems ?? 50,
-      },
-    });
-
-    return messages;
+    return result;
   },
 });
