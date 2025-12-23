@@ -3,3 +3,4 @@ export { useTerminalRealtime, useTaskTerminalRealtime } from "./use-terminal-rea
 export { useHybridTask, type HybridTaskData } from "./use-hybrid-task";
 export { usePresence, useActiveUsers, useActivityBroadcast, useRecentActivities } from "./use-presence";
 export { useConvexChatStreaming, useStreamingMessage, useStreamingToolCalls } from "./use-convex-streaming";
+export { useAgentStreaming } from "./use-agent-streaming";
