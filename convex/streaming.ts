@@ -626,26 +626,30 @@ export const streamChatWithTools = action({
         // Build explicit deduplication guidance
         let alreadyCompletedBlock = "";
         if (alreadyReadFiles.size > 0 || alreadyListedDirs.size > 0) {
-          alreadyCompletedBlock = "\n\n⚠️ ALREADY COMPLETED (DO NOT REPEAT):";
+          alreadyCompletedBlock = "\n\n🚫 ALREADY COMPLETED - DO NOT CALL THESE AGAIN:";
           if (alreadyReadFiles.size > 0) {
-            alreadyCompletedBlock += `\n- Files already read: ${Array.from(alreadyReadFiles).join(", ")}`;
+            alreadyCompletedBlock += `\n- Files read: ${Array.from(alreadyReadFiles).join(", ")}`;
           }
           if (alreadyListedDirs.size > 0) {
-            alreadyCompletedBlock += `\n- Directories already listed: ${Array.from(alreadyListedDirs).join(", ")}`;
+            alreadyCompletedBlock += `\n- Directories listed: ${Array.from(alreadyListedDirs).join(", ")}`;
           }
-          alreadyCompletedBlock += "\n";
+          alreadyCompletedBlock += "\nIf you need different information, use a DIFFERENT file path or tool.\n";
         }
         
         return `${basePrompt}
 
-You are exploring the codebase step-by-step. Continue from the latest tool results below.
-If you need more information, call another tool. If you have enough information, write your response.
+## CRITICAL INSTRUCTIONS
+1. REVIEW the tool results below carefully before taking any action
+2. VERIFY the results match what you intended - if you asked for README.md but got something else, that's an error
+3. DO NOT repeat the same tool call - if it's in "ALREADY COMPLETED", use a different approach
+4. If you have the information you need, WRITE YOUR RESPONSE instead of calling more tools
 ${planBlock}${alreadyCompletedBlock}
 
-Latest tool results:
-${toolTranscript || "(none)"}
+## Tool Results So Far:
+${toolTranscript || "(no tool calls yet)"}
 
-Continue now.`;
+## Your Task
+Review the above results. If you have enough information, provide your response. If not, call ONE different tool with correct arguments.`;
       };
 
       const parseToolPlan = (
