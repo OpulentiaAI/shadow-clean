@@ -33,9 +33,9 @@ function createOpenRouterModel() {
     },
   });
 
-  // Use GPT-4o-mini with .chat() to force chat completions API
+  // Use MiniMax M2.1 with .chat() to force chat completions API
   // The .responses() format is not supported by OpenRouter
-  return provider.chat("openai/gpt-4o-mini");
+  return provider.chat("minimax/minimax-m2.1");
 }
 
 /**

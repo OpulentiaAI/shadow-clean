@@ -21,6 +21,7 @@ export const AvailableModels = {
   DEEPSEEK_V3: "deepseek/deepseek-chat",
   GROK_CODE_FAST_1: "x-ai/grok-code-fast-1",
   ZAI_GLM_4_7: "z-ai/glm-4.7",
+  MINIMAX_M2_1: "minimax/minimax-m2.1",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -81,6 +82,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.ZAI_GLM_4_7]: {
     id: AvailableModels.ZAI_GLM_4_7,
     name: "GLM 4.7",
+    provider: "openrouter",
+  },
+  [AvailableModels.MINIMAX_M2_1]: {
+    id: AvailableModels.MINIMAX_M2_1,
+    name: "MiniMax M2.1",
     provider: "openrouter",
   },
 };
@@ -193,7 +199,8 @@ export async function getAllPossibleModels(
       AvailableModels.MISTRAL_DEVSTRAL_2,
       AvailableModels.DEEPSEEK_V3,
       AvailableModels.GROK_CODE_FAST_1,
-      AvailableModels.ZAI_GLM_4_7
+      AvailableModels.ZAI_GLM_4_7,
+      AvailableModels.MINIMAX_M2_1
     );
   }
 
@@ -220,7 +227,8 @@ export async function getDefaultSelectedModels(
       AvailableModels.MISTRAL_DEVSTRAL_2,
       AvailableModels.DEEPSEEK_V3,
       AvailableModels.GROK_CODE_FAST_1,
-      AvailableModels.ZAI_GLM_4_7
+      AvailableModels.ZAI_GLM_4_7,
+      AvailableModels.MINIMAX_M2_1
     );
   }
 

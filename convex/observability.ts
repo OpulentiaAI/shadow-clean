@@ -26,6 +26,7 @@ const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   "deepseek/deepseek-chat-v3-0324": { input: 14, output: 28 },
   "mistralai/devstral-2505": { input: 0, output: 0 }, // Free
   "z-ai/glm-4.7": { input: 44, output: 174 }, // $0.44/M input, $1.74/M output
+  "minimax/minimax-m2.1": { input: 30, output: 120 }, // $0.30/M input, $1.20/M output
   // Direct provider models
   "claude-sonnet-4-20250514": { input: 300, output: 1500 },
   "gpt-4o": { input: 250, output: 1000 },
