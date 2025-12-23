@@ -28,6 +28,7 @@ export async function getApiKeys(): Promise<ApiKeys> {
   const openaiKey = cookieStore.get("openai-key")?.value;
   const anthropicKey = cookieStore.get("anthropic-key")?.value;
   const openrouterKey = cookieStore.get("openrouter-key")?.value;
+  const exaKey = cookieStore.get("exa-key")?.value;
   // const groqKey = cookieStore.get("groq-key")?.value;
   // const ollamaKey = cookieStore.get("ollama-key")?.value;
 
@@ -36,6 +37,7 @@ export async function getApiKeys(): Promise<ApiKeys> {
     openai: openaiKey || ENV_OPENAI_KEY || undefined,
     anthropic: anthropicKey || ENV_ANTHROPIC_KEY || undefined,
     openrouter: openrouterKey || ENV_OPENROUTER_KEY || undefined,
+    exa: exaKey || undefined,
     // groq: groqKey || undefined,
     // ollama: ollamaKey || undefined,
   };
@@ -120,6 +122,7 @@ export async function getApiKeyValidation(): Promise<ApiKeyValidation> {
   const openaiValidation = cookieStore.get("openai-validation")?.value;
   const anthropicValidation = cookieStore.get("anthropic-validation")?.value;
   const openrouterValidation = cookieStore.get("openrouter-validation")?.value;
+  const exaValidation = cookieStore.get("exa-validation")?.value;
   // const groqValidation = cookieStore.get("groq-validation")?.value;
   // const ollamaValidation = cookieStore.get("ollama-validation")?.value;
 
@@ -131,6 +134,7 @@ export async function getApiKeyValidation(): Promise<ApiKeyValidation> {
     openrouter: openrouterValidation
       ? JSON.parse(openrouterValidation)
       : undefined,
+    exa: exaValidation ? JSON.parse(exaValidation) : undefined,
     // groq: groqValidation ? JSON.parse(groqValidation) : undefined,
     // ollama: ollamaValidation ? JSON.parse(ollamaValidation) : undefined,
   };
