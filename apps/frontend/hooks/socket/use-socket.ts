@@ -3,6 +3,11 @@
 import { socket } from "@/lib/socket";
 import { useEffect, useState } from "react";
 
+// Check if Convex-native streaming is enabled (skip Socket.IO in that case)
+const USE_CONVEX_NATIVE =
+  typeof process !== "undefined" &&
+  process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
+
 interface ConnectionInfo {
   connectionId: string;
   reconnectCount: number;
@@ -14,6 +19,12 @@ export function useSocket() {
   const [connectionInfo, setConnectionInfo] = useState<ConnectionInfo | null>(null);
 
   useEffect(() => {
+    // Skip Socket.IO when Convex-native streaming is enabled
+    if (USE_CONVEX_NATIVE) {
+      console.log('[SOCKET] Skipping Socket.IO - using Convex-native streaming');
+      return;
+    }
+
     const handleConnect = () => {
       setIsConnected(true);
     };
@@ -52,8 +63,9 @@ export function useSocket() {
   }, []);
 
   return { 
-    socket, 
-    isConnected, 
-    connectionInfo 
+    socket: USE_CONVEX_NATIVE ? null : socket, 
+    isConnected: USE_CONVEX_NATIVE ? false : isConnected, 
+    connectionInfo,
+    isConvexNative: USE_CONVEX_NATIVE,
   };
 }

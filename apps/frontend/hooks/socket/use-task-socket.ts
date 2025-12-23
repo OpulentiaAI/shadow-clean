@@ -235,8 +235,11 @@ function updateFileChangesOptimistically(
 }
 
 export function useTaskSocket(taskId: string | undefined) {
-  const { socket, isConnected } = useSocket();
+  const { socket, isConnected, isConvexNative } = useSocket();
   const queryClient = useQueryClient();
+
+  // When Convex-native streaming is enabled, skip all Socket.IO functionality
+  // Real-time updates come from Convex subscriptions instead
 
   const streamingParts = useStreamingPartsMap();
   const [streamingPartsOrder, setStreamingPartsOrder] = useState<string[]>([]);
@@ -294,10 +297,14 @@ export function useTaskSocket(taskId: string | undefined) {
 
   // All the chat event handlers (moved from task-content.tsx)
   useEffect(() => {
-    if (!socket || !taskId) return;
+    // Skip Socket.IO when using Convex-native streaming or socket is null
+    if (!socket || !taskId || isConvexNative) return;
+
+    // Capture socket in closure to avoid null checks in handlers
+    const s = socket;
 
     function onConnect() {
-      socket.emit("get-chat-history", { taskId: taskId!, complete: false });
+      s.emit("get-chat-history", { taskId: taskId!, complete: false });
     }
 
     function onDisconnect() {}
