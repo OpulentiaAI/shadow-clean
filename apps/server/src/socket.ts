@@ -262,6 +262,18 @@ export function createSocketServer(
       sameSite: isProduction ? "none" : "lax",
       secure: isProduction,
     },
+    // Railway-optimized settings to prevent connection resets
+    pingTimeout: 60000,        // 60s before considering connection dead
+    pingInterval: 25000,       // 25s between pings (under typical 30s proxy timeout)
+    upgradeTimeout: 30000,     // 30s for WebSocket upgrade
+    // Start with polling for reliability, then upgrade to websocket
+    transports: ["polling", "websocket"],
+    allowUpgrades: true,
+    // Prevent request buffering issues
+    perMessageDeflate: false,
+    httpCompression: true,
+    // Handle Railway's proxy behavior
+    allowEIO3: true,           // Allow Engine.IO v3 clients
   });
 
   // Set up sidecar namespace for filesystem watching (only in remote mode)

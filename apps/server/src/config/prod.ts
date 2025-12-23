@@ -26,6 +26,7 @@ const prodConfigSchema = sharedConfigSchema.extend({
         "https://www.shadowrealm.ai",
         "https://code.opulentia.ai",
         "https://shadow-frontend-production-373f.up.railway.app",
+        "https://shadow-clean-production.up.railway.app",
       ].join(",")
     ),
 
