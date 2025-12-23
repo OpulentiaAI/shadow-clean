@@ -490,16 +490,92 @@ export const streamChatWithTools = action({
         : availableTools;
       
       const requestedNames = args.tools?.map((t) => t.name) ?? null;
-      const aiTools = Object.fromEntries(
+      const filteredTools = Object.fromEntries(
         Object.entries(allTools).filter(([name]) =>
           requestedNames ? requestedNames.includes(name) : true
         )
       );
-      if (requestedNames && Object.keys(aiTools).length === 0) {
+      if (requestedNames && Object.keys(filteredTools).length === 0) {
         throw new Error(
           `No matching tools were found for requested tools: ${requestedNames.join(", ")}`
         );
       }
+      
+      // ============================================================
+      // MECHANICAL GUARDRAIL: Tool Deduplication at Execute Level
+      // This ensures duplicate tool calls are blocked even when the
+      // AI SDK auto-executes tools via its maxSteps loop.
+      // ============================================================
+      const executedToolSignatures = new Set<string>();
+      const toolCallAttempts = new Map<string, number>(); // Track attempts per signature
+      const MAX_TOOL_ATTEMPTS = 3;
+      
+      const createToolSignature = (toolName: string, toolArgs: unknown): string => {
+        // Normalize args for comparison (exclude 'explanation' field)
+        const argsForSignature = { ...(toolArgs as Record<string, unknown>) };
+        delete argsForSignature.explanation;
+        const sortedKeys = Object.keys(argsForSignature).sort();
+        const normalized: Record<string, unknown> = {};
+        for (const key of sortedKeys) {
+          normalized[key] = argsForSignature[key];
+        }
+        return `${toolName}::${JSON.stringify(normalized)}`;
+      };
+      
+      const wrapToolWithDedup = (toolName: string, originalTool: any) => {
+        const originalExecute = originalTool.execute;
+        return {
+          ...originalTool,
+          execute: async (args: any) => {
+            const signature = createToolSignature(toolName, args);
+            const attempts = (toolCallAttempts.get(signature) || 0) + 1;
+            toolCallAttempts.set(signature, attempts);
+            
+            // Check for duplicate execution
+            if (executedToolSignatures.has(signature)) {
+              console.warn(`[DEDUP_BLOCK] Blocking duplicate tool call: ${toolName} with signature ${signature.substring(0, 100)}...`);
+              return {
+                success: false,
+                error: "DUPLICATE_TOOL_CALL_BLOCKED",
+                message: `⛔ BLOCKED: You already called "${toolName}" with these exact arguments. The result was returned previously. DO NOT call this tool again with the same arguments. Either:\n1. Use the result you already received\n2. Try a DIFFERENT tool\n3. Try the same tool with DIFFERENT arguments\n4. If stuck, explain to the user what you've tried and ask for guidance`,
+                toolName,
+                args,
+                previouslyExecuted: true,
+              };
+            }
+            
+            // Check for too many attempts (even with different args)
+            if (attempts > MAX_TOOL_ATTEMPTS) {
+              console.warn(`[DEDUP_BLOCK] Tool "${toolName}" exceeded max attempts (${MAX_TOOL_ATTEMPTS})`);
+              return {
+                success: false,
+                error: "MAX_ATTEMPTS_EXCEEDED",
+                message: `⛔ BLOCKED: You have tried "${toolName}" ${attempts} times. This suggests the approach isn't working. Please either:\n1. Try a COMPLETELY DIFFERENT tool or approach\n2. Explain to the user what you've tried and ask for guidance\n\nDo NOT retry this tool.`,
+                toolName,
+                attempts,
+              };
+            }
+            
+            // Execute the original tool
+            const result = await originalExecute(args);
+            
+            // Mark as executed
+            executedToolSignatures.add(signature);
+            console.log(`[DEDUP_TRACK] Executed ${toolName}, total unique calls: ${executedToolSignatures.size}`);
+            
+            return result;
+          },
+        };
+      };
+      
+      // Wrap all tools with deduplication
+      const aiTools = Object.fromEntries(
+        Object.entries(filteredTools).map(([name, tool]) => [
+          name,
+          wrapToolWithDedup(name, tool),
+        ])
+      );
+      console.log(`[DEDUP_INIT] Wrapped ${Object.keys(aiTools).length} tools with deduplication guardrail`);
       
       // Enhance system prompt with web search guidance if Exa is available
       const effectiveSystemPrompt = args.apiKeys?.exa
