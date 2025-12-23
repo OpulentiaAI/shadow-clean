@@ -31,6 +31,7 @@ import type * as repositoryIndex from "../repositoryIndex.js";
 import type * as shadowAgent_actions from "../shadowAgent/actions.js";
 import type * as shadowAgent_index from "../shadowAgent/index.js";
 import type * as shadowAgent_queries from "../shadowAgent/queries.js";
+import type * as shadowAgent_tests from "../shadowAgent/tests.js";
 import type * as streaming from "../streaming.js";
 import type * as taskSessions from "../taskSessions.js";
 import type * as tasks from "../tasks.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "shadowAgent/actions": typeof shadowAgent_actions;
   "shadowAgent/index": typeof shadowAgent_index;
   "shadowAgent/queries": typeof shadowAgent_queries;
+  "shadowAgent/tests": typeof shadowAgent_tests;
   streaming: typeof streaming;
   taskSessions: typeof taskSessions;
   tasks: typeof tasks;
