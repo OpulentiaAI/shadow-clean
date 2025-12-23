@@ -1,16 +1,58 @@
-import { action } from "./_generated/server";
+import { action, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 // createOpenRouter removed in favor of createOpenAI configuration
-import { type LanguageModel } from "ai";
+import { type LanguageModel, type CoreMessage } from "ai";
 import { createAgentTools, createExaWebSearchTool, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
 import { generateTraceId } from "./observability";
 import { withRetry, isTransientError } from "./lib/retry";
+
+// Configuration for conversation context
+const MAX_CONTEXT_MESSAGES = 20; // Number of recent messages to include as context
 // Note: Braintrust integration is server-side only (apps/server) due to Node.js requirements
 // Convex actions use the default AI SDK without Braintrust wrapping
+
+/**
+ * Fetch conversation history for a task and format as CoreMessage array for AI SDK.
+ * This ensures the LLM has context from previous messages in the conversation.
+ */
+async function fetchConversationContext(
+  ctx: ActionCtx,
+  taskId: Id<"tasks">,
+  excludeMessageId?: Id<"chatMessages">
+): Promise<CoreMessage[]> {
+  const messages = await ctx.runQuery(api.messages.byTask, { taskId });
+  
+  // Filter out the current message being generated (if any) and incomplete messages
+  const completedMessages = messages.filter((m) => {
+    // Exclude the message we're currently generating
+    if (excludeMessageId && m._id === excludeMessageId) return false;
+    // Exclude streaming messages (isStreaming in metadata)
+    const metadata = m.metadataJson ? JSON.parse(m.metadataJson) : {};
+    if (metadata.isStreaming) return false;
+    // Exclude empty assistant messages
+    if (m.role === "ASSISTANT" && !m.content?.trim()) return false;
+    return true;
+  });
+
+  // Take the most recent messages for context
+  const recentMessages = completedMessages.slice(-MAX_CONTEXT_MESSAGES);
+
+  // Convert to CoreMessage format for AI SDK
+  const coreMessages: CoreMessage[] = recentMessages.map((m) => {
+    const role = m.role === "USER" ? "user" : "assistant";
+    return {
+      role,
+      content: m.content || "",
+    } as CoreMessage;
+  });
+
+  console.log(`[STREAMING] Fetched ${coreMessages.length} messages for conversation context`);
+  return coreMessages;
+}
 
 // Throttle configuration for delta streaming (Best Practice BP005)
 const DELTA_THROTTLE_MS = 100; // Batch writes every 100ms
@@ -347,10 +389,19 @@ export const streamChatWithTools = action({
       console.error(`[STREAMING] Task not found: ${args.taskId}`);
       throw new Error("Task not found");
     }
-    console.log(`[STREAMING] Task found: ${task._id}`);
+    console.log(`[STREAMING] Task found: ${task._id}, status: ${task.status}`);
     console.log(
       `[STREAMING] Task workspacePath: ${(task as any)?.workspacePath ?? "null"}`
     );
+
+    // Set task to RUNNING status (handles resuming from STOPPED state)
+    if (task.status !== "RUNNING") {
+      console.log(`[STREAMING] Setting task status to RUNNING (was: ${task.status})`);
+      await ctx.runMutation(api.tasks.update, {
+        taskId: args.taskId,
+        status: "RUNNING",
+      });
+    }
 
     // Initialize streaming message
     // BP012: Use promptMessageId pattern when enabled for retry-safe streaming
@@ -471,6 +522,10 @@ export const streamChatWithTools = action({
       const MAX_AGENT_STEPS = 64;
       const MAX_TOOL_TRANSCRIPT_CHARS = 30000;
       const MAX_SINGLE_TOOL_RESULT_CHARS = 12000;
+
+      // Fetch conversation history for context (enables multi-turn conversations)
+      const conversationHistory = await fetchConversationContext(ctx, args.taskId, messageId);
+      console.log(`[STREAMING] Loaded ${conversationHistory.length} messages from conversation history`);
 
       let accumulatedText = "";
 
@@ -759,10 +814,20 @@ Continue now.`;
           }
 
           // BP009: Wrap LLM call with retry logic for transient failures
+          // Build messages array with conversation history + current prompt
+          const messagesForLLM: CoreMessage[] = [
+            // Include conversation history from previous messages
+            ...conversationHistory,
+            // Add current prompt as user message
+            { role: "user" as const, content: effectivePrompt },
+          ];
+          console.log(`[STREAMING] Sending ${messagesForLLM.length} messages to LLM (${conversationHistory.length} history + 1 current)`);
+
           const llmCall = async (): Promise<ReturnType<typeof streamText>> => {
             return streamText({
               model: providerModel,
-              prompt: effectivePrompt,
+              // Use messages array instead of prompt for conversation context
+              messages: messagesForLLM,
               system: effectiveSystemPrompt,
               tools: aiTools,
               temperature: 0.7,
@@ -1772,7 +1837,8 @@ export const cancelStream = action({
 });
 
 /**
- * Stop a running task - sets task status to STOPPED and aborts any active streams
+ * Stop a running task - sets task status to STOPPED and aborts any active streams.
+ * Also marks any streaming/pending messages as failed to prevent blocking next request.
  */
 export const stopTask = action({
   args: {
@@ -1789,6 +1855,8 @@ export const stopTask = action({
     
     // Abort any active stream controllers for this task's messages
     let abortedCount = 0;
+    let markedFailedCount = 0;
+    
     for (const message of messages) {
       const controller = streamControllers.get(message._id);
       if (controller) {
@@ -1797,16 +1865,30 @@ export const stopTask = action({
         abortedCount++;
         console.log(`[STREAMING] Aborted stream for message: ${message._id}`);
       }
+      
+      // Mark streaming/pending messages as stopped so they don't block next request
+      const metadata = message.metadataJson ? JSON.parse(message.metadataJson) : {};
+      if (metadata.isStreaming || message.status === "streaming" || message.status === "pending") {
+        await ctx.runMutation(api.messages.updateMessageStatus, {
+          messageId: message._id,
+          status: "failed",
+          finishReason: "stopped",
+          errorMessage: "Task was stopped by user",
+        });
+        markedFailedCount++;
+        console.log(`[STREAMING] Marked message ${message._id} as failed (was streaming/pending)`);
+      }
     }
     
-    // Update task status to STOPPED
+    // Update task status to STOPPED - but make it resumable
+    // Set to STOPPED instead of FAILED so user can continue
     await ctx.runMutation(api.tasks.update, {
       taskId: args.taskId,
       status: "STOPPED",
     });
     
-    console.log(`[STREAMING] Task stopped. Aborted ${abortedCount} active streams.`);
-    return { success: true, abortedStreams: abortedCount };
+    console.log(`[STREAMING] Task stopped. Aborted ${abortedCount} active streams, marked ${markedFailedCount} messages as failed.`);
+    return { success: true, abortedStreams: abortedCount, markedFailed: markedFailedCount };
   },
 });
 
