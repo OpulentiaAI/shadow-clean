@@ -59,6 +59,22 @@ mkdir -p "$LOGS_DIR"
 cd "$PROJECT_ROOT"
 
 # ============================================
+# Phase 0: CI Meta-Test
+# ============================================
+echo -e "${BLUE}=============================================="
+echo "Phase 0: CI Meta-Test"
+echo "==============================================${NC}"
+
+if [[ -f "apps/server/src/tests/functional-ci-meta.test.ts" ]]; then
+    run_test "Functional CI Meta" \
+        "apps/server/src/tests/functional-ci-meta.test.ts" \
+        "$LOGS_DIR/ci-meta.log"
+else
+    echo -e "${YELLOW}⏭ SKIPPED: functional-ci-meta.test.ts (not found)${NC}"
+    ((SKIPPED_COUNT++))
+fi
+
+# ============================================
 # Phase 1: Core Agent Loop Tests
 # ============================================
 echo -e "${BLUE}=============================================="
@@ -151,6 +167,70 @@ if [[ -f "apps/server/src/tests/model-differential-functional.test.ts" ]]; then
         "$LOGS_DIR/model-differential.log"
 else
     echo -e "${YELLOW}⏭ SKIPPED: model-differential-functional.test.ts (not found)${NC}"
+    ((SKIPPED_COUNT++))
+fi
+
+# ============================================
+# Phase 7: Tool Surface Coverage
+# ============================================
+echo -e "${BLUE}=============================================="
+echo "Phase 7: Tool Surface Coverage"
+echo "==============================================${NC}"
+
+if [[ -f "apps/server/src/tests/agent-tool-surface-coverage.test.ts" ]]; then
+    run_test "Tool Surface Coverage" \
+        "apps/server/src/tests/agent-tool-surface-coverage.test.ts" \
+        "$LOGS_DIR/tool-surface-coverage.log"
+else
+    echo -e "${YELLOW}⏭ SKIPPED: agent-tool-surface-coverage.test.ts (not found)${NC}"
+    ((SKIPPED_COUNT++))
+fi
+
+# ============================================
+# Phase 8: Plan-Act Consistency
+# ============================================
+echo -e "${BLUE}=============================================="
+echo "Phase 8: Plan-Act Consistency"
+echo "==============================================${NC}"
+
+if [[ -f "apps/server/src/tests/plan-act-consistency.test.ts" ]]; then
+    run_test "Plan-Act Consistency" \
+        "apps/server/src/tests/plan-act-consistency.test.ts" \
+        "$LOGS_DIR/plan-act-consistency.log"
+else
+    echo -e "${YELLOW}⏭ SKIPPED: plan-act-consistency.test.ts (not found)${NC}"
+    ((SKIPPED_COUNT++))
+fi
+
+# ============================================
+# Phase 9: Continuation Functional
+# ============================================
+echo -e "${BLUE}=============================================="
+echo "Phase 9: Continuation Functional"
+echo "==============================================${NC}"
+
+if [[ -f "apps/server/src/tests/continuation-functional.e2e.test.ts" ]]; then
+    run_test "Continuation Functional E2E" \
+        "apps/server/src/tests/continuation-functional.e2e.test.ts" \
+        "$LOGS_DIR/continuation-functional.log"
+else
+    echo -e "${YELLOW}⏭ SKIPPED: continuation-functional.e2e.test.ts (not found)${NC}"
+    ((SKIPPED_COUNT++))
+fi
+
+# ============================================
+# Phase 10: Soak Tests (if NIGHTLY=true)
+# ============================================
+echo -e "${BLUE}=============================================="
+echo "Phase 10: Soak Tests"
+echo "==============================================${NC}"
+
+if [[ -f "apps/server/src/tests/functional-soak.nightly.test.ts" ]]; then
+    run_test "Functional Soak Tests" \
+        "apps/server/src/tests/functional-soak.nightly.test.ts" \
+        "$LOGS_DIR/functional-soak.log"
+else
+    echo -e "${YELLOW}⏭ SKIPPED: functional-soak.nightly.test.ts (not found)${NC}"
     ((SKIPPED_COUNT++))
 fi
 
