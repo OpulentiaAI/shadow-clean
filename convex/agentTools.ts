@@ -9,6 +9,9 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
+
+// Type for tool return - using ReturnType to infer from the tool function
+type AgentTool = ReturnType<typeof tool>;
 import { ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
@@ -230,12 +233,11 @@ const WebSearchSchema = z.object({
  * Create agent tools with task context
  * @returns Object containing all agent tools
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function createAgentTools(
   ctx: ActionCtx,
   taskId: Id<"tasks">,
   workspacePathOverride?: string
-) {
+): Record<string, AgentTool> {
   const taskIdStr = taskId as string;
   let workspacePathPromise: Promise<string | undefined> | null = null;
   const getWorkspacePath = async (): Promise<string | undefined> => {
