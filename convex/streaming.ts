@@ -506,8 +506,13 @@ export const streamChatWithTools = action({
         }
       };
 
-      const makeToolSignature = (toolName: string, toolArgs: unknown): string =>
-        `${toolName}::${stableStringify(toolArgs)}`;
+      const makeToolSignature = (toolName: string, toolArgs: unknown): string => {
+        // Exclude 'explanation' field from signature to prevent duplicate calls
+        // with different explanations from being treated as unique
+        const argsForSignature = { ...(toolArgs as Record<string, unknown>) };
+        delete argsForSignature.explanation;
+        return `${toolName}::${stableStringify(argsForSignature)}`;
+      };
 
       const formatForPrompt = (value: unknown): string => {
         try {
@@ -519,6 +524,10 @@ export const streamChatWithTools = action({
         }
       };
 
+      // Track already-read files for explicit deduplication guidance
+      const alreadyReadFiles = new Set<string>();
+      const alreadyListedDirs = new Set<string>();
+      
       const appendToolTranscript = (entry: {
         toolCallId: string;
         toolName: string;
@@ -529,8 +538,19 @@ export const streamChatWithTools = action({
         if (toolTranscript.length > MAX_TOOL_TRANSCRIPT_CHARS) {
           toolTranscript = toolTranscript.slice(-MAX_TOOL_TRANSCRIPT_CHARS);
         }
+        
+        // Track completed file/directory operations for deduplication guidance
+        const argsObj = entry.args as Record<string, unknown>;
+        if (entry.toolName === "read_file" && typeof argsObj?.target_file === "string") {
+          alreadyReadFiles.add(argsObj.target_file);
+        } else if (entry.toolName === "list_dir" && typeof argsObj?.relative_workspace_path === "string") {
+          alreadyListedDirs.add(argsObj.relative_workspace_path);
+        } else if (entry.toolName === "grep_search" && typeof argsObj?.query === "string") {
+          // Track grep searches too
+          alreadyReadFiles.add(`grep:${argsObj.query}`);
+        }
       };
-
+      
       const buildContinuationPrompt = (): string => {
         let planBlock = "";
         if (planSteps.length > 0) {
@@ -546,11 +566,25 @@ export const streamChatWithTools = action({
               : "All required tool steps are complete. Do not call more tools; write the final response."
           }\n`;
         }
+        
+        // Build explicit deduplication guidance
+        let alreadyCompletedBlock = "";
+        if (alreadyReadFiles.size > 0 || alreadyListedDirs.size > 0) {
+          alreadyCompletedBlock = "\n\n⚠️ ALREADY COMPLETED (DO NOT REPEAT):";
+          if (alreadyReadFiles.size > 0) {
+            alreadyCompletedBlock += `\n- Files already read: ${Array.from(alreadyReadFiles).join(", ")}`;
+          }
+          if (alreadyListedDirs.size > 0) {
+            alreadyCompletedBlock += `\n- Directories already listed: ${Array.from(alreadyListedDirs).join(", ")}`;
+          }
+          alreadyCompletedBlock += "\n";
+        }
+        
         return `${basePrompt}
 
 You are exploring the codebase step-by-step. Continue from the latest tool results below.
 If you need more information, call another tool. If you have enough information, write your response.
-${planBlock}
+${planBlock}${alreadyCompletedBlock}
 
 Latest tool results:
 ${toolTranscript || "(none)"}
