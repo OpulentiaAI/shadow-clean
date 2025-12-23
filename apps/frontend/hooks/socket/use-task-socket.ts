@@ -852,7 +852,7 @@ export function useTaskSocket(taskId: string | undefined) {
       // Don't clear streaming state immediately - wait for server response
       setIsStreaming(false);
       setIsCompletionPending(true);
-      if (taskId) {
+      if (taskId && socket) {
         socket.emit("get-chat-history", { taskId, complete: true });
       }
 
