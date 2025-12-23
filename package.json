@@ -64,6 +64,8 @@
   ],
   "dependencies": {
     "@convex-dev/persistent-text-streaming": "^0.3.0",
-    "@convex-dev/workflow": "^0.3.3"
+    "@convex-dev/workflow": "^0.3.3",
+    "@exalabs/ai-sdk": "^1.0.5",
+    "exa-js": "^2.0.12"
   }
 }

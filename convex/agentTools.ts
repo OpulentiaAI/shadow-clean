@@ -5,12 +5,14 @@
  * They use a hybrid approach:
  * - Data tools (todos, memories): Direct Convex DB operations
  * - File/terminal tools: HTTP calls to server tool API
+ * - Web search: Exa AI SDK for real-time web search
  */
 import { tool } from "ai";
 import { z } from "zod";
 import { ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+import { webSearch } from "@exalabs/ai-sdk";
 
 // Server URL for tool API calls
 const getServerUrl = () =>
@@ -214,6 +216,14 @@ const SemanticSearchSchema = z.object({
 const WarpGrepSchema = z.object({
   query: z.string().describe("Natural language query for code search"),
   explanation: z.string().describe("What code you're looking for"),
+});
+
+// Web Search Schema
+const WebSearchSchema = z.object({
+  query: z.string().describe("Search query for finding information on the web"),
+  numResults: z.number().optional().describe("Number of results to return (default: 5)"),
+  category: z.enum(["company", "research paper", "news", "pdf", "github", "personal site", "linkedin profile", "financial report"]).optional().describe("Category to focus the search on"),
+  explanation: z.string().describe("Why this web search is needed"),
 });
 
 /**
@@ -559,6 +569,69 @@ CRITICAL RULES:
   };
 }
 
+/**
+ * Create Exa web search tool when API key is available
+ * This is a separate function to conditionally include web search capabilities
+ */
+export function createExaWebSearchTool(exaApiKey?: string) {
+  if (!exaApiKey) {
+    return null;
+  }
+
+  // Set the EXA_API_KEY environment variable for the SDK
+  process.env.EXA_API_KEY = exaApiKey;
+
+  return {
+    web_search: webSearch({
+      numResults: 5,
+      contents: {
+        text: { maxCharacters: 2000 },
+      },
+    }),
+  };
+}
+
+/**
+ * Tool guidance for web search - describes when and how to use web search
+ */
+export const WEB_SEARCH_TOOL_GUIDANCE = `
+## Web Search Tool (web_search)
+
+You have access to a powerful web search tool that can find current information from the internet.
+
+### When to use web_search:
+- Finding documentation for libraries, frameworks, or APIs
+- Looking up current best practices or patterns
+- Researching error messages or debugging issues
+- Finding examples of how to implement specific features
+- Getting latest information about technologies (releases, deprecations)
+- Answering questions that require up-to-date information
+
+### When NOT to use web_search:
+- For information already in the codebase (use grep_search, file_search, or semantic_search instead)
+- For general programming knowledge you already have
+- When the user's question is specifically about their code
+
+### Best practices:
+- Be specific in your search queries
+- Use relevant technical terms
+- Search for documentation rather than tutorials when possible
+- Combine web search results with codebase analysis for best results
+`;
+
+/**
+ * System prompt addition for web search capabilities
+ */
+export const WEB_SEARCH_SYSTEM_PROMPT = `
+You have access to web search capabilities through the web_search tool. Use it to:
+- Find current documentation and API references
+- Research solutions to errors and issues
+- Look up best practices and patterns
+- Get up-to-date information about libraries and frameworks
+
+Always cite your sources when using information from web search results.
+`;
+
 // Export schemas for external use
 export const AgentToolSchemas = {
   TodoWriteSchema,
@@ -575,4 +648,5 @@ export const AgentToolSchemas = {
   DeleteFileSchema,
   SemanticSearchSchema,
   WarpGrepSchema,
+  WebSearchSchema,
 };

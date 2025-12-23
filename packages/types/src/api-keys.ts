@@ -3,6 +3,7 @@ export const API_KEY_PROVIDERS = {
   OPENAI: "openai",
   ANTHROPIC: "anthropic",
   OPENROUTER: "openrouter",
+  EXA: "exa",
   // GROQ: "groq",
   // OLLAMA: "ollama",
 } as const;
@@ -11,6 +12,7 @@ export const API_KEY_PROVIDER_NAMES = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   openrouter: "OpenRouter",
+  exa: "Exa",
 } as const;
 
 export type ApiKeyProvider =
@@ -27,6 +29,7 @@ export interface ApiKeys {
   openai?: string;
   anthropic?: string;
   openrouter?: string;
+  exa?: string;
   // groq?: string;
   // ollama?: string;
 }
@@ -35,6 +38,7 @@ export interface ApiKeyValidation {
   openai?: ApiKeyValidationResult;
   anthropic?: ApiKeyValidationResult;
   openrouter?: ApiKeyValidationResult;
+  exa?: ApiKeyValidationResult;
   // groq?: ApiKeyValidationResult;
   // ollama?: ApiKeyValidationResult;
 }

@@ -17,6 +17,7 @@ const MODELS = [
   { id: "moonshotai/kimi-k2-thinking", name: "Kimi K2 Thinking" },
   { id: "mistralai/devstral-2512:free", name: "Devstral 2 (Free)" },
   { id: "deepseek/deepseek-chat", name: "DeepSeek V3" },
+  { id: "z-ai/glm-4.7", name: "GLM 4.7" },
 ];
 
 // Simple calculator tool for testing

@@ -57,9 +57,11 @@ export function ModelSettings() {
   const [openrouterInput, setOpenrouterInput] = useState(
     apiKeys?.openrouter ?? ""
   );
+  const [exaInput, setExaInput] = useState(apiKeys?.exa ?? "");
   const [savingOpenai, setSavingOpenai] = useState(false);
   const [savingAnthropic, setSavingAnthropic] = useState(false);
   const [savingOpenrouter, setSavingOpenrouter] = useState(false);
+  const [savingExa, setSavingExa] = useState(false);
 
   const [apiKeyVisibility, setApiKeyVisibility] = useState<
     Record<ApiKeyProvider, boolean>
@@ -67,6 +69,7 @@ export function ModelSettings() {
     openai: false,
     anthropic: false,
     openrouter: false,
+    exa: false,
   });
 
   const handleToggleShowApiKey = (provider: ApiKeyProvider) => {
@@ -105,6 +108,7 @@ export function ModelSettings() {
     setOpenaiInput(apiKeys?.openai ?? "");
     setAnthropicInput(apiKeys?.anthropic ?? "");
     setOpenrouterInput(apiKeys?.openrouter ?? "");
+    setExaInput(apiKeys?.exa ?? "");
   }, [apiKeys]);
 
   const saveApiKey = async (provider: ApiKeyProvider, key: string) => {
@@ -116,11 +120,14 @@ export function ModelSettings() {
           ? apiKeys?.anthropic
           : provider === "openrouter"
             ? apiKeys?.openrouter
-            : undefined;
+            : provider === "exa"
+              ? apiKeys?.exa
+              : undefined;
     if (key === currentKey) {
       if (provider === "openai") setSavingOpenai(false);
       else if (provider === "anthropic") setSavingAnthropic(false);
       else if (provider === "openrouter") setSavingOpenrouter(false);
+      else if (provider === "exa") setSavingExa(false);
       return;
     }
 
@@ -215,6 +222,7 @@ export function ModelSettings() {
       if (provider === "openai") setSavingOpenai(false);
       else if (provider === "anthropic") setSavingAnthropic(false);
       else if (provider === "openrouter") setSavingOpenrouter(false);
+      else if (provider === "exa") setSavingExa(false);
     }
   };
 
@@ -240,6 +248,12 @@ export function ModelSettings() {
     200
   );
 
+  const { debouncedCallback: debouncedSaveExa, cancel: cancelExaSave } =
+    useDebounceCallbackWithCancel(
+      (key: string) => saveApiKey("exa", key),
+      200
+    );
+
   const handleOpenaiChange = (value: string) => {
     setOpenaiInput(value);
     setSavingOpenai(true);
@@ -256,6 +270,12 @@ export function ModelSettings() {
     setOpenrouterInput(value);
     setSavingOpenrouter(true);
     debouncedSaveOpenrouter(value);
+  };
+
+  const handleExaChange = (value: string) => {
+    setExaInput(value);
+    setSavingExa(true);
+    debouncedSaveExa(value);
   };
 
   const handleClearApiKey = async (provider: ApiKeyProvider) => {
@@ -283,6 +303,10 @@ export function ModelSettings() {
         setOpenrouterInput("");
         cancelOpenrouterSave();
         setSavingOpenrouter(false);
+      } else if (provider === "exa") {
+        setExaInput("");
+        cancelExaSave();
+        setSavingExa(false);
       }
 
       // Clear validation result for this provider
@@ -302,7 +326,9 @@ export function ModelSettings() {
             ? "Anthropic"
             : provider === "openrouter"
               ? "OpenRouter"
-              : "Unknown";
+              : provider === "exa"
+                ? "Exa"
+                : "Unknown";
       toast.error(`Failed to clear ${providerName} API key`);
     }
   };
@@ -338,6 +364,15 @@ export function ModelSettings() {
       handleChange: handleOpenrouterChange,
     },
   ];
+
+  // Exa is a separate tool provider, not a model provider
+  const exaProvider = {
+    key: "exa",
+    name: "Exa (Web Search)",
+    input: exaInput,
+    saving: savingExa,
+    handleChange: handleExaChange,
+  };
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -437,6 +472,77 @@ export function ModelSettings() {
           </div>
         );
       })}
+
+      {/* Tool Providers Section */}
+      <div className="flex w-full flex-col gap-2 border-t pt-4">
+        <Label
+          htmlFor="exa-key"
+          className="flex h-5 items-center gap-2 font-normal"
+        >
+          {exaProvider.name} API Key
+          {exaProvider.saving && (
+            <Loader2 className="text-muted-foreground size-3 animate-spin" />
+          )}
+          {renderValidationIcon("exa")}
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            id="exa-key"
+            form="api-keys-form"
+            type={apiKeyVisibility.exa ? "text" : "password"}
+            autoComplete="off"
+            placeholder="exa-placeholder..."
+            value={exaProvider.input}
+            onChange={(e) => exaProvider.handleChange(e.target.value)}
+          />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                className="text-muted-foreground hover:text-foreground"
+                size="icon"
+                onClick={() => handleToggleShowApiKey("exa")}
+                disabled={!exaProvider.input.trim().length}
+              >
+                {apiKeyVisibility.exa ? (
+                  <EyeOff className="size-4" />
+                ) : (
+                  <Eye className="size-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {apiKeyVisibility.exa ? "Hide API Key" : "Show API Key"}
+            </TooltipContent>
+          </Tooltip>
+          {apiKeys?.exa && apiKeys.exa.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  className="text-muted-foreground hover:text-foreground"
+                  size="icon"
+                  onClick={() => handleClearApiKey("exa")}
+                >
+                  <Trash className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Clear API Key</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+        <span className="text-muted-foreground text-xs">
+          Enables web search tool for AI agents.{" "}
+          <a
+            href="https://dashboard.exa.ai/api-keys"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            Get your API key
+          </a>
+        </span>
+      </div>
 
       <div className="text-muted-foreground flex w-full flex-col gap-1 border-t pt-4 text-xs">
         <span>Opulent OS is BYOK; you must provide an API key to use models.</span>

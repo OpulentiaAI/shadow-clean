@@ -6,7 +6,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 // createOpenRouter removed in favor of createOpenAI configuration
 import { type LanguageModel } from "ai";
-import { createAgentTools } from "./agentTools";
+import { createAgentTools, createExaWebSearchTool, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
 import { generateTraceId } from "./observability";
 import { withRetry, isTransientError } from "./lib/retry";
 // Note: Braintrust integration is server-side only (apps/server) due to Node.js requirements
@@ -316,6 +316,7 @@ export const streamChatWithTools = action({
       anthropic: v.optional(v.string()),
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
+      exa: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args): Promise<StreamChatWithToolsResult> => {
@@ -327,7 +328,7 @@ export const streamChatWithTools = action({
       `[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`
     );
     console.log(
-      `[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}`
+      `[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}, exa: ${!!args.apiKeys?.exa}`
     );
     if (args.apiKeys?.openrouter) {
       console.log(
@@ -429,9 +430,16 @@ export const streamChatWithTools = action({
         args.taskId,
         (task as any)?.workspacePath
       );
+      
+      // Add Exa web search tool if API key is available
+      const exaTools = createExaWebSearchTool(args.apiKeys?.exa);
+      const allTools = exaTools 
+        ? { ...availableTools, ...exaTools }
+        : availableTools;
+      
       const requestedNames = args.tools?.map((t) => t.name) ?? null;
       const aiTools = Object.fromEntries(
-        Object.entries(availableTools).filter(([name]) =>
+        Object.entries(allTools).filter(([name]) =>
           requestedNames ? requestedNames.includes(name) : true
         )
       );
@@ -440,6 +448,11 @@ export const streamChatWithTools = action({
           `No matching tools were found for requested tools: ${requestedNames.join(", ")}`
         );
       }
+      
+      // Enhance system prompt with web search guidance if Exa is available
+      const effectiveSystemPrompt = args.apiKeys?.exa
+        ? `${args.systemPrompt || ""}\n\n${WEB_SEARCH_SYSTEM_PROMPT}`
+        : args.systemPrompt;
 
       const toolCallIds: string[] = [];
 
@@ -716,7 +729,7 @@ Continue now.`;
             return streamText({
               model: providerModel,
               prompt: effectivePrompt,
-              system: args.systemPrompt,
+              system: effectiveSystemPrompt,
               tools: aiTools,
               temperature: 0.7,
               // AI SDK v5+: use stopWhen to allow multi-step tool execution

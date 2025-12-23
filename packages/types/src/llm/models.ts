@@ -20,6 +20,7 @@ export const AvailableModels = {
   MISTRAL_DEVSTRAL_2: "mistralai/devstral-2512:free",
   DEEPSEEK_V3: "deepseek/deepseek-chat",
   GROK_CODE_FAST_1: "x-ai/grok-code-fast-1",
+  ZAI_GLM_4_7: "z-ai/glm-4.7",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -75,6 +76,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.GROK_CODE_FAST_1]: {
     id: AvailableModels.GROK_CODE_FAST_1,
     name: "Grok Code Fast 1",
+    provider: "openrouter",
+  },
+  [AvailableModels.ZAI_GLM_4_7]: {
+    id: AvailableModels.ZAI_GLM_4_7,
+    name: "GLM 4.7",
     provider: "openrouter",
   },
 };
@@ -141,6 +147,9 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
       return AvailableModels.CLAUDE_HAIKU_4_5;
     case "openrouter":
       return AvailableModels.CLAUDE_OPUS_4_5;
+    case "exa":
+      // Exa is a tool provider, not a model provider - return a sensible default
+      return AvailableModels.CLAUDE_HAIKU_4_5;
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -183,7 +192,8 @@ export async function getAllPossibleModels(
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
       AvailableModels.DEEPSEEK_V3,
-      AvailableModels.GROK_CODE_FAST_1
+      AvailableModels.GROK_CODE_FAST_1,
+      AvailableModels.ZAI_GLM_4_7
     );
   }
 
@@ -209,7 +219,8 @@ export async function getDefaultSelectedModels(
       AvailableModels.MOONSHOT_KIMI_K2_THINKING,
       AvailableModels.MISTRAL_DEVSTRAL_2,
       AvailableModels.DEEPSEEK_V3,
-      AvailableModels.GROK_CODE_FAST_1
+      AvailableModels.GROK_CODE_FAST_1,
+      AvailableModels.ZAI_GLM_4_7
     );
   }
 
