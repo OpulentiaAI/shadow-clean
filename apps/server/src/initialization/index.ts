@@ -553,8 +553,9 @@ export class TaskInitializationEngine {
       const task = await getTask(toConvexId<"tasks">(taskId));
       
       if (task?.isScratchpad) {
-        console.log(`[TASK_INIT] ${taskId}: Scratchpad task - using minimal initialization`);
-        return getScratchpadSteps();
+        const agentMode = getAgentMode();
+        console.log(`[TASK_INIT] ${taskId}: Scratchpad task - using minimal initialization (mode: ${agentMode})`);
+        return getScratchpadSteps(agentMode);
       }
     }
 

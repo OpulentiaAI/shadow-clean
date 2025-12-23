@@ -60,7 +60,12 @@ export function getStepsForMode(mode: "local" | "remote"): InitStatus[] {
  * Get minimal initialization steps for scratchpad mode
  * Scratchpad needs workspace prep to initialize an empty git repo
  * but skips background services and dependencies
+ * @param mode - The agent execution mode (local or remote)
  */
-export function getScratchpadSteps(): InitStatus[] {
+export function getScratchpadSteps(mode: "local" | "remote" = "local"): InitStatus[] {
+  if (mode === "remote") {
+    // In remote mode, scratchpad still needs a VM but with minimal setup
+    return ["CREATE_VM", "WAIT_VM_READY", "VERIFY_VM_WORKSPACE"];
+  }
   return ["PREPARE_WORKSPACE"];
 }

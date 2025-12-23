@@ -171,22 +171,39 @@ async function runTests() {
   // ========== getScratchpadSteps Tests ==========
   console.log("\n📋 getScratchpadSteps Tests\n");
 
-  test("getScratchpadSteps should return minimal steps", () => {
-    const steps = getScratchpadSteps();
+  test("getScratchpadSteps (local mode) should return minimal steps", () => {
+    const steps = getScratchpadSteps("local");
     expect(steps.length).toBe(1);
   });
 
-  test("getScratchpadSteps should include PREPARE_WORKSPACE", () => {
-    const steps = getScratchpadSteps();
+  test("getScratchpadSteps (local mode) should include PREPARE_WORKSPACE", () => {
+    const steps = getScratchpadSteps("local");
     expect(steps).toContain("PREPARE_WORKSPACE");
   });
 
+  test("getScratchpadSteps (remote mode) should use VM steps", () => {
+    const steps = getScratchpadSteps("remote");
+    expect(steps).toContain("CREATE_VM");
+    expect(steps).toContain("WAIT_VM_READY");
+    expect(steps).toContain("VERIFY_VM_WORKSPACE");
+  });
+
   test("getScratchpadSteps should NOT include heavy steps like INSTALL_DEPENDENCIES", () => {
-    const steps = getScratchpadSteps();
-    const hasHeavySteps = steps.some((s: string) => 
+    const localSteps = getScratchpadSteps("local");
+    const remoteSteps = getScratchpadSteps("remote");
+    const hasHeavyLocalSteps = localSteps.some((s: string) => 
       ["INSTALL_DEPENDENCIES", "START_BACKGROUND_SERVICES", "COMPLETE_SHADOW_WIKI"].includes(s)
     );
-    expect(hasHeavySteps).toBeFalsy();
+    const hasHeavyRemoteSteps = remoteSteps.some((s: string) => 
+      ["INSTALL_DEPENDENCIES", "START_BACKGROUND_SERVICES", "COMPLETE_SHADOW_WIKI"].includes(s)
+    );
+    expect(hasHeavyLocalSteps).toBeFalsy();
+    expect(hasHeavyRemoteSteps).toBeFalsy();
+  });
+
+  test("getScratchpadSteps defaults to local mode", () => {
+    const steps = getScratchpadSteps();
+    expect(steps).toContain("PREPARE_WORKSPACE");
   });
 
   // ========== Integration Tests ==========
