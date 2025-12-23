@@ -22,12 +22,14 @@ function validateMcpUrl(urlString: string): { ok: true } | { ok: false; error: s
 
   const hostname = parsed.hostname.toLowerCase();
 
-  // Block localhost variants
+  // Block localhost variants and bind-all
   if (
     hostname === "localhost" ||
     hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
     hostname === "::1" ||
     hostname === "[::1]" ||
+    hostname === "[::]" ||
     hostname.endsWith(".localhost")
   ) {
     return { ok: false, error: "Localhost URLs are not allowed" };
@@ -214,6 +216,13 @@ export const create = mutation({
       throw new Error("Name must be 20 characters or less");
     }
 
+    // SECURITY: Validate URL at creation time (not just at discovery)
+    // This prevents malicious URLs from being stored in the database
+    const urlValidation = validateMcpUrl(args.url);
+    if (!urlValidation.ok) {
+      throw new Error(`Invalid MCP URL: ${urlValidation.error}`);
+    }
+
     // Generate nameId from name
     const nameIdResult = generateMcpNameId(args.name);
     if (!nameIdResult.ok) {
@@ -305,7 +314,14 @@ export const update = mutation({
       patchData.nameId = nameIdResult.nameId;
     }
 
-    if (args.url !== undefined) patchData.url = args.url;
+    if (args.url !== undefined) {
+      // SECURITY: Validate URL on update as well
+      const urlValidation = validateMcpUrl(args.url);
+      if (!urlValidation.ok) {
+        throw new Error(`Invalid MCP URL: ${urlValidation.error}`);
+      }
+      patchData.url = args.url;
+    }
     if (args.type !== undefined) patchData.type = args.type;
     if (args.oauthClientId !== undefined) patchData.oauthClientId = args.oauthClientId;
     if (args.oauthClientSecret !== undefined) patchData.oauthClientSecret = args.oauthClientSecret;
