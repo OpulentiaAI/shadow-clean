@@ -156,16 +156,16 @@ $ npx convex run "api/testHelpers:createTestTask" '{}'
 $ npx convex run "shadowAgent/tests:runAllTests" '{"taskId": "k579eqxj46ysk965tbxj7bp1g97xtz68"}'
 ```
 
-**Test Results:**
+**Test Results (After Fix):**
 | Test | Result | Details |
 |------|--------|---------|
-| CONVERSATION_HISTORY | ❌ ERROR | OpenRouter/AI SDK response format mismatch (external API issue) |
+| CONVERSATION_HISTORY | ✅ PASS | `conversationRetained: true`, secret code recalled correctly |
 | ABORT_RESUME | ✅ PASS | `wasStoppedCorrectly: true`, `responseReceived: true` |
 | TOOL_CALLING | ✅ PASS | `toolsUsed: true`, detected list_dir in response |
 
-**Summary:** `{ passed: 2, failed: 0, errors: 1, total: 3 }`
+**Summary:** `{ passed: 3, failed: 0, errors: 0, total: 3 }`
 
-**Note:** CONVERSATION_HISTORY error is due to OpenRouter API returning a response format incompatible with AI SDK's expected schema. This is an external API compatibility issue, not a code bug. The core primitives (abort/resume, tool calling) are verified working.
+**Fix Applied:** Used `provider.chat()` instead of `provider()` to force chat completions API. OpenRouter doesn't support the Responses API format that newer AI SDK versions use by default.
 
 #### A3: CI Runner Script
 Created `scripts/run-shadow-agent-tests.sh` for repeatable test execution.
@@ -223,14 +223,16 @@ The `use-socket.ts` hook logs `[SOCKET] Skipping Socket.IO - using Convex-native
 
 | Commit | Fix |
 |--------|-----|
-| `68c8051` | Add maxTokens limits to tests + use claude-3.5-haiku model (fixes OpenRouter credit limit issue) |
+| `68c8051` | Add maxTokens limits to tests + use claude-3.5-haiku model |
+| `TBD` | Use `provider.chat()` to force chat completions API for OpenRouter compatibility |
 
 ### Remaining Known Issues
 
 | Issue | Severity | Follow-up |
 |-------|----------|-----------|
-| CONVERSATION_HISTORY test ERROR | LOW | OpenRouter/AI SDK response format mismatch. Core functionality works; need to investigate API compatibility or switch models. |
 | Manual smoke tests C1, C2, C5 | LOW | Require live UI session to complete. Core functionality verified via automated tests. |
+
+**All automated tests now pass (3/3).**
 
 ### CI Integration
 

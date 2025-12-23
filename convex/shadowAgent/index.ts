@@ -33,9 +33,9 @@ function createOpenRouterModel() {
     },
   });
 
-  // Return a model instance for the default model
-  // Using Claude 3.5 Haiku for cost-efficiency
-  return provider("anthropic/claude-3.5-haiku");
+  // Use GPT-4o-mini with .chat() to force chat completions API
+  // The .responses() format is not supported by OpenRouter
+  return provider.chat("openai/gpt-4o-mini");
 }
 
 /**
