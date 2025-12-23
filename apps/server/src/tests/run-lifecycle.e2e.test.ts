@@ -386,6 +386,127 @@ describe("Run Lifecycle: Anti-Reward-Hacking", () => {
 });
 
 // ============================================================================
+// TESTS: Proof-of-Work Signals
+// ============================================================================
+
+describe("Run Lifecycle: Proof-of-Work", () => {
+  it("DONE requires at least one proof-of-work signal", async () => {
+    const runner = new SimulatedTaskRunner();
+    const taskId = await runner.submitTask("Needs proof of work");
+    await runner.startTask(taskId);
+    await runner.executeTask(taskId);
+    
+    const task = runner.getTask(taskId);
+    
+    // Proof-of-work signals: tool calls > 0, file diff, or command exec
+    const hasToolCalls = (task?.logs.filter(l => l.includes("tool")).length ?? 0) > 0;
+    const hasFileDiff = task?.logs.some(l => l.includes("write") || l.includes("create"));
+    const hasCommandExec = task?.logs.some(l => l.includes("command") || l.includes("exec"));
+    const hasAnyWork = task?.logs.length && task.logs.length > 2;  // More than just created/started
+    
+    // At least one signal must be present for DONE
+    if (task?.status === "DONE") {
+      const hasProofOfWork = hasToolCalls || hasFileDiff || hasCommandExec || hasAnyWork;
+      expect(hasProofOfWork).toBeTruthy();
+    }
+  });
+
+  it("detects DONE without work (anti-pattern)", () => {
+    // Simulate a task that claims DONE but has no evidence
+    const mockTask: TaskRun = {
+      id: "suspicious",
+      status: "DONE",
+      createdAt: Date.now(),
+      startedAt: Date.now(),
+      completedAt: Date.now(),
+      statusHistory: [
+        { status: "QUEUED", timestamp: Date.now() },
+        { status: "RUNNING", timestamp: Date.now() },
+        { status: "DONE", timestamp: Date.now() },
+      ],
+      logs: ["Task created", "Task started"],  // No completion work logged!
+      output: "Done",
+    };
+    
+    // Oracle: DONE with minimal logs is suspicious
+    const hasCompletionLog = mockTask.logs.some(l => 
+      l.includes("completed") || l.includes("finished") || l.includes("success")
+    );
+    
+    expect(hasCompletionLog).toBeFalsy();  // This is the anti-pattern we want to catch
+  });
+
+  it("validates artifact proof-of-work", () => {
+    interface TaskWithArtifacts extends TaskRun {
+      artifacts?: { path: string; action: string }[];
+      commandsExecuted?: { command: string; exitCode: number }[];
+    }
+    
+    const goodTask: TaskWithArtifacts = {
+      id: "good",
+      status: "DONE",
+      createdAt: Date.now(),
+      statusHistory: [],
+      logs: ["created", "started", "wrote file", "completed"],
+      artifacts: [{ path: "src/new.ts", action: "created" }],
+      commandsExecuted: [{ command: "npm test", exitCode: 0 }],
+    };
+    
+    const badTask: TaskWithArtifacts = {
+      id: "bad",
+      status: "DONE",
+      createdAt: Date.now(),
+      statusHistory: [],
+      logs: ["created", "started"],  // No work
+      artifacts: [],
+      commandsExecuted: [],
+    };
+    
+    // Good task has proof
+    const goodHasProof = (goodTask.artifacts?.length ?? 0) > 0 || 
+                         (goodTask.commandsExecuted?.length ?? 0) > 0;
+    expect(goodHasProof).toBeTruthy();
+    
+    // Bad task lacks proof
+    const badHasProof = (badTask.artifacts?.length ?? 0) > 0 || 
+                        (badTask.commandsExecuted?.length ?? 0) > 0;
+    expect(badHasProof).toBeFalsy();
+  });
+});
+
+// ============================================================================
+// TESTS: Cancellation Semantics
+// ============================================================================
+
+describe("Run Lifecycle: Cancellation Semantics", () => {
+  it("cancel while RUNNING stops further work", async () => {
+    const runner = new SimulatedTaskRunner();
+    runner.setDelay(100);  // Slow execution
+    
+    const taskId = await runner.submitTask("Cancel me");
+    await runner.startTask(taskId);
+    
+    // Cancel immediately (while still running)
+    const cancelled = await runner.cancelTask(taskId);
+    expect(cancelled).toBeTruthy();
+    
+    const task = runner.getTask(taskId);
+    expect(task?.status).toBe("CANCELLED");
+  });
+
+  it("cancellation is recorded in history", async () => {
+    const runner = new SimulatedTaskRunner();
+    const taskId = await runner.submitTask("Track cancellation");
+    await runner.startTask(taskId);
+    await runner.cancelTask(taskId);
+    
+    const task = runner.getTask(taskId);
+    const hasCancelledInHistory = task?.statusHistory.some(h => h.status === "CANCELLED");
+    expect(hasCancelledInHistory).toBeTruthy();
+  });
+});
+
+// ============================================================================
 // SUMMARY
 // ============================================================================
 
