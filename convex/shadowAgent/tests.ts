@@ -33,7 +33,7 @@ export const testConversationHistory = action({
     // Send first message with a fact
     const result1 = await thread.generateText(
       { prompt: "Remember this: The secret code is ALPHA-7. Just confirm you understand." },
-      { maxSteps: 1 }
+      { maxSteps: 1, maxTokens: 500 }
     );
 
     console.log(`[TEST] First message response: ${result1.text.substring(0, 100)}...`);
@@ -41,7 +41,7 @@ export const testConversationHistory = action({
     // Send second message asking about the fact
     const result2 = await thread.generateText(
       { prompt: "What was the secret code I told you earlier?" },
-      { maxSteps: 1 }
+      { maxSteps: 1, maxTokens: 500 }
     );
 
     console.log(`[TEST] Second message response: ${result2.text.substring(0, 200)}...`);
@@ -109,7 +109,7 @@ export const testAbortResume = action({
     // Send a single new message - this should work immediately
     const result = await thread.generateText(
       { prompt: "Hello, can you respond to this message?" },
-      { maxSteps: 1 }
+      { maxSteps: 1, maxTokens: 500 }
     );
 
     console.log(`[TEST] Response after stop: ${result.text.substring(0, 100)}...`);
@@ -163,6 +163,7 @@ export const testToolCalling = action({
       { 
         tools,
         maxSteps: 3,
+        maxTokens: 1000,
       }
     );
 

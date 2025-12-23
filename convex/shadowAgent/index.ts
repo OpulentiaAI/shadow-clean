@@ -34,7 +34,8 @@ function createOpenRouterModel() {
   });
 
   // Return a model instance for the default model
-  return provider("anthropic/claude-sonnet-4");
+  // Using Claude 3.5 Haiku for cost-efficiency
+  return provider("anthropic/claude-3.5-haiku");
 }
 
 /**
