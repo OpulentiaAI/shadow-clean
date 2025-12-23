@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker/master/packages/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "reporters": ["html", "clear-text", "progress"],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "convex/mcpConnectors.ts",
+    "packages/types/src/mcp/utils.ts",
+    "apps/server/src/agent/tools/index.ts"
+  ],
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 40
+  },
+  "mutator": {
+    "excludedMutations": [
+      "StringLiteral"
+    ]
+  },
+  "htmlReporter": {
+    "fileName": "mutation-report.html"
+  },
+  "timeoutMS": 60000,
+  "concurrency": 4
+}
