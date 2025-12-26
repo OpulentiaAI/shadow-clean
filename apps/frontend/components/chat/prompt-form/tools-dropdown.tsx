@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -10,13 +11,16 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Wrench, Settings, ChevronDown } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Wrench, Settings, ChevronDown, ChevronRight, RefreshCw, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useModal } from "@/components/layout/modal-context";
-import {
-  useMcpConnectors,
-  useToggleMcpConnector,
-} from "@/hooks/mcp/use-mcp-connectors";
+import { useToggleMcpConnector } from "@/hooks/mcp/use-mcp-connectors";
+import { useMcpTools } from "@/hooks/mcp/use-mcp-tools";
 import { cn } from "@/lib/utils";
 
 interface ToolsDropdownProps {
@@ -30,11 +34,30 @@ export function ToolsDropdown({
   setIsOpen,
   disabled = false,
 }: ToolsDropdownProps) {
-  const { data: connectors, isLoading } = useMcpConnectors();
+  const {
+    connectors,
+    enabledToolsCount,
+    isLoading,
+    isDiscovering,
+    refetchTools,
+  } = useMcpTools();
   const toggleMutation = useToggleMcpConnector();
   const { openSettingsModal } = useModal();
+  const [expandedConnectors, setExpandedConnectors] = useState<Set<string>>(new Set());
 
   const enabledCount = connectors?.filter((c) => c.enabled).length ?? 0;
+
+  const toggleExpanded = (connectorId: string) => {
+    setExpandedConnectors((prev) => {
+      const next = new Set(prev);
+      if (next.has(connectorId)) {
+        next.delete(connectorId);
+      } else {
+        next.add(connectorId);
+      }
+      return next;
+    });
+  };
 
   const handleToggle = async (
     connectorId: string,
@@ -56,15 +79,6 @@ export function ToolsDropdown({
     openSettingsModal("connectors");
   };
 
-  const getFaviconUrl = (url: string) => {
-    try {
-      const parsed = new URL(url);
-      return `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=32`;
-    } catch {
-      return null;
-    }
-  };
-
   return (
     <Popover open={disabled ? false : isOpen} onOpenChange={disabled ? undefined : setIsOpen}>
       <Tooltip>
@@ -81,13 +95,16 @@ export function ToolsDropdown({
             >
               <Wrench className="size-4" />
               <span>Tools</span>
-              {enabledCount > 0 && (
+              {enabledToolsCount > 0 && (
                 <Badge
                   variant="secondary"
-                  className="ml-1 size-5 justify-center p-0 text-xs"
+                  className="ml-1 h-5 min-w-5 justify-center px-1 text-xs"
                 >
-                  {enabledCount}
+                  {enabledToolsCount}
                 </Badge>
+              )}
+              {isDiscovering && (
+                <Loader2 className="size-3 animate-spin opacity-50" />
               )}
               <ChevronDown className="size-3 opacity-50" />
             </Button>
@@ -146,59 +163,133 @@ export function ToolsDropdown({
             ) : (
               <div className="divide-y">
                 {connectors.map((connector) => {
-                  const faviconUrl = getFaviconUrl(connector.url);
                   const isGlobal = connector.userId === null;
+                  const isExpanded = expandedConnectors.has(connector.id);
+                  const hasTools = connector.tools.length > 0;
 
                   return (
-                    <div
+                    <Collapsible
                       key={connector.id}
-                      className="hover:bg-accent/50 flex items-center justify-between p-3"
+                      open={isExpanded && connector.enabled}
+                      onOpenChange={() => connector.enabled && toggleExpanded(connector.id)}
                     >
-                      <div className="flex min-w-0 items-center gap-2">
-                        {connector.type === "HTTP" && faviconUrl ? (
-                          <img
-                            src={faviconUrl}
-                            alt=""
-                            className="size-4 shrink-0 rounded"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <div className="bg-muted size-4 shrink-0 rounded" />
-                        )}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="truncate text-sm font-medium">
-                              {connector.name}
-                            </span>
-                            {isGlobal && (
-                              <Badge
-                                variant="outline"
-                                className="text-muted-foreground h-4 px-1 text-[10px]"
+                      <div className="hover:bg-accent/50 flex items-center justify-between p-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                          {/* Expand button for enabled connectors with tools */}
+                          {connector.enabled ? (
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="iconSm"
+                                className="size-5 shrink-0 p-0"
+                                disabled={!hasTools && !connector.isDiscovering}
                               >
-                                Global
-                              </Badge>
+                                {connector.isDiscovering ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : isExpanded ? (
+                                  <ChevronDown className="size-3" />
+                                ) : (
+                                  <ChevronRight className="size-3" />
+                                )}
+                              </Button>
+                            </CollapsibleTrigger>
+                          ) : (
+                            <div className="size-5 shrink-0" />
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={cn(
+                                "truncate text-sm font-medium",
+                                !connector.enabled && "text-muted-foreground"
+                              )}>
+                                {connector.name}
+                              </span>
+                              {connector.enabled && hasTools && (
+                                <Badge variant="secondary" className="h-4 px-1 text-[10px]">
+                                  {connector.tools.length} tools
+                                </Badge>
+                              )}
+                              {isGlobal && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-muted-foreground h-4 px-1 text-[10px]"
+                                >
+                                  Global
+                                </Badge>
+                              )}
+                            </div>
+                            {connector.discoveryError && (
+                              <p className="text-destructive text-xs">
+                                {connector.discoveryError}
+                              </p>
                             )}
                           </div>
-                          <p className="text-muted-foreground max-w-[160px] truncate text-xs">
-                            {connector.url}
-                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          {connector.enabled && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="iconSm"
+                              className="size-6"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                refetchTools(connector.id);
+                              }}
+                              disabled={connector.isDiscovering}
+                              title="Refresh tools"
+                            >
+                              <RefreshCw className={cn(
+                                "size-3",
+                                connector.isDiscovering && "animate-spin"
+                              )} />
+                            </Button>
+                          )}
+                          <Switch
+                            checked={connector.enabled}
+                            onCheckedChange={(checked) =>
+                              handleToggle(
+                                connector.id,
+                                checked,
+                                { stopPropagation: () => {} } as React.MouseEvent
+                              )
+                            }
+                            disabled={isGlobal || toggleMutation.isPending}
+                          />
                         </div>
                       </div>
 
-                      <Switch
-                        checked={connector.enabled}
-                        onCheckedChange={(checked) =>
-                          handleToggle(
-                            connector.id,
-                            checked,
-                            { stopPropagation: () => {} } as any
-                          )
-                        }
-                        disabled={isGlobal || toggleMutation.isPending}
-                      />
-                    </div>
+                      {/* Tools list */}
+                      <CollapsibleContent>
+                        {connector.tools.length > 0 && (
+                          <div className="bg-muted/30 border-t px-3 py-2">
+                            <div className="space-y-1">
+                              {connector.tools.map((tool) => (
+                                <div
+                                  key={tool.name}
+                                  className="flex items-start gap-2 py-1"
+                                >
+                                  <Check className="text-primary mt-0.5 size-3 shrink-0" />
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-medium">
+                                      {tool.name}
+                                    </p>
+                                    {tool.description && (
+                                      <p className="text-muted-foreground line-clamp-2 text-[10px]">
+                                        {tool.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
                   );
                 })}
               </div>

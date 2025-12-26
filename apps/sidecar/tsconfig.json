@@ -2,7 +2,7 @@
   "extends": "../../packages/typescript-config/base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "../..",
+    "rootDir": "./src",
     "lib": ["ES2022"],
     "target": "ES2022",
     "module": "NodeNext",
@@ -22,9 +22,6 @@
     "node_modules",
     "dist",
     "tests/**/*",
-    "../../convex/*.ts",
-    "../../convex/agent.ts",
-    "../../convex/agentTools.ts",
-    "../../convex/convex.config.ts"
+    "../../convex/**/*"
   ]
 }

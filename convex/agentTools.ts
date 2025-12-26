@@ -21,6 +21,89 @@ const getServerUrl = () =>
 const getToolApiKey = () =>
   process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
 
+// MCP tool proxy types
+interface McpToolDefinition {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
+interface McpConnectorInfo {
+  id: string;
+  name: string;
+  nameId: string;
+  url: string;
+  type: "HTTP" | "SSE";
+  tools: McpToolDefinition[];
+}
+
+/**
+ * Call an MCP server tool via JSON-RPC
+ */
+async function callMcpTool(
+  connectorUrl: string,
+  toolName: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  const response = await fetch(connectorUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: Date.now(),
+      method: "tools/call",
+      params: { name: toolName, arguments: args },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`MCP tool call failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || "MCP tool error");
+  }
+  return data.result;
+}
+
+/**
+ * Create proxy tools for MCP connectors
+ * Each tool is namespaced with the connector's nameId to avoid conflicts
+ */
+export function createMcpProxyTools(
+  connectors: McpConnectorInfo[]
+): Record<string, unknown> {
+  const mcpTools: Record<string, unknown> = {};
+
+  for (const connector of connectors) {
+    for (const mcpTool of connector.tools) {
+      // Namespace the tool: e.g., "atlassian_search_issues"
+      const toolName = `${connector.nameId}_${mcpTool.name}`;
+      
+      mcpTools[toolName] = tool({
+        description: `[${connector.name}] ${mcpTool.description || mcpTool.name}`,
+        parameters: z.object({}).passthrough(), // Accept any parameters
+        execute: async (args: Record<string, unknown>) => {
+          console.log(`[MCP_TOOL] Calling ${connector.name}:${mcpTool.name}`);
+          try {
+            const result = await callMcpTool(connector.url, mcpTool.name, args);
+            return { success: true, result };
+          } catch (error) {
+            console.error(`[MCP_TOOL] Error:`, error);
+            return {
+              success: false,
+              error: error instanceof Error ? error.message : "Unknown error",
+            };
+          }
+        },
+      });
+    }
+  }
+
+  return mcpTools;
+}
+
 // Helper to make tool API calls to the server
 async function callServerTool<T>(
   taskId: string,

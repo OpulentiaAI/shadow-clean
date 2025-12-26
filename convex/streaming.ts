@@ -7,7 +7,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 // createOpenRouter removed in favor of createOpenAI configuration
 import { type LanguageModel, type CoreMessage } from "ai";
-import { createAgentTools, createExaWebSearchTool, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
+import { createAgentTools, createExaWebSearchTool, createMcpProxyTools, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
 import { generateTraceId } from "./observability";
 import { withRetry, isTransientError } from "./lib/retry";
 
@@ -485,9 +485,69 @@ export const streamChatWithTools = action({
       
       // Add Exa web search tool if API key is available
       const exaTools = createExaWebSearchTool(args.apiKeys?.exa);
-      const allTools = exaTools 
-        ? { ...availableTools, ...exaTools }
-        : availableTools;
+      
+      // Fetch enabled MCP connectors and their tools for this user
+      let mcpTools: Record<string, unknown> = {};
+      if (task?.userId) {
+        try {
+          const enabledConnectors = await ctx.runQuery(api.mcpConnectors.listEnabledByUser, {
+            userId: task.userId as Id<"users">,
+          });
+          
+          if (enabledConnectors.length > 0) {
+            // Discover tools for each enabled connector
+            const connectorsWithTools = await Promise.all(
+              enabledConnectors.map(async (connector) => {
+                try {
+                  // Call tools/list on the MCP server
+                  const response = await fetch(connector.url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      jsonrpc: "2.0",
+                      id: 1,
+                      method: "tools/list",
+                      params: {},
+                    }),
+                    signal: AbortSignal.timeout(5000),
+                  });
+                  
+                  if (response.ok) {
+                    const data = await response.json();
+                    const tools = data.result?.tools || [];
+                    console.log(`[MCP] Discovered ${tools.length} tools from ${connector.name}`);
+                    return {
+                      id: connector._id.toString(),
+                      name: connector.name,
+                      nameId: connector.nameId,
+                      url: connector.url,
+                      type: connector.type,
+                      tools,
+                    };
+                  }
+                } catch (e) {
+                  console.warn(`[MCP] Failed to discover tools from ${connector.name}:`, e);
+                }
+                return null;
+              })
+            );
+            
+            const validConnectors = connectorsWithTools.filter(Boolean);
+            if (validConnectors.length > 0) {
+              mcpTools = createMcpProxyTools(validConnectors as any);
+              console.log(`[MCP] Added ${Object.keys(mcpTools).length} MCP tools to agent`);
+            }
+          }
+        } catch (e) {
+          console.warn("[MCP] Failed to fetch MCP connectors:", e);
+        }
+      }
+      
+      const allTools = {
+        ...availableTools,
+        ...(exaTools || {}),
+        ...mcpTools,
+      };
       
       const requestedNames = args.tools?.map((t) => t.name) ?? null;
       const filteredTools = Object.fromEntries(

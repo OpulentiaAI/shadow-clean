@@ -545,4 +545,44 @@ export default defineSchema({
   })
     .index("by_task", ["taskId", "createdAt"])
     .index("by_message", ["messageId"]),
+
+  // Command execution logs for terminal operations (Convex-native)
+  commandLogs: defineTable({
+    taskId: v.id("tasks"),
+    commandId: v.string(),
+    stream: v.union(v.literal("stdout"), v.literal("stderr"), v.literal("system")),
+    content: v.string(),
+    timestamp: v.number(),
+  })
+    .index("by_task", ["taskId", "timestamp"])
+    .index("by_command", ["commandId", "timestamp"]),
+
+  // Git repository state tracking (Convex-native)
+  gitState: defineTable({
+    taskId: v.id("tasks"),
+    workDir: v.string(),
+    repoUrl: v.optional(v.string()),
+    currentBranch: v.string(),
+    status: v.string(), // JSON.stringify of status matrix
+    lastOperation: v.string(),
+    lastOperationTime: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task", ["taskId"]),
+
+  // Virtual file system for Convex-native file operations
+  virtualFiles: defineTable({
+    taskId: v.id("tasks"),
+    path: v.string(),
+    content: v.optional(v.string()), // For text files
+    storageId: v.optional(v.id("_storage")), // For binary files
+    size: v.number(),
+    isDirectory: v.boolean(),
+    mimeType: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_task_path", ["taskId", "path"]),
 });

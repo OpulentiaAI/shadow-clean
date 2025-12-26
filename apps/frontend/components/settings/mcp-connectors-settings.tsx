@@ -30,6 +30,7 @@ import {
 } from "@/hooks/mcp/use-mcp-connectors";
 import { McpConfigDialog } from "./mcp-config-dialog";
 import { McpDetailsDialog } from "./mcp-details-dialog";
+import { McpConnectorTemplates } from "./mcp-connector-templates";
 
 export function McpConnectorsSettings() {
   const { data: connectors, isLoading } = useMcpConnectors();
@@ -259,6 +260,13 @@ export function McpConnectorsSettings() {
         }}
         connector={viewingConnector}
       />
+
+      {/* Available Integration Templates */}
+      <div className="border-t pt-6">
+        <McpConnectorTemplates
+          configuredConnectorIds={connectors?.map((c) => c.nameId) || []}
+        />
+      </div>
     </div>
   );
 }

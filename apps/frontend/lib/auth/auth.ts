@@ -34,6 +34,7 @@ if (process.env.NODE_ENV === "development") {
 
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   baseURL, // Explicitly set the base URL for OAuth redirects
+  basePath: "/api/auth", // Must match auth-client.ts basePath
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),

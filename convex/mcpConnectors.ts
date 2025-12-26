@@ -452,9 +452,9 @@ async function discoverMcpCapabilities(connector: {
       throw new Error(`MCP server returned ${toolsResponse.status}`);
     }
 
-    const toolsData = await toolsResponse.json();
+    const toolsData = (await toolsResponse.json()) as { result?: { tools?: Array<{ name: string; description?: string }> } };
     const tools = Array.isArray(toolsData.result?.tools)
-      ? toolsData.result.tools.map((tool: { name: string; description?: string }) => ({
+      ? toolsData.result.tools.map((tool) => ({
           name: tool.name,
           description: tool.description,
         }))
@@ -475,21 +475,14 @@ async function discoverMcpCapabilities(connector: {
       });
 
       if (resourcesResponse.ok) {
-        const resourcesData = await resourcesResponse.json();
+        const resourcesData = (await resourcesResponse.json()) as { result?: { resources?: Array<{ name: string; uri: string; description?: string; mimeType?: string }> } };
         resources = Array.isArray(resourcesData.result?.resources)
-          ? resourcesData.result.resources.map(
-              (resource: {
-                name: string;
-                uri: string;
-                description?: string;
-                mimeType?: string;
-              }) => ({
+          ? resourcesData.result.resources.map((resource) => ({
                 name: resource.name,
                 uri: resource.uri,
                 description: resource.description,
                 mimeType: resource.mimeType,
-              })
-            )
+              }))
           : [];
       }
     } catch {
@@ -511,18 +504,9 @@ async function discoverMcpCapabilities(connector: {
       });
 
       if (promptsResponse.ok) {
-        const promptsData = await promptsResponse.json();
+        const promptsData = (await promptsResponse.json()) as { result?: { prompts?: Array<{ name: string; description?: string; arguments?: Array<{ name: string; description?: string; required?: boolean }> }> } };
         prompts = Array.isArray(promptsData.result?.prompts)
-          ? promptsData.result.prompts.map(
-              (prompt: {
-                name: string;
-                description?: string;
-                arguments?: Array<{
-                  name: string;
-                  description?: string;
-                  required?: boolean;
-                }>;
-              }) => ({
+          ? promptsData.result.prompts.map((prompt) => ({
                 name: prompt.name,
                 description: prompt.description,
                 arguments: prompt.arguments,

@@ -1,5 +1,11 @@
 {
   "buildCommand": "npx turbo build --filter=frontend",
   "outputDirectory": "apps/frontend/.next",
-  "installCommand": "npm ci"
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "functions": {
+    "apps/frontend/app/api/**/*.ts": {
+      "maxDuration": 60
+    }
+  }
 }
