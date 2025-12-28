@@ -12,7 +12,7 @@
  * - Exec-based file ops for reliability (SDK file ops can be flaky)
  */
 
-import { action, internalAction } from "./_generated/server";
+import { action } from "./_generated/server";
 import { v } from "convex/values";
 import { Daytona } from "@daytonaio/sdk";
 
@@ -381,15 +381,21 @@ export const listFilesNode = action({
         const files = lines.slice(1).map(line => {
           const parts = line.split(/\s+/);
           if (parts.length >= 9) {
+            const permissions = parts[0] || "";
+            const sizeStr = parts[4] || "0";
+            const month = parts[5] || "";
+            const day = parts[6] || "";
+            const time = parts[7] || "";
+            const name = parts.slice(8).join(' ');
             return {
-              permissions: parts[0],
-              size: parseInt(parts[4]) || 0,
-              modified: `${parts[5]} ${parts[6]} ${parts[7]}`,
-              name: parts.slice(8).join(' '),
-              isDirectory: parts[0].startsWith('d'),
+              permissions,
+              size: parseInt(sizeStr, 10) || 0,
+              modified: `${month} ${day} ${time}`,
+              name,
+              isDirectory: permissions.startsWith('d'),
             };
           }
-          return { name: line, isDirectory: false, size: 0 };
+          return { name: line, isDirectory: false, size: 0, permissions: "", modified: "" };
         }).filter(f => f.name && f.name !== '.' && f.name !== '..');
         
         return { success: true, files, path: targetPath };
