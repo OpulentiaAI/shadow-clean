@@ -1,5 +1,6 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 // import { createGroq } from "@ai-sdk/groq";
 // import { createOllama } from "ollama-ai-provider";
 import { ModelType, getModelProvider, ApiKeys } from "@repo/types";
@@ -11,6 +12,9 @@ const OPENROUTER_HEADERS = {
   "HTTP-Referer": "https://code.opulentia.ai",
   "X-Title": "Shadow Agent",
 };
+
+// NVIDIA NIM configuration
+const NIM_BASE_URL = "https://integrate.api.nvidia.com/v1";
 
 export class ModelProvider {
   /**
@@ -96,6 +100,35 @@ export class ModelProvider {
       //     throw error;
       //   }
       // }
+
+      case "nim": {
+        if (!userApiKeys.nim) {
+          throw new Error(
+            "NVIDIA NIM API key not provided. Please configure your API key in settings."
+          );
+        }
+
+        console.log("Creating NVIDIA NIM client");
+
+        try {
+          const nimClient = createOpenAICompatible({
+            name: "nim",
+            baseURL: NIM_BASE_URL,
+            headers: {
+              Authorization: `Bearer ${userApiKeys.nim}`,
+            },
+          });
+          // Strip the "nim:" prefix from model ID for actual API call
+          const actualModelId = modelId.replace(/^nim:/, "");
+          const model = nimClient.chatModel(actualModelId);
+
+          console.log(`[MODEL_PROVIDER] Created NVIDIA NIM model: ${actualModelId}`);
+          return model as unknown as LanguageModel;
+        } catch (error) {
+          console.error("NVIDIA NIM client creation failed:", error);
+          throw error;
+        }
+      }
 
       // case "ollama": {
       //   if (!userApiKeys.ollama) {

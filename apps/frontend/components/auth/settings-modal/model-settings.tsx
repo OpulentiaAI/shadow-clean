@@ -57,9 +57,11 @@ export function ModelSettings() {
   const [openrouterInput, setOpenrouterInput] = useState(
     apiKeys?.openrouter ?? ""
   );
+  const [nimInput, setNimInput] = useState(apiKeys?.nim ?? "");
   const [savingOpenai, setSavingOpenai] = useState(false);
   const [savingAnthropic, setSavingAnthropic] = useState(false);
   const [savingOpenrouter, setSavingOpenrouter] = useState(false);
+  const [savingNim, setSavingNim] = useState(false);
 
   const [apiKeyVisibility, setApiKeyVisibility] = useState<
     Record<ApiKeyProvider, boolean>
@@ -67,6 +69,7 @@ export function ModelSettings() {
     openai: false,
     anthropic: false,
     openrouter: false,
+    nim: false,
   });
 
   const handleToggleShowApiKey = (provider: ApiKeyProvider) => {
@@ -209,12 +212,15 @@ export function ModelSettings() {
             ? "Anthropic"
             : provider === "openrouter"
               ? "OpenRouter"
-              : "Unknown";
+              : provider === "nim"
+                ? "NVIDIA NIM"
+                : "Unknown";
       toast.error(`Failed to save ${providerName} API key`);
     } finally {
       if (provider === "openai") setSavingOpenai(false);
       else if (provider === "anthropic") setSavingAnthropic(false);
       else if (provider === "openrouter") setSavingOpenrouter(false);
+      else if (provider === "nim") setSavingNim(false);
     }
   };
 
@@ -240,6 +246,14 @@ export function ModelSettings() {
     200
   );
 
+  const {
+    debouncedCallback: debouncedSaveNim,
+    cancel: cancelNimSave,
+  } = useDebounceCallbackWithCancel(
+    (key: string) => saveApiKey("nim", key),
+    200
+  );
+
   const handleOpenaiChange = (value: string) => {
     setOpenaiInput(value);
     setSavingOpenai(true);
@@ -256,6 +270,12 @@ export function ModelSettings() {
     setOpenrouterInput(value);
     setSavingOpenrouter(true);
     debouncedSaveOpenrouter(value);
+  };
+
+  const handleNimChange = (value: string) => {
+    setNimInput(value);
+    setSavingNim(true);
+    debouncedSaveNim(value);
   };
 
   const handleClearApiKey = async (provider: ApiKeyProvider) => {
@@ -283,6 +303,10 @@ export function ModelSettings() {
         setOpenrouterInput("");
         cancelOpenrouterSave();
         setSavingOpenrouter(false);
+      } else if (provider === "nim") {
+        setNimInput("");
+        cancelNimSave();
+        setSavingNim(false);
       }
 
       // Clear validation result for this provider

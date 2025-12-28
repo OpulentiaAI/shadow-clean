@@ -5,7 +5,7 @@ export interface LLMConfig {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
-  provider: "anthropic" | "openai" | "openrouter" /* | "groq" | "ollama" */;
+  provider: "anthropic" | "openai" | "openrouter" | "nim" /* | "groq" | "ollama" */;
 }
 
 // Model Selection
@@ -38,6 +38,12 @@ export const AvailableModels = {
   OPENAI_GPT_5_1: "openai/gpt-5.1",
   OPENAI_GPT_5_1_CODEX_MAX: "openai/gpt-5.1-codex-max",
   OPENAI_GPT_5_2: "openai/gpt-5.2",
+
+  // NVIDIA NIM models (note: these are NIM-specific model IDs)
+  NIM_KIMI_K2_THINKING: "nim:moonshotai/kimi-k2-thinking",
+  NIM_DEEPSEEK_V3_2: "nim:deepseek-ai/deepseek-v3.2",
+  NIM_DEEPSEEK_R1: "nim:deepseek-ai/deepseek-r1",
+  NIM_LLAMA_3_3_70B: "nim:meta/llama-3.3-70b-instruct",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -45,7 +51,7 @@ export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
 export interface ModelInfo {
   id: ModelType;
   name: string;
-  provider: "anthropic" | "openai" | "openrouter" /* | "groq" | "ollama" */;
+  provider: "anthropic" | "openai" | "openrouter" | "nim" /* | "groq" | "ollama" */;
 }
 
 export const ModelInfos: Record<ModelType, ModelInfo> = {
@@ -165,11 +171,33 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "GPT-5.2",
     provider: "openrouter",
   },
+
+  // NVIDIA NIM models
+  [AvailableModels.NIM_KIMI_K2_THINKING]: {
+    id: AvailableModels.NIM_KIMI_K2_THINKING,
+    name: "Kimi K2 Thinking (NIM)",
+    provider: "nim",
+  },
+  [AvailableModels.NIM_DEEPSEEK_V3_2]: {
+    id: AvailableModels.NIM_DEEPSEEK_V3_2,
+    name: "DeepSeek V3.2 (NIM)",
+    provider: "nim",
+  },
+  [AvailableModels.NIM_DEEPSEEK_R1]: {
+    id: AvailableModels.NIM_DEEPSEEK_R1,
+    name: "DeepSeek R1 (NIM)",
+    provider: "nim",
+  },
+  [AvailableModels.NIM_LLAMA_3_3_70B]: {
+    id: AvailableModels.NIM_LLAMA_3_3_70B,
+    name: "Llama 3.3 70B Instruct (NIM)",
+    provider: "nim",
+  },
 };
 
 export function getModelProvider(
   model: ModelType
-): "anthropic" | "openai" | "openrouter" /* | "ollama" */ {
+): "anthropic" | "openai" | "openrouter" | "nim" /* | "ollama" */ {
   const modelInfo = ModelInfos[model];
   if (modelInfo) {
     return modelInfo.provider;
@@ -229,6 +257,8 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
       return AvailableModels.GPT_5;
     case "openrouter":
       return AvailableModels.MOONSHOT_KIMI_K2_THINKING; // Kimi K2 Thinking (default)
+    case "nim":
+      return AvailableModels.NIM_KIMI_K2_THINKING; // Kimi K2 Thinking on NIM
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }

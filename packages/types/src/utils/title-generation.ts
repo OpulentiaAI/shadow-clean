@@ -66,11 +66,12 @@ export function getTitleGenerationModel(config: TitleGenerationConfig): {
   }
 
   let modelChoice: string;
-  let provider: "openai" | "anthropic" | "openrouter" | "ollama";
+  let provider: "openai" | "anthropic" | "openrouter";
 
   if (fallbackModel) {
-    // Use the fallback model directly
-    provider = getModelProvider(fallbackModel as ModelType);
+    // Use the fallback model directly - for title generation, fall back to openrouter if provider is nim
+    const detectedProvider = getModelProvider(fallbackModel as ModelType);
+    provider = detectedProvider === "nim" ? "openrouter" : detectedProvider;
     modelChoice = fallbackModel as ModelType;
   } else {
     // Default behavior: prefer OpenAI, then Anthropic, then OpenRouter
