@@ -3,7 +3,7 @@
   "name": "testConnection",
   "command": "npx convex run daytona:testConnection '{}'",
   "passed": true,
-  "timestamp": "2025-12-28T21:34:50.619Z",
+  "timestamp": "2025-12-28T22:49:18.041Z",
   "data": {
     "config": {
       "apiUrl": "https://app.daytona.io/api",

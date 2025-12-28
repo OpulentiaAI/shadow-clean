@@ -1,11 +1,11 @@
 {
   "capability": "CAP-05",
   "name": "deleteSandbox",
-  "command": "npx convex run daytona:deleteSandbox '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+  "command": "npx convex run daytona:deleteSandbox '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\"}'",
   "passed": true,
-  "timestamp": "2025-12-28T21:35:02.911Z",
+  "timestamp": "2025-12-28T22:49:39.700Z",
   "data": {
-    "message": "Sandbox c74b1a24-359b-4399-8c39-3e55879483a6 deleted",
+    "message": "Sandbox c0357ebf-dfe2-4d3f-b9e9-696d4548781d deleted",
     "success": true
   },
   "invariants": "success=true"

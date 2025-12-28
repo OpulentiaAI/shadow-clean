@@ -1,13 +1,13 @@
 {
   "capability": "CAP-10",
   "name": "getTerminalUrl",
-  "command": "npx convex run daytona:getTerminalUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+  "command": "npx convex run daytona:getTerminalUrl '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\"}'",
   "passed": true,
-  "timestamp": "2025-12-28T21:34:55.172Z",
+  "timestamp": "2025-12-28T22:49:22.301Z",
   "data": {
-    "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+    "sandboxId": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
     "success": true,
-    "terminalUrl": "https://22222-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works"
+    "terminalUrl": "https://22222-c0357ebf-dfe2-4d3f-b9e9-696d4548781d.proxy.daytona.works"
   },
   "invariants": "success=true, terminalUrl matches pattern https://22222-{id}.proxy.daytona.works"
 }

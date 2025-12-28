@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-12-28T21:34:49.317Z",
+  "timestamp": "2025-12-28T22:49:16.643Z",
   "environment": {
     "convexConfigured": true
   },
@@ -9,7 +9,7 @@
       "name": "testConnection",
       "command": "npx convex run daytona:testConnection '{}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:50.619Z",
+      "timestamp": "2025-12-28T22:49:18.041Z",
       "data": {
         "config": {
           "apiUrl": "https://app.daytona.io/api",
@@ -26,7 +26,7 @@
       "name": "listSandboxes_preCreate",
       "command": "npx convex run daytona:listSandboxes '{}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:51.461Z",
+      "timestamp": "2025-12-28T22:49:18.838Z",
       "data": {
         "sandboxes": [],
         "success": true
@@ -38,7 +38,7 @@
       "name": "createSandbox",
       "command": "npx convex run daytona:createSandbox '{\"language\":\"typescript\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:52.582Z",
+      "timestamp": "2025-12-28T22:49:19.706Z",
       "data": {
         "sandbox": {
           "autoArchiveInterval": 10080,
@@ -47,17 +47,17 @@
           "backupState": "None",
           "class": "small",
           "cpu": 1,
-          "createdAt": "2025-12-28T21:34:52.524Z",
+          "createdAt": "2025-12-28T22:49:19.643Z",
           "daemonVersion": "0.0.0-dev",
           "desiredState": "started",
           "disk": 3,
           "env": {},
           "errorReason": null,
           "gpu": 0,
-          "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "id": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
           "labels": {},
           "memory": 1,
-          "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "name": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
           "networkAllowList": null,
           "networkBlockAll": false,
           "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
@@ -66,7 +66,7 @@
           "snapshot": "daytonaio/sandbox:0.4.3",
           "state": "started",
           "target": "us",
-          "updatedAt": "2025-12-28T21:34:52.526Z",
+          "updatedAt": "2025-12-28T22:49:19.645Z",
           "user": "daytona",
           "volumes": []
         },
@@ -77,9 +77,9 @@
     {
       "capability": "CAP-04",
       "name": "getSandbox",
-      "command": "npx convex run daytona:getSandbox '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "command": "npx convex run daytona:getSandbox '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:53.579Z",
+      "timestamp": "2025-12-28T22:49:20.566Z",
       "data": {
         "sandbox": {
           "autoArchiveInterval": 10080,
@@ -88,17 +88,17 @@
           "backupState": "None",
           "class": "small",
           "cpu": 1,
-          "createdAt": "2025-12-28T21:34:52.524Z",
+          "createdAt": "2025-12-28T22:49:19.643Z",
           "daemonVersion": "0.0.0-dev",
           "desiredState": "started",
           "disk": 3,
           "env": {},
           "errorReason": null,
           "gpu": 0,
-          "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "id": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
           "labels": {},
           "memory": 1,
-          "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "name": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
           "networkAllowList": null,
           "networkBlockAll": false,
           "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
@@ -107,7 +107,7 @@
           "snapshot": "daytonaio/sandbox:0.4.3",
           "state": "started",
           "target": "us",
-          "updatedAt": "2025-12-28T21:34:52.526Z",
+          "updatedAt": "2025-12-28T22:49:19.645Z",
           "user": "daytona",
           "volumes": []
         },
@@ -118,13 +118,13 @@
     {
       "capability": "CAP-09",
       "name": "getPreviewUrl",
-      "command": "npx convex run daytona:getPreviewUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"port\":3000}'",
+      "command": "npx convex run daytona:getPreviewUrl '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"port\":3000}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:54.373Z",
+      "timestamp": "2025-12-28T22:49:21.490Z",
       "data": {
         "port": 3000,
-        "previewUrl": "https://3000-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works",
-        "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+        "previewUrl": "https://3000-c0357ebf-dfe2-4d3f-b9e9-696d4548781d.proxy.daytona.works",
+        "sandboxId": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
         "success": true
       },
       "invariants": "success=true, previewUrl matches pattern https://{port}-{id}.proxy.daytona.works"
@@ -132,22 +132,22 @@
     {
       "capability": "CAP-10",
       "name": "getTerminalUrl",
-      "command": "npx convex run daytona:getTerminalUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "command": "npx convex run daytona:getTerminalUrl '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:55.172Z",
+      "timestamp": "2025-12-28T22:49:22.301Z",
       "data": {
-        "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+        "sandboxId": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
         "success": true,
-        "terminalUrl": "https://22222-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works"
+        "terminalUrl": "https://22222-c0357ebf-dfe2-4d3f-b9e9-696d4548781d.proxy.daytona.works"
       },
       "invariants": "success=true, terminalUrl matches pattern https://22222-{id}.proxy.daytona.works"
     },
     {
       "capability": "CAP-06",
       "name": "executeCommandNode",
-      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"echo \\\"DAYTONA_TEST_OK\\\" && pwd && whoami\"}'",
+      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"command\":\"echo \\\"DAYTONA_TEST_OK\\\" && pwd && whoami\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:56.348Z",
+      "timestamp": "2025-12-28T22:49:25.614Z",
       "data": {
         "result": {
           "exitCode": 0,
@@ -160,9 +160,9 @@
     {
       "capability": "CAP-08",
       "name": "writeFile_viaCommand",
-      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"echo \\\"Hello from Daytona QA test\\\" > /home/daytona/qa_test.txt && cat /home/daytona/qa_test.txt\"}'",
+      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"command\":\"echo \\\"Hello from Daytona QA test\\\" > /home/daytona/qa_test.txt && cat /home/daytona/qa_test.txt\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:57.588Z",
+      "timestamp": "2025-12-28T22:49:28.532Z",
       "data": {
         "result": {
           "exitCode": 0,
@@ -175,10 +175,12 @@
     {
       "capability": "CAP-07",
       "name": "gitCloneNode",
-      "command": "npx convex run daytonaNode:gitCloneNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"url\":\"https://github.com/octocat/Hello-World.git\",\"path\":\"/home/daytona/hello-world\"}'",
+      "command": "npx convex run daytonaNode:gitCloneNode '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"url\":\"https://github.com/octocat/Hello-World.git\",\"path\":\"/home/daytona/hello-world\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:34:58.731Z",
+      "timestamp": "2025-12-28T22:49:31.659Z",
       "data": {
+        "branch": "default",
+        "depth": 1,
         "message": "Cloned https://github.com/octocat/Hello-World.git to /home/daytona/hello-world",
         "success": true
       },
@@ -187,13 +189,13 @@
     {
       "capability": "CAP-07",
       "name": "gitClone_verify",
-      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"ls -la /home/daytona/hello-world\"}'",
+      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"command\":\"ls -la /home/daytona/hello-world\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:35:00.277Z",
+      "timestamp": "2025-12-28T22:49:34.831Z",
       "data": {
         "result": {
           "exitCode": 0,
-          "stdout": "total 4\ndrwxr-xr-x 3 daytona daytona 44 Dec 28 21:34 .\ndrwxr-xr-x 1 daytona daytona 76 Dec 28 21:34 ..\ndrwxr-xr-x 4 daytona daytona 96 Dec 28 21:34 .git\n-rw-r--r-- 1 daytona daytona 13 Dec 28 21:34 README\n"
+          "stdout": "total 4\ndrwxr-xr-x 3 daytona daytona  44 Dec 28 22:49 .\ndrwxr-xr-x 1 daytona daytona  76 Dec 28 22:49 ..\ndrwxr-xr-x 7 daytona daytona 162 Dec 28 22:49 .git\n-rw-r--r-- 1 daytona daytona  13 Dec 28 22:49 README\n"
         },
         "success": true
       },
@@ -202,9 +204,9 @@
     {
       "capability": "CAP-11",
       "name": "takeScreenshotNode",
-      "command": "npx convex run daytonaNode:takeScreenshotNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "command": "npx convex run daytonaNode:takeScreenshotNode '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:35:01.129Z",
+      "timestamp": "2025-12-28T22:49:37.699Z",
       "data": {
         "error": "(intermediate value).computerUse.screenshot is not a function",
         "success": false
@@ -216,27 +218,27 @@
       "name": "listSandboxes_postCreate",
       "command": "npx convex run daytona:listSandboxes '{}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:35:01.970Z",
+      "timestamp": "2025-12-28T22:49:38.518Z",
       "data": {
         "sandboxes": [
           {
             "autoArchiveInterval": 10080,
             "autoDeleteInterval": -1,
             "autoStopInterval": 15,
-            "backupState": "Pending",
+            "backupState": "None",
             "class": "small",
             "cpu": 1,
-            "createdAt": "2025-12-28T21:34:52.524Z",
+            "createdAt": "2025-12-28T22:49:19.643Z",
             "daemonVersion": "0.0.0-dev",
             "desiredState": "started",
             "disk": 3,
             "env": {},
             "errorReason": null,
             "gpu": 0,
-            "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+            "id": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
             "labels": {},
             "memory": 1,
-            "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+            "name": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
             "networkAllowList": null,
             "networkBlockAll": false,
             "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
@@ -245,7 +247,7 @@
             "snapshot": "daytonaio/sandbox:0.4.3",
             "state": "started",
             "target": "us",
-            "updatedAt": "2025-12-28T21:35:01.001Z",
+            "updatedAt": "2025-12-28T22:49:23.322Z",
             "user": "daytona",
             "volumes": []
           }
@@ -257,11 +259,11 @@
     {
       "capability": "CAP-05",
       "name": "deleteSandbox",
-      "command": "npx convex run daytona:deleteSandbox '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "command": "npx convex run daytona:deleteSandbox '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\"}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:35:02.911Z",
+      "timestamp": "2025-12-28T22:49:39.700Z",
       "data": {
-        "message": "Sandbox c74b1a24-359b-4399-8c39-3e55879483a6 deleted",
+        "message": "Sandbox c0357ebf-dfe2-4d3f-b9e9-696d4548781d deleted",
         "success": true
       },
       "invariants": "success=true"
@@ -271,7 +273,7 @@
       "name": "listSandboxes_verifyDelete",
       "command": "npx convex run daytona:listSandboxes '{}'",
       "passed": true,
-      "timestamp": "2025-12-28T21:35:03.732Z",
+      "timestamp": "2025-12-28T22:49:40.736Z",
       "data": {
         "sandboxes": [],
         "success": true

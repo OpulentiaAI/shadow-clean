@@ -1,11 +1,21 @@
 /**
- * Daytona Integration for Convex
- * Provides sandbox management, computer use, and preview functionality
- * Uses HTTP API calls (SDK requires Node.js runtime not available in Convex)
+ * Daytona Integration for Convex - PUBLIC API SURFACE
+ * 
+ * This is the single public interface for Daytona operations.
+ * All toolbox operations (executeCommand, gitClone, file ops, computer use)
+ * are routed to the Node.js runtime actions in daytonaNode.ts for SDK support.
+ * 
+ * RELIABILITY FEATURES:
+ * - Sandbox management via HTTP API (fast, no SDK needed)
+ * - Toolbox operations via Node.js SDK with readiness gates and retry
+ * - Unified API surface for consistent caller experience
  */
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
+
+// Note: api import will be used when we add runAction calls to daytonaNode
+// import { api } from "./_generated/api";
 
 // Get Daytona config
 const getDaytonaConfig = () => {

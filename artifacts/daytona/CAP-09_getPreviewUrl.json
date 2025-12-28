@@ -1,13 +1,13 @@
 {
   "capability": "CAP-09",
   "name": "getPreviewUrl",
-  "command": "npx convex run daytona:getPreviewUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"port\":3000}'",
+  "command": "npx convex run daytona:getPreviewUrl '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"port\":3000}'",
   "passed": true,
-  "timestamp": "2025-12-28T21:34:54.373Z",
+  "timestamp": "2025-12-28T22:49:21.490Z",
   "data": {
     "port": 3000,
-    "previewUrl": "https://3000-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works",
-    "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+    "previewUrl": "https://3000-c0357ebf-dfe2-4d3f-b9e9-696d4548781d.proxy.daytona.works",
+    "sandboxId": "c0357ebf-dfe2-4d3f-b9e9-696d4548781d",
     "success": true
   },
   "invariants": "success=true, previewUrl matches pattern https://{port}-{id}.proxy.daytona.works"

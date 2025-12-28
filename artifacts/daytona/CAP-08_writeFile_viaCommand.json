@@ -1,9 +1,9 @@
 {
   "capability": "CAP-08",
   "name": "writeFile_viaCommand",
-  "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"echo \\\"Hello from Daytona QA test\\\" > /home/daytona/qa_test.txt && cat /home/daytona/qa_test.txt\"}'",
+  "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c0357ebf-dfe2-4d3f-b9e9-696d4548781d\",\"command\":\"echo \\\"Hello from Daytona QA test\\\" > /home/daytona/qa_test.txt && cat /home/daytona/qa_test.txt\"}'",
   "passed": true,
-  "timestamp": "2025-12-28T21:34:57.588Z",
+  "timestamp": "2025-12-28T22:49:28.532Z",
   "data": {
     "result": {
       "exitCode": 0,

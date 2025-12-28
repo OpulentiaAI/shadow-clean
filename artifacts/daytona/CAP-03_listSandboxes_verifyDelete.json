@@ -3,7 +3,7 @@
   "name": "listSandboxes_verifyDelete",
   "command": "npx convex run daytona:listSandboxes '{}'",
   "passed": true,
-  "timestamp": "2025-12-28T21:35:03.732Z",
+  "timestamp": "2025-12-28T22:49:40.736Z",
   "data": {
     "sandboxes": [],
     "success": true
