@@ -1,12 +1,13 @@
 /**
  * Daytona Integration for Convex
  * Provides sandbox management, computer use, and preview functionality
+ * Uses HTTP API calls (SDK requires Node.js runtime not available in Convex)
  */
 
 import { action } from "./_generated/server";
 import { v } from "convex/values";
 
-// Daytona API configuration from environment
+// Get Daytona config
 const getDaytonaConfig = () => {
   const apiKey = process.env.DAYTONA_API_KEY;
   const apiUrl = process.env.DAYTONA_API_URL || "https://app.daytona.io/api";
@@ -18,12 +19,17 @@ const getDaytonaConfig = () => {
   return { apiKey, apiUrl };
 };
 
-// Helper to make Daytona API requests
+// Legacy HTTP helper for endpoints not in SDK
 async function daytonaFetch(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const { apiKey, apiUrl } = getDaytonaConfig();
+  const apiKey = process.env.DAYTONA_API_KEY;
+  const apiUrl = process.env.DAYTONA_API_URL || "https://app.daytona.io/api";
+  
+  if (!apiKey) {
+    throw new Error("DAYTONA_API_KEY environment variable is not set");
+  }
   
   const url = `${apiUrl}${endpoint}`;
   const headers = {
@@ -177,20 +183,23 @@ export const deleteSandbox = action({
   },
 });
 
-// Execute command in sandbox
+// Execute command in sandbox via HTTP API
 export const executeCommand = action({
   args: {
     sandboxId: v.string(),
     command: v.string(),
     cwd: v.optional(v.string()),
+    timeout: v.optional(v.number()),
   },
   handler: async (_, args) => {
     try {
-      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/process/exec`, {
+      // Daytona toolbox API endpoint for process execution
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/process/execute`, {
         method: "POST",
         body: JSON.stringify({
           command: args.command,
-          cwd: args.cwd || "/workspace",
+          cwd: args.cwd || "/home/daytona",
+          timeout: args.timeout || 60,
         }),
       });
       
@@ -210,6 +219,134 @@ export const executeCommand = action({
   },
 });
 
+// Clone git repository in sandbox
+export const gitClone = action({
+  args: {
+    sandboxId: v.string(),
+    url: v.string(),
+    path: v.optional(v.string()),
+    branch: v.optional(v.string()),
+    username: v.optional(v.string()),
+    token: v.optional(v.string()),
+  },
+  handler: async (_, args) => {
+    try {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/git/clone`, {
+        method: "POST",
+        body: JSON.stringify({
+          url: args.url,
+          path: args.path || "/home/daytona/workspace",
+          branch: args.branch,
+          username: args.username,
+          password: args.token,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to clone repository: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      return { success: true, result };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// Read file from sandbox
+export const readFile = action({
+  args: {
+    sandboxId: v.string(),
+    path: v.string(),
+  },
+  handler: async (_, args) => {
+    try {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/files?path=${encodeURIComponent(args.path)}`, {
+        method: "GET",
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to read file: ${response.status} - ${errorText}`);
+      }
+      
+      const content = await response.text();
+      return { success: true, content };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// Write file to sandbox
+export const writeFile = action({
+  args: {
+    sandboxId: v.string(),
+    path: v.string(),
+    content: v.string(),
+  },
+  handler: async (_, args) => {
+    try {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/files?path=${encodeURIComponent(args.path)}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "text/plain",
+        },
+        body: args.content,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to write file: ${response.status} - ${errorText}`);
+      }
+      
+      return { success: true, message: `File written to ${args.path}` };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// List files in sandbox directory
+export const listFiles = action({
+  args: {
+    sandboxId: v.string(),
+    path: v.optional(v.string()),
+  },
+  handler: async (_, args) => {
+    try {
+      const path = args.path || "/home/daytona";
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/files/list?path=${encodeURIComponent(path)}`, {
+        method: "GET",
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to list files: ${response.status} - ${errorText}`);
+      }
+      
+      const files = await response.json();
+      return { success: true, files };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
 // Take screenshot (Computer Use)
 export const takeScreenshot = action({
   args: {
@@ -217,8 +354,8 @@ export const takeScreenshot = action({
   },
   handler: async (_, args) => {
     try {
-      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/computer/screenshot`, {
-        method: "POST",
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/computer-use/screenshot`, {
+        method: "GET",
       });
       
       if (!response.ok) {
@@ -246,7 +383,7 @@ export const mouseClick = action({
   },
   handler: async (_, args) => {
     try {
-      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/computer/mouse/click`, {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/computer-use/click`, {
         method: "POST",
         body: JSON.stringify({
           x: args.x,
@@ -256,7 +393,40 @@ export const mouseClick = action({
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to click: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to click: ${response.status} - ${errorText}`);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// Mouse move (Computer Use)
+export const mouseMove = action({
+  args: {
+    sandboxId: v.string(),
+    x: v.number(),
+    y: v.number(),
+  },
+  handler: async (_, args) => {
+    try {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/computer-use/move`, {
+        method: "POST",
+        body: JSON.stringify({
+          x: args.x,
+          y: args.y,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to move mouse: ${response.status} - ${errorText}`);
       }
       
       return { success: true };
@@ -277,7 +447,7 @@ export const keyboardType = action({
   },
   handler: async (_, args) => {
     try {
-      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/computer/keyboard/type`, {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/computer-use/type`, {
         method: "POST",
         body: JSON.stringify({
           text: args.text,
@@ -285,7 +455,38 @@ export const keyboardType = action({
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to type: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to type: ${response.status} - ${errorText}`);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  },
+});
+
+// Keyboard key press (Computer Use)
+export const keyboardPress = action({
+  args: {
+    sandboxId: v.string(),
+    key: v.string(),
+  },
+  handler: async (_, args) => {
+    try {
+      const response = await daytonaFetch(`/sandbox/${args.sandboxId}/toolbox/computer-use/key`, {
+        method: "POST",
+        body: JSON.stringify({
+          key: args.key,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to press key: ${response.status} - ${errorText}`);
       }
       
       return { success: true };
