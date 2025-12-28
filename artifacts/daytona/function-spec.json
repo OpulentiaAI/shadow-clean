@@ -1,0 +1,6523 @@
+{
+  "url": "https://fiery-iguana-603.convex.cloud",
+  "functions": [
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "systemPrompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": true
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:agentStreamText",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "code": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "question": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:analyzeCode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "message": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:chat",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:continueThread",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "message": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:executeTaskWithTools",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "code": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "error": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:explainError",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "context": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "description": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:generateCode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "maxTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "systemPrompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:generateText",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "maxTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "systemPrompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:generateTextWithOpenRouter",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "message": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:streamTaskWithTools",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "metadata": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "agent.js:createThread",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:currentUser",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "email": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:getUserByEmail",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "externalId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:getUserByExternalId",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "email": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "emailVerified": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "externalId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "image": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "name": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:upsertUser",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "expiresAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "ipAddress": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "token": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "userAgent": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:createSession",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "token": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:getSessionByToken",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "token": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:deleteSession",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:deleteUserSessions",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "accessToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "accessTokenExpiresAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "accountId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "githubAppConnected": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "githubInstallationId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "idToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "providerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "refreshToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "refreshTokenExpiresAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "scope": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:createAccount",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "providerId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:getAccountByProvider",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:getGitHubAccount",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "githubAppConnected": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "githubInstallationId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:updateGitHubInstallation",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:clearGitHubInstallation",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "accessToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "accessTokenExpiresAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "accountId": {
+            "fieldType": {
+              "tableName": "accounts",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "refreshToken": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "refreshTokenExpiresAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:updateAccountTokens",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "expiresAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "identifier": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "value": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:createVerification",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "identifier": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "auth.js:getVerification",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "identifier": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "auth.js:deleteVerification",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "id": {
+            "fieldType": {
+              "tableName": "codebaseUnderstanding",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "codebaseUnderstanding.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "codebaseUnderstanding.js:getByRepo",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "codebaseUnderstanding.js:getByTaskId",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "repoUrl": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "codebaseUnderstanding.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "id": {
+            "fieldType": {
+              "tableName": "codebaseUnderstanding",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "codebaseUnderstanding.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "id": {
+            "fieldType": {
+              "tableName": "codebaseUnderstanding",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "codebaseUnderstanding.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "codebaseUnderstanding.js:listByUser",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {}
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:testConnection",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {}
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:listSandboxes",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "envVars": {
+            "fieldType": {
+              "keys": {
+                "type": "string"
+              },
+              "type": "record",
+              "values": {
+                "fieldType": {
+                  "type": "string"
+                },
+                "optional": false
+              }
+            },
+            "optional": true
+          },
+          "image": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "language": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:createSandbox",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:getSandbox",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:deleteSandbox",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "command": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "cwd": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "timeout": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:executeCommand",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "branch": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "token": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "url": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "username": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:gitClone",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:readFile",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:writeFile",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:listFiles",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:takeScreenshot",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "button": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "left"
+                },
+                {
+                  "type": "literal",
+                  "value": "right"
+                },
+                {
+                  "type": "literal",
+                  "value": "middle"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "x": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "y": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:mouseClick",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "x": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "y": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:mouseMove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "text": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:keyboardType",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "key": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:keyboardPress",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "port": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:getPreviewUrl",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytona.js:getTerminalUrl",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "additions": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "deletions": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "filePath": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "operation": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "CREATE"
+                },
+                {
+                  "type": "literal",
+                  "value": "UPDATE"
+                },
+                {
+                  "type": "literal",
+                  "value": "DELETE"
+                },
+                {
+                  "type": "literal",
+                  "value": "RENAME"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "fileChanges.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fileChanges.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "since": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fileChanges.js:byTaskSince",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "fileChanges.js:getStats",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "fileChanges.js:deleteByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "functionType": "HttpAction",
+      "method": "POST",
+      "path": "/persistent-stream"
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "category": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "INFRA"
+                },
+                {
+                  "type": "literal",
+                  "value": "SETUP"
+                },
+                {
+                  "type": "literal",
+                  "value": "STYLES"
+                },
+                {
+                  "type": "literal",
+                  "value": "ARCHITECTURE"
+                },
+                {
+                  "type": "literal",
+                  "value": "TESTING"
+                },
+                {
+                  "type": "literal",
+                  "value": "PATTERNS"
+                },
+                {
+                  "type": "literal",
+                  "value": "BUGS"
+                },
+                {
+                  "type": "literal",
+                  "value": "PERFORMANCE"
+                },
+                {
+                  "type": "literal",
+                  "value": "CONFIG"
+                },
+                {
+                  "type": "literal",
+                  "value": "GENERAL"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "repoUrl": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "memories.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "category": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "INFRA"
+                },
+                {
+                  "type": "literal",
+                  "value": "SETUP"
+                },
+                {
+                  "type": "literal",
+                  "value": "STYLES"
+                },
+                {
+                  "type": "literal",
+                  "value": "ARCHITECTURE"
+                },
+                {
+                  "type": "literal",
+                  "value": "TESTING"
+                },
+                {
+                  "type": "literal",
+                  "value": "PATTERNS"
+                },
+                {
+                  "type": "literal",
+                  "value": "BUGS"
+                },
+                {
+                  "type": "literal",
+                  "value": "PERFORMANCE"
+                },
+                {
+                  "type": "literal",
+                  "value": "CONFIG"
+                },
+                {
+                  "type": "literal",
+                  "value": "GENERAL"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "memoryId": {
+            "fieldType": {
+              "tableName": "memories",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "memories.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "memoryId": {
+            "fieldType": {
+              "tableName": "memories",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "memories.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "memoryId": {
+            "fieldType": {
+              "tableName": "memories",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "memories.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "memories.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "memories.js:byUserAndRepo",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "category": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "INFRA"
+                },
+                {
+                  "type": "literal",
+                  "value": "SETUP"
+                },
+                {
+                  "type": "literal",
+                  "value": "STYLES"
+                },
+                {
+                  "type": "literal",
+                  "value": "ARCHITECTURE"
+                },
+                {
+                  "type": "literal",
+                  "value": "TESTING"
+                },
+                {
+                  "type": "literal",
+                  "value": "PATTERNS"
+                },
+                {
+                  "type": "literal",
+                  "value": "BUGS"
+                },
+                {
+                  "type": "literal",
+                  "value": "PERFORMANCE"
+                },
+                {
+                  "type": "literal",
+                  "value": "CONFIG"
+                },
+                {
+                  "type": "literal",
+                  "value": "GENERAL"
+                }
+              ]
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "memories.js:byCategory",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "category": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "INFRA"
+                },
+                {
+                  "type": "literal",
+                  "value": "SETUP"
+                },
+                {
+                  "type": "literal",
+                  "value": "STYLES"
+                },
+                {
+                  "type": "literal",
+                  "value": "ARCHITECTURE"
+                },
+                {
+                  "type": "literal",
+                  "value": "TESTING"
+                },
+                {
+                  "type": "literal",
+                  "value": "PATTERNS"
+                },
+                {
+                  "type": "literal",
+                  "value": "BUGS"
+                },
+                {
+                  "type": "literal",
+                  "value": "PERFORMANCE"
+                },
+                {
+                  "type": "literal",
+                  "value": "CONFIG"
+                },
+                {
+                  "type": "literal",
+                  "value": "GENERAL"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "memories.js:byUserRepoAndCategory",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "searchTerm": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "memories.js:search",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "memories": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "object",
+                "value": {
+                  "category": {
+                    "fieldType": {
+                      "type": "union",
+                      "value": [
+                        {
+                          "type": "literal",
+                          "value": "INFRA"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "SETUP"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "STYLES"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "ARCHITECTURE"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "TESTING"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "PATTERNS"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "BUGS"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "PERFORMANCE"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "CONFIG"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "GENERAL"
+                        }
+                      ]
+                    },
+                    "optional": false
+                  },
+                  "content": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "repoFullName": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "repoUrl": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "taskId": {
+                    "fieldType": {
+                      "tableName": "tasks",
+                      "type": "id"
+                    },
+                    "optional": false
+                  },
+                  "userId": {
+                    "fieldType": {
+                      "tableName": "users",
+                      "type": "id"
+                    },
+                    "optional": false
+                  }
+                }
+              }
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "memories.js:bulkCreate",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "stackedTaskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:internalStartStreaming",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "deltaText": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "finishReason": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "isFinal": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "parts": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "any"
+              }
+            },
+            "optional": true
+          },
+          "usage": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "completionTokens": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "promptTokens": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "totalTokens": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                }
+              }
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:internalAppendStreamDelta",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "completionTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "finishReason": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "metadataJson": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "promptTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "role": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "USER"
+                },
+                {
+                  "type": "literal",
+                  "value": "ASSISTANT"
+                },
+                {
+                  "type": "literal",
+                  "value": "SYSTEM"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "stackedTaskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "totalTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:append",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "stackedTaskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:startStreaming",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "deltaText": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "finishReason": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "isFinal": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "parts": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "any"
+              }
+            },
+            "optional": true
+          },
+          "usage": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "completionTokens": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "promptTokens": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                },
+                "totalTokens": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": true
+                }
+              }
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:appendStreamDelta",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "completionTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "finishReason": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "metadataJson": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "promptTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "totalTokens": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:edit",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sequence": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "messages.js:removeAfterSequence",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "messages.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "messages.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "messages.js:getLatestSequence",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "persistentStreaming.js:createStream",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "streamIdStr": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "persistentStreaming.js:debugGetStream",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "streamId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "persistentStreaming.js:getStreamBody",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "activity": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "viewing"
+                },
+                {
+                  "type": "literal",
+                  "value": "typing"
+                },
+                {
+                  "type": "literal",
+                  "value": "editing-file"
+                },
+                {
+                  "type": "literal",
+                  "value": "running-command"
+                },
+                {
+                  "type": "literal",
+                  "value": "idle"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "cursor": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "x": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                },
+                "y": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                }
+              }
+            },
+            "optional": true
+          },
+          "selection": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "end": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                },
+                "filePath": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "start": {
+                  "fieldType": {
+                    "type": "number"
+                  },
+                  "optional": false
+                }
+              }
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userImage": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "userName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "presence.js:updatePresence",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "timeoutMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "presence.js:getActiveUsers",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "presence.js:removePresence",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "timeoutMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "presence.js:cleanupStalePresence",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "internal"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "activityType": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "user-joined"
+                },
+                {
+                  "type": "literal",
+                  "value": "user-left"
+                },
+                {
+                  "type": "literal",
+                  "value": "file-opened"
+                },
+                {
+                  "type": "literal",
+                  "value": "file-saved"
+                },
+                {
+                  "type": "literal",
+                  "value": "command-started"
+                },
+                {
+                  "type": "literal",
+                  "value": "command-completed"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "metadata": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "presence.js:broadcastActivity",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "limit": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "presence.js:getRecentActivities",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "description": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "filesChanged": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "linesAdded": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "linesRemoved": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "CREATED"
+                },
+                {
+                  "type": "literal",
+                  "value": "UPDATED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "title": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "pullRequestSnapshots.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "description": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "filesChanged": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "linesAdded": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "linesRemoved": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "snapshotId": {
+            "fieldType": {
+              "tableName": "pullRequestSnapshots",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "CREATED"
+                },
+                {
+                  "type": "literal",
+                  "value": "UPDATED"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "title": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "pullRequestSnapshots.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "snapshotId": {
+            "fieldType": {
+              "tableName": "pullRequestSnapshots",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "pullRequestSnapshots.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "pullRequestSnapshots.js:getByMessage",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "snapshotId": {
+            "fieldType": {
+              "tableName": "pullRequestSnapshots",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "pullRequestSnapshots.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "pullRequestSnapshots.js:removeByMessage",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "pullRequestSnapshots.js:getLatestByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "repositoryIndex.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "lastCommitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "repositoryIndex.js:upsert",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "lastCommitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "repositoryIndex.js:updateLastIndexed",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "repositoryIndex.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {}
+      },
+      "functionType": "Query",
+      "identifier": "repositoryIndex.js:list",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "currentCommitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "repositoryIndex.js:needsReindex",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "apiKeys": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "anthropic": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "openai": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "openrouter": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            },
+            "optional": false
+          },
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "systemPrompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "streaming.js:streamChat",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "apiKeys": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "anthropic": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "openai": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "openrouter": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            },
+            "optional": false
+          },
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "systemPrompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "tools": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "object",
+                "value": {
+                  "description": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "name": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "parameters": {
+                    "fieldType": {
+                      "type": "any"
+                    },
+                    "optional": false
+                  }
+                }
+              }
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "streaming.js:streamChatWithTools",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "streaming.js:cancelStream",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "apiKeys": {
+            "fieldType": {
+              "type": "object",
+              "value": {
+                "anthropic": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "openai": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                },
+                "openrouter": {
+                  "fieldType": {
+                    "type": "string"
+                  },
+                  "optional": true
+                }
+              }
+            },
+            "optional": false
+          },
+          "fromMessageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "llmModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "prompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "systemPrompt": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "streaming.js:resumeStream",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "connectionId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "podName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "podNamespace": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "taskSessions.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sessionId": {
+            "fieldType": {
+              "tableName": "taskSessions",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "taskSessions.js:end",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "taskSessions.js:endAllForTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "connectionId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "podName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "podNamespace": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sessionId": {
+            "fieldType": {
+              "tableName": "taskSessions",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "taskSessions.js:updateConnection",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sessionId": {
+            "fieldType": {
+              "tableName": "taskSessions",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "taskSessions.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "taskSessions.js:getActiveByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "taskSessions.js:listByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sessionId": {
+            "fieldType": {
+              "tableName": "taskSessions",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "taskSessions.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "taskSessions.js:removeAllForTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "baseBranch": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "baseCommitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "githubIssueId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "isScratchpad": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "mainModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "repoUrl": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "shadowBranch": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "title": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "tasks.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "baseCommitSha": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "codebaseUnderstandingId": {
+            "fieldType": {
+              "tableName": "codebaseUnderstanding",
+              "type": "id"
+            },
+            "optional": true
+          },
+          "errorMessage": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "hasBeenInitialized": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "initStatus": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "INACTIVE"
+                },
+                {
+                  "type": "literal",
+                  "value": "PREPARE_WORKSPACE"
+                },
+                {
+                  "type": "literal",
+                  "value": "CREATE_VM"
+                },
+                {
+                  "type": "literal",
+                  "value": "WAIT_VM_READY"
+                },
+                {
+                  "type": "literal",
+                  "value": "VERIFY_VM_WORKSPACE"
+                },
+                {
+                  "type": "literal",
+                  "value": "START_BACKGROUND_SERVICES"
+                },
+                {
+                  "type": "literal",
+                  "value": "INSTALL_DEPENDENCIES"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETE_SHADOW_WIKI"
+                },
+                {
+                  "type": "literal",
+                  "value": "ACTIVE"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "initializationError": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "mainModel": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "pullRequestNumber": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "scheduledCleanupAt": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "shadowBranch": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "STOPPED"
+                },
+                {
+                  "type": "literal",
+                  "value": "INITIALIZING"
+                },
+                {
+                  "type": "literal",
+                  "value": "ARCHIVED"
+                },
+                {
+                  "type": "literal",
+                  "value": "RUNNING"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "FAILED"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "title": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "workspaceCleanedUp": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "workspacePath": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "tasks.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "title": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "tasks.js:updateTitle",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "tasks.js:archive",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "tasks.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:getWithDetails",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:getTitle",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:getStatus",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:getStackedPRInfo",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:listByUser",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "now": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:listScheduledForCleanup",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:listByUserExcludeArchived",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:countActiveByUser",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "pullRequestNumber": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "repoFullName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:listByPrNumberAndRepo",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "tasks.js:getDetails",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "tasks.js:createPullRequest",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "message": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "model": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "tasks.js:initiate",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "activeProcessCount": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "diskUsageBytes": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "isHealthy": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": false
+          },
+          "lastHeartbeat": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "tasks.js:updateWorkspaceStatus",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "tasks.js:getWorkspaceStatus",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "streamType": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "stdout"
+                },
+                {
+                  "type": "literal",
+                  "value": "stderr"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "timestamp": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "terminalOutput.js:append",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "terminalOutput.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "terminalOutput.js:byCommand",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "since": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "terminalOutput.js:byTaskSince",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "terminalOutput.js:getCombinedOutput",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "commandId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "terminalOutput.js:deleteByCommand",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "terminalOutput.js:deleteByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sequence": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "PENDING"
+                },
+                {
+                  "type": "literal",
+                  "value": "IN_PROGRESS"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "CANCELLED"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sequence": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "PENDING"
+                },
+                {
+                  "type": "literal",
+                  "value": "IN_PROGRESS"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "CANCELLED"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "todoId": {
+            "fieldType": {
+              "tableName": "todos",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "PENDING"
+                },
+                {
+                  "type": "literal",
+                  "value": "IN_PROGRESS"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "CANCELLED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "todoId": {
+            "fieldType": {
+              "tableName": "todos",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:updateStatus",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "todoId": {
+            "fieldType": {
+              "tableName": "todos",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:removeAllByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "todoId": {
+            "fieldType": {
+              "tableName": "todos",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "todos.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "todos.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "PENDING"
+                },
+                {
+                  "type": "literal",
+                  "value": "IN_PROGRESS"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "CANCELLED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "todos.js:byTaskAndStatus",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "newSequence": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "todoId": {
+            "fieldType": {
+              "tableName": "todos",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:reorder",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "todos": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "object",
+                "value": {
+                  "content": {
+                    "fieldType": {
+                      "type": "string"
+                    },
+                    "optional": false
+                  },
+                  "status": {
+                    "fieldType": {
+                      "type": "union",
+                      "value": [
+                        {
+                          "type": "literal",
+                          "value": "PENDING"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "IN_PROGRESS"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "COMPLETED"
+                        },
+                        {
+                          "type": "literal",
+                          "value": "CANCELLED"
+                        }
+                      ]
+                    },
+                    "optional": true
+                  }
+                }
+              }
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "todos.js:bulkCreate",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "args": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "PENDING"
+                },
+                {
+                  "type": "literal",
+                  "value": "RUNNING"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "FAILED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "toolCallId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "toolName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolCallTracking.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "error": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "result": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": true
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "FAILED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "toolCallId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolCallTracking.js:updateResult",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolCallTracking.js:byMessage",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolCallTracking.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "toolCallId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolCallTracking.js:byToolCallId",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolCallTracking.js:deleteByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "argsJson": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "threadId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "toolCallId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "toolName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolCalls.js:logRequest",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "toolCallId": {
+            "fieldType": {
+              "tableName": "toolCalls",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolCalls.js:markRunning",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "error": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "resultJson": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "SUCCEEDED"
+                },
+                {
+                  "type": "literal",
+                  "value": "FAILED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "toolCallId": {
+            "fieldType": {
+              "tableName": "toolCalls",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolCalls.js:logResult",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolCalls.js:listByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "messageId": {
+            "fieldType": {
+              "tableName": "chatMessages",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolCalls.js:listByMessage",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "args": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": false
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "RUNNING"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "FAILED"
+                }
+              ]
+            },
+            "optional": false
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "toolName": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolLogs.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "durationMs": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "error": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "logId": {
+            "fieldType": {
+              "tableName": "toolLogs",
+              "type": "id"
+            },
+            "optional": false
+          },
+          "result": {
+            "fieldType": {
+              "type": "any"
+            },
+            "optional": true
+          },
+          "status": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "RUNNING"
+                },
+                {
+                  "type": "literal",
+                  "value": "COMPLETED"
+                },
+                {
+                  "type": "literal",
+                  "value": "FAILED"
+                }
+              ]
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolLogs.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolLogs.js:byTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "limit": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          },
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolLogs.js:recentByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolLogs.js:runningByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "toolLogs.js:getStats",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "taskId": {
+            "fieldType": {
+              "tableName": "tasks",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "toolLogs.js:deleteByTask",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "userSettings.js:get",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Query",
+      "identifier": "userSettings.js:getOrCreate",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "autoPullRequest": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "enableIndexing": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "enableShadowWiki": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "memoriesEnabled": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "rules": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "selectedModels": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "string"
+              }
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "userSettings.js:create",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "autoPullRequest": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "enableIndexing": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "enableShadowWiki": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "memoriesEnabled": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "rules": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "selectedModels": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "string"
+              }
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "userSettings.js:update",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "autoPullRequest": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "enableIndexing": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "enableShadowWiki": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "memoriesEnabled": {
+            "fieldType": {
+              "type": "boolean"
+            },
+            "optional": true
+          },
+          "rules": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "selectedModels": {
+            "fieldType": {
+              "type": "array",
+              "value": {
+                "type": "string"
+              }
+            },
+            "optional": true
+          },
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "userSettings.js:upsert",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "userId": {
+            "fieldType": {
+              "tableName": "users",
+              "type": "id"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Mutation",
+      "identifier": "userSettings.js:remove",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "command": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "cwd": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "timeout": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:executeCommandNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "branch": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "token": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "url": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "username": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:gitCloneNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "text": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:keyboardTypeNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:listFilesNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "button": {
+            "fieldType": {
+              "type": "union",
+              "value": [
+                {
+                  "type": "literal",
+                  "value": "left"
+                },
+                {
+                  "type": "literal",
+                  "value": "right"
+                },
+                {
+                  "type": "literal",
+                  "value": "middle"
+                }
+              ]
+            },
+            "optional": true
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "x": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          },
+          "y": {
+            "fieldType": {
+              "type": "number"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:mouseClickNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:readFileNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:takeScreenshotNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    },
+    {
+      "args": {
+        "type": "object",
+        "value": {
+          "content": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "path": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          },
+          "sandboxId": {
+            "fieldType": {
+              "type": "string"
+            },
+            "optional": false
+          }
+        }
+      },
+      "functionType": "Action",
+      "identifier": "daytonaNode.js:writeFileNode",
+      "returns": {
+        "type": "any"
+      },
+      "visibility": {
+        "kind": "public"
+      }
+    }
+  ]
+}

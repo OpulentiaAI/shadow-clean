@@ -1,0 +1,12 @@
+{
+  "capability": "CAP-03",
+  "name": "listSandboxes_preCreate",
+  "command": "npx convex run daytona:listSandboxes '{}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:34:51.461Z",
+  "data": {
+    "sandboxes": [],
+    "success": true
+  },
+  "invariants": "success=true, sandboxes is array"
+}

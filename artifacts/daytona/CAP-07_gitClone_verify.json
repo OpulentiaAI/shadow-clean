@@ -1,0 +1,15 @@
+{
+  "capability": "CAP-07",
+  "name": "gitClone_verify",
+  "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"ls -la /home/daytona/hello-world\"}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:35:00.277Z",
+  "data": {
+    "result": {
+      "exitCode": 0,
+      "stdout": "total 4\ndrwxr-xr-x 3 daytona daytona 44 Dec 28 21:34 .\ndrwxr-xr-x 1 daytona daytona 76 Dec 28 21:34 ..\ndrwxr-xr-x 4 daytona daytona 96 Dec 28 21:34 .git\n-rw-r--r-- 1 daytona daytona 13 Dec 28 21:34 README\n"
+    },
+    "success": true
+  },
+  "invariants": "directory exists and contains files"
+}

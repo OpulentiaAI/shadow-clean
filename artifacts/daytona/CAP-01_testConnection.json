@@ -1,0 +1,17 @@
+{
+  "capability": "CAP-01",
+  "name": "testConnection",
+  "command": "npx convex run daytona:testConnection '{}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:34:50.619Z",
+  "data": {
+    "config": {
+      "apiUrl": "https://app.daytona.io/api",
+      "hasApiKey": true
+    },
+    "message": "Daytona connection successful",
+    "sandboxCount": 0,
+    "success": true
+  },
+  "invariants": "success=true, hasApiKey=true, sandboxCount>=0"
+}

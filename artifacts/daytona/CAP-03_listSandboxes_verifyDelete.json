@@ -1,0 +1,12 @@
+{
+  "capability": "CAP-03",
+  "name": "listSandboxes_verifyDelete",
+  "command": "npx convex run daytona:listSandboxes '{}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:35:03.732Z",
+  "data": {
+    "sandboxes": [],
+    "success": true
+  },
+  "invariants": "sandbox no longer in list"
+}

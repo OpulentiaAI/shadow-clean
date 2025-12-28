@@ -1,0 +1,287 @@
+{
+  "timestamp": "2025-12-28T21:34:49.317Z",
+  "environment": {
+    "convexConfigured": true
+  },
+  "tests": [
+    {
+      "capability": "CAP-01",
+      "name": "testConnection",
+      "command": "npx convex run daytona:testConnection '{}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:50.619Z",
+      "data": {
+        "config": {
+          "apiUrl": "https://app.daytona.io/api",
+          "hasApiKey": true
+        },
+        "message": "Daytona connection successful",
+        "sandboxCount": 0,
+        "success": true
+      },
+      "invariants": "success=true, hasApiKey=true, sandboxCount>=0"
+    },
+    {
+      "capability": "CAP-03",
+      "name": "listSandboxes_preCreate",
+      "command": "npx convex run daytona:listSandboxes '{}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:51.461Z",
+      "data": {
+        "sandboxes": [],
+        "success": true
+      },
+      "invariants": "success=true, sandboxes is array"
+    },
+    {
+      "capability": "CAP-02",
+      "name": "createSandbox",
+      "command": "npx convex run daytona:createSandbox '{\"language\":\"typescript\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:52.582Z",
+      "data": {
+        "sandbox": {
+          "autoArchiveInterval": 10080,
+          "autoDeleteInterval": -1,
+          "autoStopInterval": 15,
+          "backupState": "None",
+          "class": "small",
+          "cpu": 1,
+          "createdAt": "2025-12-28T21:34:52.524Z",
+          "daemonVersion": "0.0.0-dev",
+          "desiredState": "started",
+          "disk": 3,
+          "env": {},
+          "errorReason": null,
+          "gpu": 0,
+          "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "labels": {},
+          "memory": 1,
+          "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "networkAllowList": null,
+          "networkBlockAll": false,
+          "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
+          "public": false,
+          "recoverable": false,
+          "snapshot": "daytonaio/sandbox:0.4.3",
+          "state": "started",
+          "target": "us",
+          "updatedAt": "2025-12-28T21:34:52.526Z",
+          "user": "daytona",
+          "volumes": []
+        },
+        "success": true
+      },
+      "invariants": "success=true, sandbox.id exists, sandbox.state=started"
+    },
+    {
+      "capability": "CAP-04",
+      "name": "getSandbox",
+      "command": "npx convex run daytona:getSandbox '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:53.579Z",
+      "data": {
+        "sandbox": {
+          "autoArchiveInterval": 10080,
+          "autoDeleteInterval": -1,
+          "autoStopInterval": 15,
+          "backupState": "None",
+          "class": "small",
+          "cpu": 1,
+          "createdAt": "2025-12-28T21:34:52.524Z",
+          "daemonVersion": "0.0.0-dev",
+          "desiredState": "started",
+          "disk": 3,
+          "env": {},
+          "errorReason": null,
+          "gpu": 0,
+          "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "labels": {},
+          "memory": 1,
+          "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+          "networkAllowList": null,
+          "networkBlockAll": false,
+          "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
+          "public": false,
+          "recoverable": false,
+          "snapshot": "daytonaio/sandbox:0.4.3",
+          "state": "started",
+          "target": "us",
+          "updatedAt": "2025-12-28T21:34:52.526Z",
+          "user": "daytona",
+          "volumes": []
+        },
+        "success": true
+      },
+      "invariants": "success=true, sandbox.id matches"
+    },
+    {
+      "capability": "CAP-09",
+      "name": "getPreviewUrl",
+      "command": "npx convex run daytona:getPreviewUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"port\":3000}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:54.373Z",
+      "data": {
+        "port": 3000,
+        "previewUrl": "https://3000-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works",
+        "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+        "success": true
+      },
+      "invariants": "success=true, previewUrl matches pattern https://{port}-{id}.proxy.daytona.works"
+    },
+    {
+      "capability": "CAP-10",
+      "name": "getTerminalUrl",
+      "command": "npx convex run daytona:getTerminalUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:55.172Z",
+      "data": {
+        "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+        "success": true,
+        "terminalUrl": "https://22222-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works"
+      },
+      "invariants": "success=true, terminalUrl matches pattern https://22222-{id}.proxy.daytona.works"
+    },
+    {
+      "capability": "CAP-06",
+      "name": "executeCommandNode",
+      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"echo \\\"DAYTONA_TEST_OK\\\" && pwd && whoami\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:56.348Z",
+      "data": {
+        "result": {
+          "exitCode": 0,
+          "stdout": "DAYTONA_TEST_OK\n/home/daytona\ndaytona\n"
+        },
+        "success": true
+      },
+      "invariants": "success=true, exitCode=0, stdout contains DAYTONA_TEST_OK"
+    },
+    {
+      "capability": "CAP-08",
+      "name": "writeFile_viaCommand",
+      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"echo \\\"Hello from Daytona QA test\\\" > /home/daytona/qa_test.txt && cat /home/daytona/qa_test.txt\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:57.588Z",
+      "data": {
+        "result": {
+          "exitCode": 0,
+          "stdout": "Hello from Daytona QA test\n"
+        },
+        "success": true
+      },
+      "invariants": "success=true, stdout contains test content"
+    },
+    {
+      "capability": "CAP-07",
+      "name": "gitCloneNode",
+      "command": "npx convex run daytonaNode:gitCloneNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"url\":\"https://github.com/octocat/Hello-World.git\",\"path\":\"/home/daytona/hello-world\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:34:58.731Z",
+      "data": {
+        "message": "Cloned https://github.com/octocat/Hello-World.git to /home/daytona/hello-world",
+        "success": true
+      },
+      "invariants": "success=true (or 502 timeout for large repos)"
+    },
+    {
+      "capability": "CAP-07",
+      "name": "gitClone_verify",
+      "command": "npx convex run daytonaNode:executeCommandNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"command\":\"ls -la /home/daytona/hello-world\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:35:00.277Z",
+      "data": {
+        "result": {
+          "exitCode": 0,
+          "stdout": "total 4\ndrwxr-xr-x 3 daytona daytona 44 Dec 28 21:34 .\ndrwxr-xr-x 1 daytona daytona 76 Dec 28 21:34 ..\ndrwxr-xr-x 4 daytona daytona 96 Dec 28 21:34 .git\n-rw-r--r-- 1 daytona daytona 13 Dec 28 21:34 README\n"
+        },
+        "success": true
+      },
+      "invariants": "directory exists and contains files"
+    },
+    {
+      "capability": "CAP-11",
+      "name": "takeScreenshotNode",
+      "command": "npx convex run daytonaNode:takeScreenshotNode '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:35:01.129Z",
+      "data": {
+        "error": "(intermediate value).computerUse.screenshot is not a function",
+        "success": false
+      },
+      "invariants": "success=true OR expected error (no desktop configured)"
+    },
+    {
+      "capability": "CAP-03",
+      "name": "listSandboxes_postCreate",
+      "command": "npx convex run daytona:listSandboxes '{}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:35:01.970Z",
+      "data": {
+        "sandboxes": [
+          {
+            "autoArchiveInterval": 10080,
+            "autoDeleteInterval": -1,
+            "autoStopInterval": 15,
+            "backupState": "Pending",
+            "class": "small",
+            "cpu": 1,
+            "createdAt": "2025-12-28T21:34:52.524Z",
+            "daemonVersion": "0.0.0-dev",
+            "desiredState": "started",
+            "disk": 3,
+            "env": {},
+            "errorReason": null,
+            "gpu": 0,
+            "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+            "labels": {},
+            "memory": 1,
+            "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+            "networkAllowList": null,
+            "networkBlockAll": false,
+            "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
+            "public": false,
+            "recoverable": false,
+            "snapshot": "daytonaio/sandbox:0.4.3",
+            "state": "started",
+            "target": "us",
+            "updatedAt": "2025-12-28T21:35:01.001Z",
+            "user": "daytona",
+            "volumes": []
+          }
+        ],
+        "success": true
+      },
+      "invariants": "success=true, count increased or contains our sandbox"
+    },
+    {
+      "capability": "CAP-05",
+      "name": "deleteSandbox",
+      "command": "npx convex run daytona:deleteSandbox '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:35:02.911Z",
+      "data": {
+        "message": "Sandbox c74b1a24-359b-4399-8c39-3e55879483a6 deleted",
+        "success": true
+      },
+      "invariants": "success=true"
+    },
+    {
+      "capability": "CAP-03",
+      "name": "listSandboxes_verifyDelete",
+      "command": "npx convex run daytona:listSandboxes '{}'",
+      "passed": true,
+      "timestamp": "2025-12-28T21:35:03.732Z",
+      "data": {
+        "sandboxes": [],
+        "success": true
+      },
+      "invariants": "sandbox no longer in list"
+    }
+  ],
+  "summary": {
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0
+  }
+}

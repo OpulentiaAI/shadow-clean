@@ -1,0 +1,295 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2025-12-28T21:32:00Z",
+  "description": "Daytona Convex Function Registry for Agent Environment Operations",
+  "endpoints": {
+    "daytona.ts": {
+      "runtime": "edge",
+      "description": "HTTP API-based Daytona operations (sandbox management, URLs)",
+      "functions": [
+        {
+          "name": "testConnection",
+          "identifier": "daytona:testConnection",
+          "type": "action",
+          "args": {},
+          "returns": {
+            "success": "boolean",
+            "message": "string?",
+            "error": "string?",
+            "sandboxCount": "number?",
+            "config": { "apiUrl": "string", "hasApiKey": "boolean" }
+          },
+          "calledFrom": ["frontend", "cli"],
+          "capability": "CAP-01"
+        },
+        {
+          "name": "listSandboxes",
+          "identifier": "daytona:listSandboxes",
+          "type": "action",
+          "args": {},
+          "returns": {
+            "success": "boolean",
+            "sandboxes": "Sandbox[]?",
+            "error": "string?"
+          },
+          "calledFrom": ["frontend", "cli"],
+          "capability": "CAP-03"
+        },
+        {
+          "name": "createSandbox",
+          "identifier": "daytona:createSandbox",
+          "type": "action",
+          "args": {
+            "language": "string?",
+            "image": "string?",
+            "envVars": "Record<string,string>?"
+          },
+          "returns": {
+            "success": "boolean",
+            "sandbox": "Sandbox?",
+            "error": "string?"
+          },
+          "calledFrom": ["frontend", "server", "cli"],
+          "capability": "CAP-02"
+        },
+        {
+          "name": "getSandbox",
+          "identifier": "daytona:getSandbox",
+          "type": "action",
+          "args": {
+            "sandboxId": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "sandbox": "Sandbox?",
+            "error": "string?"
+          },
+          "calledFrom": ["frontend", "server", "cli"],
+          "capability": "CAP-04"
+        },
+        {
+          "name": "deleteSandbox",
+          "identifier": "daytona:deleteSandbox",
+          "type": "action",
+          "args": {
+            "sandboxId": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "message": "string?",
+            "error": "string?"
+          },
+          "calledFrom": ["frontend", "server", "cli"],
+          "capability": "CAP-05"
+        },
+        {
+          "name": "executeCommand",
+          "identifier": "daytona:executeCommand",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "command": "string",
+            "cwd": "string?",
+            "timeout": "number?"
+          },
+          "returns": {
+            "success": "boolean",
+            "result": "object?",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-06",
+          "notes": "HTTP API version - may return 404, prefer daytonaNode:executeCommandNode"
+        },
+        {
+          "name": "getPreviewUrl",
+          "identifier": "daytona:getPreviewUrl",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "port": "number"
+          },
+          "returns": {
+            "success": "boolean",
+            "previewUrl": "string?",
+            "sandboxId": "string?",
+            "port": "number?",
+            "error": "string?"
+          },
+          "calledFrom": ["frontend", "cli"],
+          "capability": "CAP-09"
+        },
+        {
+          "name": "getTerminalUrl",
+          "identifier": "daytona:getTerminalUrl",
+          "type": "action",
+          "args": {
+            "sandboxId": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "terminalUrl": "string?",
+            "sandboxId": "string?",
+            "error": "string?"
+          },
+          "calledFrom": ["frontend", "cli"],
+          "capability": "CAP-10"
+        }
+      ]
+    },
+    "daytonaNode.ts": {
+      "runtime": "node",
+      "description": "Node.js SDK-based Daytona operations (process, files, git, computer use)",
+      "functions": [
+        {
+          "name": "executeCommandNode",
+          "identifier": "daytonaNode:executeCommandNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "command": "string",
+            "cwd": "string?",
+            "timeout": "number?"
+          },
+          "returns": {
+            "success": "boolean",
+            "result": { "stdout": "string", "exitCode": "number" },
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-06"
+        },
+        {
+          "name": "gitCloneNode",
+          "identifier": "daytonaNode:gitCloneNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "url": "string",
+            "path": "string?",
+            "branch": "string?",
+            "username": "string?",
+            "token": "string?"
+          },
+          "returns": {
+            "success": "boolean",
+            "message": "string?",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-07"
+        },
+        {
+          "name": "readFileNode",
+          "identifier": "daytonaNode:readFileNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "path": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "content": "string?",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-08"
+        },
+        {
+          "name": "writeFileNode",
+          "identifier": "daytonaNode:writeFileNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "path": "string",
+            "content": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "message": "string?",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-08"
+        },
+        {
+          "name": "listFilesNode",
+          "identifier": "daytonaNode:listFilesNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "path": "string?"
+          },
+          "returns": {
+            "success": "boolean",
+            "files": "FileInfo[]?",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-08"
+        },
+        {
+          "name": "takeScreenshotNode",
+          "identifier": "daytonaNode:takeScreenshotNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "screenshot": "string?",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-11"
+        },
+        {
+          "name": "mouseClickNode",
+          "identifier": "daytonaNode:mouseClickNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "x": "number",
+            "y": "number",
+            "button": "string?"
+          },
+          "returns": {
+            "success": "boolean",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-12"
+        },
+        {
+          "name": "keyboardTypeNode",
+          "identifier": "daytonaNode:keyboardTypeNode",
+          "type": "action",
+          "args": {
+            "sandboxId": "string",
+            "text": "string"
+          },
+          "returns": {
+            "success": "boolean",
+            "error": "string?"
+          },
+          "calledFrom": ["server", "cli"],
+          "capability": "CAP-12"
+        }
+      ]
+    }
+  },
+  "capabilities": {
+    "CAP-01": "testConnection",
+    "CAP-02": "createSandbox",
+    "CAP-03": "listSandboxes",
+    "CAP-04": "getSandbox",
+    "CAP-05": "deleteSandbox",
+    "CAP-06": "executeCommand",
+    "CAP-07": "gitClone",
+    "CAP-08": "fileOperations",
+    "CAP-09": "getPreviewUrl",
+    "CAP-10": "getTerminalUrl",
+    "CAP-11": "takeScreenshot",
+    "CAP-12": "computerUseInput"
+  }
+}

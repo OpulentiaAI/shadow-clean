@@ -1,0 +1,12 @@
+{
+  "capability": "CAP-05",
+  "name": "deleteSandbox",
+  "command": "npx convex run daytona:deleteSandbox '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\"}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:35:02.911Z",
+  "data": {
+    "message": "Sandbox c74b1a24-359b-4399-8c39-3e55879483a6 deleted",
+    "success": true
+  },
+  "invariants": "success=true"
+}

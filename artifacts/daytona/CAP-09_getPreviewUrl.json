@@ -1,0 +1,14 @@
+{
+  "capability": "CAP-09",
+  "name": "getPreviewUrl",
+  "command": "npx convex run daytona:getPreviewUrl '{\"sandboxId\":\"c74b1a24-359b-4399-8c39-3e55879483a6\",\"port\":3000}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:34:54.373Z",
+  "data": {
+    "port": 3000,
+    "previewUrl": "https://3000-c74b1a24-359b-4399-8c39-3e55879483a6.proxy.daytona.works",
+    "sandboxId": "c74b1a24-359b-4399-8c39-3e55879483a6",
+    "success": true
+  },
+  "invariants": "success=true, previewUrl matches pattern https://{port}-{id}.proxy.daytona.works"
+}

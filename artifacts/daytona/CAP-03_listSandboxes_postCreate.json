@@ -1,0 +1,43 @@
+{
+  "capability": "CAP-03",
+  "name": "listSandboxes_postCreate",
+  "command": "npx convex run daytona:listSandboxes '{}'",
+  "passed": true,
+  "timestamp": "2025-12-28T21:35:01.970Z",
+  "data": {
+    "sandboxes": [
+      {
+        "autoArchiveInterval": 10080,
+        "autoDeleteInterval": -1,
+        "autoStopInterval": 15,
+        "backupState": "Pending",
+        "class": "small",
+        "cpu": 1,
+        "createdAt": "2025-12-28T21:34:52.524Z",
+        "daemonVersion": "0.0.0-dev",
+        "desiredState": "started",
+        "disk": 3,
+        "env": {},
+        "errorReason": null,
+        "gpu": 0,
+        "id": "c74b1a24-359b-4399-8c39-3e55879483a6",
+        "labels": {},
+        "memory": 1,
+        "name": "c74b1a24-359b-4399-8c39-3e55879483a6",
+        "networkAllowList": null,
+        "networkBlockAll": false,
+        "organizationId": "2245f69f-8758-4ea4-a647-d2e514cb6c3f",
+        "public": false,
+        "recoverable": false,
+        "snapshot": "daytonaio/sandbox:0.4.3",
+        "state": "started",
+        "target": "us",
+        "updatedAt": "2025-12-28T21:35:01.001Z",
+        "user": "daytona",
+        "volumes": []
+      }
+    ],
+    "success": true
+  },
+  "invariants": "success=true, count increased or contains our sandbox"
+}
