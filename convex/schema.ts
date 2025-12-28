@@ -183,6 +183,7 @@ export default defineSchema({
     stackedTaskId: v.optional(v.id("tasks")),
     status: v.optional(v.string()),
     promptMessageId: v.optional(v.id("chatMessages")),
+    clientMessageId: v.optional(v.string()),
   })
     .index("by_task_sequence", ["taskId", "sequence"])
     .index("by_task_role", ["taskId", "role"])
