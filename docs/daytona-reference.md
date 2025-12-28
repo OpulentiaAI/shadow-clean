@@ -3,6 +3,76 @@
 
 > Secure and Elastic Infrastructure for Running AI-Generated Code.
 
+---
+
+## AI Elements Components Created
+
+### Frontend Components (`apps/frontend/components/daytona/`)
+
+| Component | Description | Daytona Integration |
+|-----------|-------------|---------------------|
+| **WebPreview** | Composable preview frame for live UI | Preview links (`https://{port}-{sandboxId}.proxy.daytona.works`) |
+| **WebPreviewBody** | Iframe container for preview | Embeds sandbox preview URL |
+| **WebPreviewNavigation** | Back/forward/refresh controls | Navigation within preview |
+| **WebPreviewUrl** | Editable URL input bar | Supports port-to-URL conversion |
+| **WebPreviewConsole** | Console output panel | Displays sandbox logs |
+| **ToolPanel** | Collapsible tool invocation panel | Shows tool status (pending/running/completed/error) |
+| **ToolList** | List of multiple tool invocations | Batch tool display |
+| **ComputerUseProvider** | Context for computer use state | Wraps computer use functionality |
+| **ComputerUseDisplay** | Screenshot/VNC display canvas | Shows sandbox desktop |
+| **ComputerUseToolbar** | Mode selection toolbar | Click/move/type/drag/scroll modes |
+| **ComputerUseActions** | Keyboard input panel | Quick keys and hotkeys |
+| **WebTerminal** | Browser-based terminal | Port 22222 shell access |
+
+### Backend Services (`apps/server/src/daytona/`)
+
+| Service | Description |
+|---------|-------------|
+| **DaytonaService** | Main SDK wrapper for sandbox management, file ops, git, process execution, computer use |
+| **DaytonaWorkspaceManager** | Implements WorkspaceManager interface using Daytona sandboxes |
+| **DaytonaExecutor** | Simplified executor for command and file operations |
+
+### Usage Example
+
+```tsx
+import {
+  WebPreview,
+  WebPreviewBody,
+  WebPreviewNavigation,
+  WebPreviewUrl,
+  WebPreviewConsole,
+  ComputerUseProvider,
+  ComputerUseDisplay,
+  ComputerUseToolbar,
+  ToolPanel,
+  WebTerminal,
+} from "@/components/daytona";
+
+// WebPreview for live app preview
+<WebPreview sandboxId="abc123" port={3000}>
+  <div className="flex h-10 items-center border-b px-2">
+    <WebPreviewNavigation />
+    <WebPreviewUrl />
+  </div>
+  <WebPreviewBody />
+  <WebPreviewConsole maxHeight={150} />
+</WebPreview>
+
+// ToolPanel for tool invocation status
+<ToolPanel tool={{
+  id: "tool-1",
+  name: "read_file",
+  status: "completed",
+  args: { path: "/src/index.ts" },
+  result: { content: "..." }
+}} />
+
+// WebTerminal for shell access
+<WebTerminal sandboxId="abc123" port={22222} />
+```
+
+---
+
 ## Key Documentation Links
 
 ### Core Concepts
