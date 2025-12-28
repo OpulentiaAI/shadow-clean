@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npx turbo build --filter=server",
+  "outputDirectory": "apps/server/dist",
+  "installCommand": "npm ci",
+  "framework": null
+}

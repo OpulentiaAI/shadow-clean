@@ -49,3 +49,4 @@ scripts/logs/
 .railway-url
 .vercel
 *.log
+.env*.local

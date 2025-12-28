@@ -20,7 +20,7 @@ import { createExecuteRouter } from "./api/execute";
 import { createGitRouter } from "./api/git";
 import { createFileSystemWatcherRouter } from "./api/filesystem-watcher";
 
-async function startServer() {
+async function initializeServer() {
   try {
     logger.info("Starting server initialization...");
 
@@ -188,8 +188,8 @@ async function startServer() {
       process.exit(1);
     }
 
-    // Graceful shutdown
-    const shutdown = async (signal: string) => {
+// Graceful shutdown function to be used by both initialization and listener
+    const shutdown = async (signal: string, server?: any) => {
       logger.info(`Received ${signal}, starting graceful shutdown...`);
 
       // Stop filesystem watcher
@@ -217,32 +217,20 @@ async function startServer() {
           process.exit(0);
         });
       } else {
-        logger.warn("Server was not initialized, exiting immediately");
+        // If no server instance (e.g. Vercel adapter), just exit/return
+        logger.info("Shutdown complete");
+        if (process.env.VERCEL) return; // Don't exit process in Vercel
         process.exit(0);
       }
-
-      // Force exit after 10 seconds
-      setTimeout(() => {
-        logger.error("Forced shutdown after timeout");
-        process.exit(1);
-      }, 10000);
     };
 
+    // Attach shutdown handlers that don't depend on server instance yet
+    // Note: In Vercel, these might not fire, but good for local
     process.on("SIGTERM", () => shutdown("SIGTERM"));
     process.on("SIGINT", () => shutdown("SIGINT"));
 
-    // Handle uncaught errors
-    process.on("uncaughtException", (error) => {
-      logger.error("Uncaught exception", { error });
-      process.exit(1);
-    });
+    return app;
 
-    process.on("unhandledRejection", (reason, promise) => {
-      logger.error("Unhandled rejection", { reason, promise });
-      process.exit(1);
-    });
-
-    return server;
   } catch (initError) {
     logger.error("Server initialization failed", {
       error: initError instanceof Error ? initError.message : String(initError),
@@ -252,7 +240,40 @@ async function startServer() {
   }
 }
 
-// Start the server
+async function startServer() {
+    const app = await initializeServer();
+    
+    // Start server with explicit error handling
+    let server;
+    try {
+      server = app.listen(config.port, () => {
+        logger.info("Sidecar service started", {
+          port: config.port,
+          environment: config.nodeEnv,
+          workspace: config.workspaceDir,
+        });
+      });
+
+      // Handle server startup errors
+      server.on("error", (err: Error) => {
+        logger.error("Server startup error", {
+          error: err.message,
+          stack: err.stack,
+          port: config.port,
+        });
+        process.exit(1);
+      });
+    } catch (error) {
+      logger.error("Failed to start server", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : "No stack trace",
+        port: config.port,
+      });
+      process.exit(1);
+    }
+}
+
+// Start the server if running directly
 if (require.main === module) {
   startServer().catch((error) => {
     logger.error("Failed to start server", { error });
@@ -260,4 +281,4 @@ if (require.main === module) {
   });
 }
 
-export { startServer };
+export { initializeServer, startServer };

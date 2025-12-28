@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "installCommand": "npm ci",
+  "buildCommand": "npx turbo build --filter=sidecar",
+  "framework": null,
+  "functions": {
+    "api/sidecar.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/sidecar"
+    }
+  ]
+}

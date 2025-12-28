@@ -24,6 +24,7 @@
     "@ai-sdk/anthropic": "2.0.39",
     "@ai-sdk/groq": "^2.0.2",
     "@ai-sdk/openai": "2.0.57",
+    "@daytonaio/sdk": "^0.128.1",
     "@kubernetes/client-node": "^1.0.0",
     "@morphllm/morphsdk": "^0.2.42",
     "@openrouter/ai-sdk-provider": "^1.5.3",

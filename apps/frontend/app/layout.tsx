@@ -11,26 +11,12 @@ import { cookies } from "next/headers";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const monumentGrotesk = localFont({
+import { Inter } from "next/font/google";
+
+const monumentGrotesk = Inter({
+  subsets: ["latin"],
   variable: "--font-monument-sans",
   display: "swap",
-  src: [
-    {
-      path: "./fonts/ABCMonumentGrotesk-Regular-Trial.otf",
-      weight: "400",
-      style: "normal",
-    },
-    {
-      path: "./fonts/ABCMonumentGrotesk-Medium-Trial.otf",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "./fonts/ABCMonumentGrotesk-Bold-Trial.otf",
-      weight: "700",
-      style: "normal",
-    },
-  ],
 });
 
 const monumentGroteskMono = localFont({
