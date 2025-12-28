@@ -14,6 +14,7 @@ import type * as auth from "../auth.js";
 import type * as codebaseUnderstanding from "../codebaseUnderstanding.js";
 import type * as crons from "../crons.js";
 import type * as daytona from "../daytona.js";
+import type * as daytonaNode from "../daytonaNode.js";
 import type * as fileChanges from "../fileChanges.js";
 import type * as http from "../http.js";
 import type * as memories from "../memories.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   codebaseUnderstanding: typeof codebaseUnderstanding;
   crons: typeof crons;
   daytona: typeof daytona;
+  daytonaNode: typeof daytonaNode;
   fileChanges: typeof fileChanges;
   http: typeof http;
   memories: typeof memories;
