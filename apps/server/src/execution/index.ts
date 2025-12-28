@@ -17,6 +17,8 @@ import { RemoteGitService } from "./remote/remote-git-service";
 import { GitService } from "./interfaces/git-service";
 import { GitManager } from "../services/git-manager";
 import { getTask, toConvexId } from "../lib/convex-operations";
+import { DaytonaWorkspaceManager } from "../daytona";
+import { isDaytonaEnabled } from "../daytona/config";
 
 /**
  * Create a tool executor based on the configured agent mode
@@ -86,8 +88,15 @@ export async function createToolExecutor(
 
 /**
  * Create a workspace manager based on the configured agent mode
+ * Prefers Daytona when enabled (DAYTONA_API_KEY set)
  */
 export function createWorkspaceManager(mode?: AgentMode): WorkspaceManager {
+  // If Daytona is enabled, use it regardless of mode
+  if (isDaytonaEnabled()) {
+    console.log("[WORKSPACE_MANAGER] Using Daytona workspace manager");
+    return new DaytonaWorkspaceManager();
+  }
+
   const agentMode = mode || config.agentMode;
 
   switch (agentMode) {
