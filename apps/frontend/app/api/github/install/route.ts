@@ -3,11 +3,7 @@ import { getGitHubAccount } from "@/lib/db-operations/get-github-account";
 import { prisma } from "@repo/db";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../../convex/_generated/api";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
+import { getConvexClient, api } from "@/lib/convex/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,25 +81,24 @@ export async function GET(request: NextRequest) {
     });
 
     // Also sync installation info to Convex
-    if (convex) {
-      try {
-        // Use the user's externalId (Better Auth user.id) to find Convex user
-        const convexUser = await convex.query(api.auth.getUserByExternalId, {
-          externalId: user.id,
+    try {
+      const convex = getConvexClient();
+      // Use the user's externalId (Better Auth user.id) to find Convex user
+      const convexUser = await convex.query(api.auth.getUserByExternalId, {
+        externalId: user.id,
+      });
+      if (convexUser) {
+        await convex.mutation(api.auth.updateGitHubInstallation, {
+          userId: convexUser._id,
+          githubInstallationId: storedInstallId,
+          githubAppConnected,
         });
-        if (convexUser) {
-          await convex.mutation(api.auth.updateGitHubInstallation, {
-            userId: convexUser._id,
-            githubInstallationId: storedInstallId,
-            githubAppConnected,
-          });
-          console.log("[Install] Synced GitHub installation to Convex for user:", convexUser._id);
-        } else {
-          console.log("[Install] Convex user not found for externalId:", user.id);
-        }
-      } catch (err) {
-        console.error("[Install] Failed syncing to Convex:", err);
+        console.log("[Install] Synced GitHub installation to Convex for user:", convexUser._id);
+      } else {
+        console.log("[Install] Convex user not found for externalId:", user.id);
       }
+    } catch (err) {
+      console.error("[Install] Failed syncing to Convex:", err);
     }
 
     // Clear the install cookies
