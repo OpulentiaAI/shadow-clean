@@ -8,7 +8,11 @@ export async function GET(request: NextRequest) {
     const user = await getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      // Not authenticated - redirect to sign in with GitHub, then back here
+      const currentUrl = request.url;
+      const signInUrl = new URL("/api/auth/signin/github", request.url);
+      signInUrl.searchParams.set("callbackURL", currentUrl);
+      return NextResponse.redirect(signInUrl);
     }
 
     const { searchParams } = new URL(request.url);
@@ -25,10 +29,11 @@ export async function GET(request: NextRequest) {
     const account = await getGitHubAccount(user.id);
 
     if (!account) {
-      return NextResponse.json(
-        { error: "GitHub account not found" },
-        { status: 400 }
-      );
+      // No GitHub account linked - redirect to sign in with GitHub to link it
+      const currentUrl = request.url;
+      const signInUrl = new URL("/api/auth/signin/github", request.url);
+      signInUrl.searchParams.set("callbackURL", currentUrl);
+      return NextResponse.redirect(signInUrl);
     }
 
     await prisma.account.update({
