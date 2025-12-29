@@ -6,6 +6,7 @@ import { OpulentLogo } from "@/components/graphics/logo/opulent-logo";
 import { NewTaskAnimation } from "@/components/task/new-task-animation";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Dynamically import authClient only in the browser
 let authClient: any;
@@ -15,6 +16,8 @@ if (typeof window !== "undefined") {
 
 export default function AuthPage() {
   const [mounted, setMounted] = useState(false);
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
 
   useEffect(() => {
     setMounted(true);
@@ -27,7 +30,7 @@ export default function AuthPage() {
     try {
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: "/",
+        callbackURL: returnTo || "/",
       });
     } catch (error) {
       console.error("Sign in error:", error);

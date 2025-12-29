@@ -8,11 +8,11 @@ export async function GET(request: NextRequest) {
     const user = await getUser();
 
     if (!user) {
-      // Not authenticated - redirect to sign in with GitHub, then back here
+      // Not authenticated - redirect to auth page with return URL
       const currentUrl = request.url;
-      const signInUrl = new URL("/api/auth/signin/github", request.url);
-      signInUrl.searchParams.set("callbackURL", currentUrl);
-      return NextResponse.redirect(signInUrl);
+      const authUrl = new URL("/auth", request.url);
+      authUrl.searchParams.set("returnTo", currentUrl);
+      return NextResponse.redirect(authUrl);
     }
 
     const { searchParams } = new URL(request.url);
@@ -29,11 +29,11 @@ export async function GET(request: NextRequest) {
     const account = await getGitHubAccount(user.id);
 
     if (!account) {
-      // No GitHub account linked - redirect to sign in with GitHub to link it
+      // No GitHub account linked - redirect to auth page to sign in with GitHub
       const currentUrl = request.url;
-      const signInUrl = new URL("/api/auth/signin/github", request.url);
-      signInUrl.searchParams.set("callbackURL", currentUrl);
-      return NextResponse.redirect(signInUrl);
+      const authUrl = new URL("/auth", request.url);
+      authUrl.searchParams.set("returnTo", currentUrl);
+      return NextResponse.redirect(authUrl);
     }
 
     await prisma.account.update({
