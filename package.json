@@ -63,6 +63,7 @@
   ],
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.1",
-    "@convex-dev/persistent-text-streaming": "^0.3.0"
+    "@convex-dev/persistent-text-streaming": "^0.3.0",
+    "@daytonaio/sdk": "^0.128.1"
   }
 }
