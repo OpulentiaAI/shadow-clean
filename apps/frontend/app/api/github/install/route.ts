@@ -16,14 +16,14 @@ export async function GET(request: NextRequest) {
       const response = NextResponse.redirect(new URL("/auth", request.url));
       if (installationId) {
         response.cookies.set("github_install_id", installationId, {
-          httpOnly: true,
+          httpOnly: false, // Needs to be readable by client JS
           secure: true,
           sameSite: "lax",
           maxAge: 300, // 5 minutes
         });
         if (setupAction) {
           response.cookies.set("github_install_action", setupAction, {
-            httpOnly: true,
+            httpOnly: false,
             secure: true,
             sameSite: "lax",
             maxAge: 300,
@@ -51,14 +51,14 @@ export async function GET(request: NextRequest) {
       // No GitHub account linked - set cookie and redirect to auth
       const response = NextResponse.redirect(new URL("/auth", request.url));
       response.cookies.set("github_install_id", storedInstallId, {
-        httpOnly: true,
+        httpOnly: false,
         secure: true,
         sameSite: "lax",
         maxAge: 300,
       });
       if (storedAction) {
         response.cookies.set("github_install_action", storedAction, {
-          httpOnly: true,
+          httpOnly: false,
           secure: true,
           sameSite: "lax",
           maxAge: 300,
