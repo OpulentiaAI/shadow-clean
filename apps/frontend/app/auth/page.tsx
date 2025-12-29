@@ -21,16 +21,41 @@ export default function AuthPage() {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Store returnTo URL in sessionStorage for redirect after OAuth
+    if (returnTo) {
+      sessionStorage.setItem("auth_returnTo", returnTo);
+    }
+  }, [returnTo]);
+
+  // Check for stored returnTo after mount (handles OAuth callback)
+  useEffect(() => {
+    if (mounted) {
+      const storedReturnTo = sessionStorage.getItem("auth_returnTo");
+      if (storedReturnTo && !returnTo) {
+        // We have a stored returnTo but no current returnTo param - this is post-OAuth
+        // Check if we're now authenticated by trying to fetch session
+        authClient?.getSession?.().then((session: any) => {
+          if (session?.user) {
+            sessionStorage.removeItem("auth_returnTo");
+            window.location.href = storedReturnTo;
+          }
+        });
+      }
+    }
+  }, [mounted, returnTo]);
 
   if (!mounted) {
     return null; // Don't render anything on the server
   }
   const handleGithubSignIn = async () => {
     try {
+      // Store returnTo before OAuth redirect
+      if (returnTo) {
+        sessionStorage.setItem("auth_returnTo", returnTo);
+      }
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: returnTo || "/",
+        callbackURL: "/auth", // Come back to auth page to handle redirect
       });
     } catch (error) {
       console.error("Sign in error:", error);
