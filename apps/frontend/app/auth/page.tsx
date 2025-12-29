@@ -16,46 +16,37 @@ if (typeof window !== "undefined") {
 
 export default function AuthPage() {
   const [mounted, setMounted] = useState(false);
-  const searchParams = useSearchParams();
-  const returnTo = searchParams.get("returnTo");
+  const _searchParams = useSearchParams(); // Keep for potential future use
 
   useEffect(() => {
     setMounted(true);
-    // Store returnTo URL in sessionStorage for redirect after OAuth
-    if (returnTo) {
-      sessionStorage.setItem("auth_returnTo", returnTo);
-    }
-  }, [returnTo]);
+  }, []);
 
-  // Check for stored returnTo after mount (handles OAuth callback)
+  // Check if we're authenticated and have pending GitHub install cookies
   useEffect(() => {
     if (mounted) {
-      const storedReturnTo = sessionStorage.getItem("auth_returnTo");
-      if (storedReturnTo && !returnTo) {
-        // We have a stored returnTo but no current returnTo param - this is post-OAuth
-        // Check if we're now authenticated by trying to fetch session
-        authClient?.getSession?.().then((session: any) => {
-          if (session?.user) {
-            sessionStorage.removeItem("auth_returnTo");
-            window.location.href = storedReturnTo;
+      authClient?.getSession?.().then((session: any) => {
+        if (session?.user) {
+          // User is authenticated - check for pending GitHub install via cookie
+          // The install endpoint will read the cookies directly
+          // Redirect to install endpoint to complete the flow
+          const hasPendingInstall = document.cookie.includes("github_install_id");
+          if (hasPendingInstall) {
+            window.location.href = "/api/github/install";
           }
-        });
-      }
+        }
+      });
     }
-  }, [mounted, returnTo]);
+  }, [mounted]);
 
   if (!mounted) {
     return null; // Don't render anything on the server
   }
   const handleGithubSignIn = async () => {
     try {
-      // Store returnTo before OAuth redirect
-      if (returnTo) {
-        sessionStorage.setItem("auth_returnTo", returnTo);
-      }
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: "/auth", // Come back to auth page to handle redirect
+        callbackURL: "/auth", // Come back to auth page to check for pending install
       });
     } catch (error) {
       console.error("Sign in error:", error);
