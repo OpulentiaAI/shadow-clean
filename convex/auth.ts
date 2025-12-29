@@ -338,3 +338,61 @@ export const deleteVerification = mutation({
     return { success: true };
   },
 });
+
+export const upsertGithubAccountByExternalId = mutation({
+  args: {
+    betterAuthUserId: v.string(),
+    accountId: v.string(),
+    accessToken: v.optional(v.string()),
+    refreshToken: v.optional(v.string()),
+    accessTokenExpiresAt: v.optional(v.number()),
+    refreshTokenExpiresAt: v.optional(v.number()),
+    scope: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_external_id", (q) => q.eq("externalId", args.betterAuthUserId))
+      .first();
+
+    if (!user) {
+      console.log("[Convex] upsertGithubAccountByExternalId: User not found for externalId:", args.betterAuthUserId);
+      return { success: false, error: "User not found" };
+    }
+
+    const existing = await ctx.db
+      .query("accounts")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", user._id).eq("providerId", "github")
+      )
+      .first();
+
+    const tokenData = {
+      accountId: args.accountId,
+      accessToken: args.accessToken,
+      refreshToken: args.refreshToken,
+      accessTokenExpiresAt: args.accessTokenExpiresAt,
+      refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+      scope: args.scope,
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, tokenData);
+      console.log("[Convex] Updated GitHub account tokens for user:", user._id);
+      return { success: true, accountId: existing._id, updated: true };
+    } else {
+      const accountId = await ctx.db.insert("accounts", {
+        userId: user._id,
+        providerId: "github",
+        ...tokenData,
+        githubAppConnected: false,
+        createdAt: now,
+      });
+      console.log("[Convex] Created GitHub account for user:", user._id);
+      return { success: true, accountId, updated: false };
+    }
+  },
+});

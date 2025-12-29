@@ -1,6 +1,47 @@
 import { prisma } from "@repo/db";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
+
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+const convex = convexUrl ? new ConvexHttpClient(convexUrl) : null;
+
+async function syncGithubAccountToConvex(account: {
+  userId: string;
+  providerId: string;
+  accountId: string;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  accessTokenExpiresAt?: Date | null;
+  refreshTokenExpiresAt?: Date | null;
+  scope?: string | null;
+}) {
+  if (account.providerId !== "github") return;
+  if (!convex) {
+    console.log("[Auth] Convex client not configured, skipping sync");
+    return;
+  }
+
+  try {
+    const result = await convex.mutation(api.auth.upsertGithubAccountByExternalId, {
+      betterAuthUserId: account.userId,
+      accountId: account.accountId,
+      accessToken: account.accessToken ?? undefined,
+      refreshToken: account.refreshToken ?? undefined,
+      accessTokenExpiresAt: account.accessTokenExpiresAt
+        ? account.accessTokenExpiresAt.getTime()
+        : undefined,
+      refreshTokenExpiresAt: account.refreshTokenExpiresAt
+        ? account.refreshTokenExpiresAt.getTime()
+        : undefined,
+      scope: account.scope ?? undefined,
+    });
+    console.log("[Auth] Synced GitHub account to Convex:", result);
+  } catch (err) {
+    console.error("[Auth] Failed syncing GitHub account to Convex:", err);
+  }
+}
 
 // Determine the base URL for OAuth redirects - order of precedence:
 // 1. BETTER_AUTH_URL (explicit override)
@@ -87,6 +128,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
             hasAccessToken: !!account.accessToken,
             hasRefreshToken: !!account.refreshToken,
           });
+          await syncGithubAccountToConvex(account);
         },
       },
       update: {
@@ -106,6 +148,7 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
             hasAccessToken: !!account.accessToken,
             hasRefreshToken: !!account.refreshToken,
           });
+          await syncGithubAccountToConvex(account);
         },
       },
     },
