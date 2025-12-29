@@ -14,6 +14,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.39",
     "@ai-sdk/openai": "2.0.57",
+    "@daytonaio/sdk": "^0.128.1",
     "@monaco-editor/react": "^4.7.0",
     "@next/swc-wasm-nodejs": "^15.4.6",
     "@octokit/auth-app": "^8.0.2",
