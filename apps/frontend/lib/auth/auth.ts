@@ -42,6 +42,15 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       clientId: process.env.GITHUB_CLIENT_ID as string,
       clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
       scope: ["repo", "read:user", "user:email"], // Request full repo access for cloning and pushing
+      // Store access token for API calls
+      accessType: "offline", // Request refresh token
+    },
+  },
+  account: {
+    // Ensure tokens are stored in the account table
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["github"],
     },
   },
   secret: process.env.BETTER_AUTH_SECRET as string,
@@ -50,6 +59,55 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
     redirect: {
       signInRedirect: "/",
       signUpRedirect: "/",
+    },
+  },
+  // Hook to capture and log token storage
+  databaseHooks: {
+    account: {
+      create: {
+        before: async (account) => {
+          console.log("[Auth] Account CREATE before hook - raw data:", {
+            providerId: account.providerId,
+            accountId: account.accountId,
+            hasAccessToken: !!account.accessToken,
+            hasRefreshToken: !!account.refreshToken,
+            accessToken: account.accessToken ? `${account.accessToken.substring(0, 10)}...` : null,
+            refreshToken: account.refreshToken ? `${account.refreshToken.substring(0, 10)}...` : null,
+            accessTokenExpiresAt: account.accessTokenExpiresAt,
+            refreshTokenExpiresAt: account.refreshTokenExpiresAt,
+            scope: account.scope,
+          });
+          // Ensure tokens are preserved
+          return { data: account };
+        },
+        after: async (account) => {
+          console.log("[Auth] Account CREATE after hook:", {
+            id: account.id,
+            providerId: account.providerId,
+            hasAccessToken: !!account.accessToken,
+            hasRefreshToken: !!account.refreshToken,
+          });
+        },
+      },
+      update: {
+        before: async (account) => {
+          console.log("[Auth] Account UPDATE before hook - raw data:", {
+            providerId: account.providerId,
+            hasAccessToken: !!account.accessToken,
+            hasRefreshToken: !!account.refreshToken,
+            accessToken: account.accessToken ? `${account.accessToken.substring(0, 10)}...` : null,
+          });
+          return { data: account };
+        },
+        after: async (account) => {
+          console.log("[Auth] Account UPDATE after hook:", {
+            id: account.id,
+            providerId: account.providerId,
+            hasAccessToken: !!account.accessToken,
+            hasRefreshToken: !!account.refreshToken,
+          });
+        },
+      },
     },
   },
 });
