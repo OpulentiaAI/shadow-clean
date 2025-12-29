@@ -16,28 +16,30 @@ if (typeof window !== "undefined") {
 
 export default function AuthPage() {
   const [mounted, setMounted] = useState(false);
+  const [pendingInstall, setPendingInstall] = useState(false);
+  const [autoTriggered, setAutoTriggered] = useState(false);
   const _searchParams = useSearchParams(); // Keep for potential future use
 
   useEffect(() => {
     setMounted(true);
+    // Check for pending install cookie on mount
+    const hasPendingInstall = document.cookie.includes("github_install_id");
+    setPendingInstall(hasPendingInstall);
   }, []);
 
-  // Check if we're authenticated and have pending GitHub install cookies
+  // Auto-trigger GitHub OAuth if there's a pending install
   useEffect(() => {
-    if (mounted) {
-      authClient?.getSession?.().then((session: any) => {
-        if (session?.user) {
-          // User is authenticated - check for pending GitHub install via cookie
-          // The install endpoint will read the cookies directly
-          // Redirect to install endpoint to complete the flow
-          const hasPendingInstall = document.cookie.includes("github_install_id");
-          if (hasPendingInstall) {
-            window.location.href = "/api/github/install";
-          }
-        }
+    if (mounted && pendingInstall && !autoTriggered) {
+      setAutoTriggered(true);
+      // Auto-trigger GitHub sign-in to link the account
+      authClient?.signIn?.social?.({
+        provider: "github",
+        callbackURL: "/api/github/install", // Go directly to install endpoint after OAuth
+      }).catch((err: Error) => {
+        console.error("Auto sign-in error:", err);
       });
     }
-  }, [mounted]);
+  }, [mounted, pendingInstall, autoTriggered]);
 
   if (!mounted) {
     return null; // Don't render anything on the server
@@ -46,7 +48,7 @@ export default function AuthPage() {
     try {
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: "/auth", // Come back to auth page to check for pending install
+        callbackURL: pendingInstall ? "/api/github/install" : "/",
       });
     } catch (error) {
       console.error("Sign in error:", error);
