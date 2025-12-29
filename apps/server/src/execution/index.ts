@@ -23,12 +23,27 @@ import { isDaytonaEnabled } from "../daytona/config";
 /**
  * Create a tool executor based on the configured agent mode
  * For remote mode, uses dynamic pod discovery to find actual running VMs
+ * Prefers Daytona when enabled (DAYTONA_API_KEY set)
  */
 export async function createToolExecutor(
   taskId: string,
   workspacePath?: string,
   mode?: AgentMode
 ): Promise<ToolExecutor> {
+  // If Daytona is enabled, use Daytona workspace manager to get executor
+  if (isDaytonaEnabled()) {
+    console.log(`[CREATE_TOOL_EXECUTOR] Using Daytona for task ${taskId}`);
+    const daytonaManager = new DaytonaWorkspaceManager();
+    try {
+      return await daytonaManager.getExecutor(taskId);
+    } catch (error) {
+      console.error(`[CREATE_TOOL_EXECUTOR] Daytona executor failed for task ${taskId}:`, error);
+      throw new Error(
+        `Cannot create Daytona executor for task ${taskId}: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
+  }
+
   const agentMode = mode || config.agentMode;
 
   if (agentMode === "local") {
