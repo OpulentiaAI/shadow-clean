@@ -407,7 +407,7 @@ Commit message:`,
           throw err;
         }
       }
-      return { stdout: stdout ?? "", stderr: stderr ?? "" };
+      return { stdout: String(stdout ?? ""), stderr: String(stderr ?? "") };
     } catch (error: unknown) {
       // Log the command and error for debugging
       const errorObj = error as {

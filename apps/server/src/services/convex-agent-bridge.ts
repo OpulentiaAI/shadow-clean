@@ -461,7 +461,7 @@ export class ConvexAgentBridge {
 
       return {
         success: true,
-        threadId: result.threadId,
+        threadId: result.threadId ?? undefined,
         response: result.response,
       };
     } catch (error) {
@@ -519,7 +519,7 @@ export class ConvexAgentBridge {
       return {
         success: true,
         text: result.text,
-        threadId: result.threadId,
+        threadId: result.threadId ?? undefined,
       };
     } catch (error) {
       console.error(`[AGENT_BRIDGE] Generate text error:`, error);

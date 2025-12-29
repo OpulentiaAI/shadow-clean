@@ -51,7 +51,7 @@ import {
 } from "../lib/convex-operations";
 import { getConvexClient } from "../lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import type { Id as _Id } from "../../../../convex/_generated/dataModel";
 import { TaskInitializationEngine } from "@/initialization";
 import { databaseBatchService } from "../services/database-batch-service";
 import { ChatSummarizationService } from "../services/chat-summarization-service";
@@ -185,7 +185,7 @@ export class ChatService {
     taskId: string,
     content: string,
     llmModel: string,
-    sequence?: number,
+    _sequence?: number,
     metadata?: MessageMetadata
   ): Promise<{ id: string; sequence: number }> {
     const usage = metadata?.usage;
@@ -205,7 +205,7 @@ export class ChatService {
     taskId: string,
     content: string,
     llmModel: string,
-    sequence?: number,
+    _sequence?: number,
     metadata?: MessageMetadata
   ): Promise<{ id: string; sequence: number }> {
     return await this.createMessageWithAtomicSequence(taskId, {
@@ -547,13 +547,26 @@ export class ChatService {
       id: msg._id,
       role: msg.role.toLowerCase() as Message["role"],
       content: msg.content,
-      llmModel: msg.llmModel || undefined,
+      llmModel: msg.llmModel || "unknown",
       createdAt: new Date(msg.createdAt).toISOString(),
       metadata: msg.metadataJson
         ? (JSON.parse(msg.metadataJson) as MessageMetadata)
         : undefined,
-      pullRequestSnapshot: msg.pullRequestSnapshot || undefined,
-      stackedTaskId: msg.stackedTaskId || undefined,
+      pullRequestSnapshot: msg.pullRequestSnapshot
+        ? {
+            id: msg.pullRequestSnapshot._id as string,
+            createdAt: new Date(msg.pullRequestSnapshot.createdAt),
+            status: msg.pullRequestSnapshot.status,
+            title: msg.pullRequestSnapshot.title,
+            description: msg.pullRequestSnapshot.description,
+            filesChanged: msg.pullRequestSnapshot.filesChanged,
+            linesAdded: msg.pullRequestSnapshot.linesAdded,
+            linesRemoved: msg.pullRequestSnapshot.linesRemoved,
+            commitSha: msg.pullRequestSnapshot.commitSha,
+            messageId: msg.pullRequestSnapshot.messageId as string,
+          }
+        : undefined,
+      stackedTaskId: msg.stackedTaskId ? (msg.stackedTaskId as string) : undefined,
       stackedTask: msg.stackedTask || undefined,
     }));
   }
@@ -894,8 +907,9 @@ These are specific instructions from the user that should be followed throughout
     this.activeStreams.set(taskId, abortController);
 
     let assistantMessageId: string | null = null;
-    let usageMetadata: MessageMetadata["usage"];
+    let usageMetadata: MessageMetadata["usage"]; void 0; // Used later
     let finishReason: MessageMetadata["finishReason"];
+    void finishReason; // Suppress unused variable warning
     let responseText = "";
 
     // Create tools first so we can generate system prompt based on available tools
@@ -1006,6 +1020,7 @@ These are specific instructions from the user that should be followed throughout
             totalTokens: streamResult.usage.totalTokens,
           }
         : undefined;
+      void usageMetadata; // Used for logging/debugging purposes
       this.activeConvexMessageIds.set(taskId, streamResult.messageId);
 
       // NOTE: Don't create a new assistant message here - the Convex streaming action

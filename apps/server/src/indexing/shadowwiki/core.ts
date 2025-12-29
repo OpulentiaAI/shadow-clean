@@ -22,7 +22,7 @@ import {
 const TEMP = 0.15;
 
 function getHardcodedMiniModel(
-  provider: "anthropic" | "openai" | "openrouter"
+  provider: "anthropic" | "openai" | "openrouter" | "nim"
 ): ModelType {
   switch (provider) {
     case "anthropic":

@@ -24,7 +24,7 @@ export class TaskModelContext {
     return this.apiKeys;
   }
 
-  getProvider(): "anthropic" | "openai" | "openrouter" /* | "ollama" */ {
+  getProvider(): "anthropic" | "openai" | "openrouter" | "nim" {
     return getModelProvider(this.mainModel);
   }
 

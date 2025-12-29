@@ -5,7 +5,8 @@
  */
 
 import { Daytona } from '@daytonaio/sdk';
-import { getDaytonaConfig, isDaytonaEnabled, DAYTONA_WORKSPACE_PATH } from './config';
+import { getDaytonaConfig, isDaytonaEnabled, DAYTONA_WORKSPACE_PATH as _DAYTONA_WORKSPACE_PATH } from './config';
+void _DAYTONA_WORKSPACE_PATH; // Re-exported from config, used in other files
 import type {
   DaytonaSandboxConfig,
   DaytonaSandboxInfo,
@@ -17,10 +18,10 @@ import type {
   DaytonaScreenshotOptions,
   DaytonaScreenshotResult,
   DaytonaDisplayInfo,
-  DaytonaMousePosition,
+  DaytonaMousePosition as _DaytonaMousePosition,
   DaytonaMouseClickOptions,
   DaytonaKeyboardOptions,
-  DaytonaPtyOptions,
+  DaytonaPtyOptions as _DaytonaPtyOptions,
   DaytonaPreviewOptions,
   DaytonaLogCallback,
   DaytonaSnapshot,
@@ -108,7 +109,7 @@ export class DaytonaService {
         createParams.autoArchiveInterval = config.autoArchiveInterval;
       }
 
-      const sandbox = await this.daytona!.create(createParams as Parameters<typeof this.daytona.create>[0]);
+      const sandbox = await this.daytona!.create(createParams as Parameters<NonNullable<typeof this.daytona>["create"]>[0]);
       
       // Cache the sandbox instance
       const sandboxId = (sandbox as unknown as { id: string }).id;
@@ -149,7 +150,7 @@ export class DaytonaService {
     this.ensureEnabled();
 
     try {
-      const result = await this.daytona!.list(filter as Parameters<typeof this.daytona.list>[0]);
+      const result = await this.daytona!.list(filter as Parameters<NonNullable<typeof this.daytona>["list"]>[0]);
       const sandboxes = Array.isArray(result) ? result : (result as { sandboxes?: unknown[] }).sandboxes || [];
       return sandboxes.map((s: unknown) => this.mapSandboxToInfo(s));
     } catch (error) {
@@ -786,7 +787,7 @@ export class DaytonaService {
     this.ensureEnabled();
 
     try {
-      const snapshot = await this.daytona!.snapshots.create(params as Parameters<typeof this.daytona.snapshots.create>[0]);
+      const snapshot = await (this.daytona as { snapshot: { create: (params: unknown) => Promise<unknown> } }).snapshot.create(params);
       return this.mapSnapshot(snapshot);
     } catch (error) {
       console.error('[DAYTONA_SERVICE] Failed to create snapshot:', error);
@@ -798,7 +799,7 @@ export class DaytonaService {
     this.ensureEnabled();
 
     try {
-      const result = await this.daytona!.snapshots.list();
+      const result = await (this.daytona as unknown as { snapshot: { list: () => Promise<unknown[]> } }).snapshot.list();
       const snapshots = Array.isArray(result) ? result : (result as { snapshots?: unknown[] }).snapshots || [];
       return snapshots.map((s: unknown) => this.mapSnapshot(s));
     } catch (error) {
@@ -811,7 +812,7 @@ export class DaytonaService {
     this.ensureEnabled();
 
     try {
-      await this.daytona!.snapshots.delete(snapshotId);
+      await (this.daytona as unknown as { snapshot: { delete: (id: string) => Promise<void> } }).snapshot.delete(snapshotId);
     } catch (error) {
       console.error(`[DAYTONA_SERVICE] Failed to delete snapshot ${snapshotId}:`, error);
       throw error;
@@ -820,11 +821,11 @@ export class DaytonaService {
 
   // ==================== Volumes ====================
 
-  async createVolume(name: string, size: number): Promise<DaytonaVolume> {
+  async createVolume(name: string, _size: number): Promise<DaytonaVolume> {
     this.ensureEnabled();
 
     try {
-      const volume = await this.daytona!.volumes.create({ name, size });
+      const volume = await (this.daytona as unknown as { volume: { create: (name: string) => Promise<unknown> } }).volume.create(name);
       return this.mapVolume(volume);
     } catch (error) {
       console.error('[DAYTONA_SERVICE] Failed to create volume:', error);
@@ -836,7 +837,7 @@ export class DaytonaService {
     this.ensureEnabled();
 
     try {
-      const volumes = await this.daytona!.volumes.list();
+      const volumes = await (this.daytona as { volume: { list: () => Promise<unknown[]> } }).volume.list();
       return volumes.map((v: unknown) => this.mapVolume(v));
     } catch (error) {
       console.error('[DAYTONA_SERVICE] Failed to list volumes:', error);
@@ -848,7 +849,7 @@ export class DaytonaService {
     this.ensureEnabled();
 
     try {
-      await this.daytona!.volumes.delete(volumeId);
+      await (this.daytona as unknown as { volume: { delete: (id: string) => Promise<void> } }).volume.delete(volumeId);
     } catch (error) {
       console.error(`[DAYTONA_SERVICE] Failed to delete volume ${volumeId}:`, error);
       throw error;

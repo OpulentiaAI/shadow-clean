@@ -36,7 +36,8 @@ const app = express();
 export const chatService = new ChatService();
 const initializationEngine = new TaskInitializationEngine();
 
-async function ensureConvexTask(taskId: string) {
+// Helper function for task validation - exported for potential future use
+export async function ensureConvexTask(taskId: string) {
   try {
     const existing = await getTaskWithDetails(toConvexId<"tasks">(taskId));
     if (existing?.task) {
