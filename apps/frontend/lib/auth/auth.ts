@@ -73,15 +73,28 @@ if (process.env.NODE_ENV === "development") {
   console.log("[Auth] Resolved baseURL:", baseURL);
 }
 
+// Debug: Log OAuth credentials at startup (redacted)
+const githubClientId = process.env.GITHUB_CLIENT_ID?.trim();
+const githubClientSecret = process.env.GITHUB_CLIENT_SECRET?.trim();
+console.log("[Auth] GitHub OAuth config:", {
+  clientId: githubClientId ? `${githubClientId.substring(0, 8)}...` : "MISSING",
+  clientSecretLength: githubClientSecret?.length ?? 0,
+  clientSecretHasNewline: githubClientSecret?.includes("\n") ?? false,
+  baseURL,
+});
+
 export const auth: ReturnType<typeof betterAuth> = betterAuth({
   baseURL, // Explicitly set the base URL for OAuth redirects
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
+  logger: {
+    level: "debug",
+  },
   socialProviders: {
     github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      clientId: githubClientId as string,
+      clientSecret: githubClientSecret as string,
       scope: ["repo", "read:user", "user:email"], // Request full repo access for cloning and pushing
       // Store access token for API calls
       accessType: "offline", // Request refresh token
