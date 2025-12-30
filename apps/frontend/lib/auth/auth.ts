@@ -98,6 +98,65 @@ export const auth: ReturnType<typeof betterAuth> = betterAuth({
       scope: ["repo", "read:user", "user:email"], // Request full repo access for cloning and pushing
       // Store access token for API calls
       accessType: "offline", // Request refresh token
+      // Custom getUserInfo to debug the actual error
+      getUserInfo: async (token) => {
+        console.log("[Auth] getUserInfo called with token type:", typeof token.accessToken);
+        console.log("[Auth] Token length:", token.accessToken?.length);
+        
+        try {
+          const userRes = await fetch("https://api.github.com/user", {
+            headers: {
+              "Authorization": `Bearer ${token.accessToken}`,
+              "Accept": "application/json",
+              "User-Agent": "OpulentCode",
+            },
+          });
+          
+          console.log("[Auth] GitHub user API status:", userRes.status);
+          
+          if (!userRes.ok) {
+            const errorText = await userRes.text();
+            console.error("[Auth] GitHub user API error:", errorText);
+            return null;
+          }
+          
+          const profile = await userRes.json();
+          console.log("[Auth] GitHub user fetched:", profile.login, profile.id);
+          
+          // Fetch emails
+          const emailsRes = await fetch("https://api.github.com/user/emails", {
+            headers: {
+              "Authorization": `Bearer ${token.accessToken}`,
+              "Accept": "application/json", 
+              "User-Agent": "OpulentCode",
+            },
+          });
+          
+          let emails: { email: string; primary: boolean; verified: boolean }[] = [];
+          if (emailsRes.ok) {
+            emails = await emailsRes.json();
+          } else {
+            console.error("[Auth] GitHub emails API error:", await emailsRes.text());
+          }
+          
+          const primaryEmail = emails.find((e) => e.primary)?.email ?? emails[0]?.email ?? profile.email;
+          const emailVerified = emails.find((e) => e.email === primaryEmail)?.verified ?? false;
+          
+          return {
+            user: {
+              id: String(profile.id),
+              name: profile.name || profile.login,
+              email: primaryEmail,
+              image: profile.avatar_url,
+              emailVerified,
+            },
+            data: profile,
+          };
+        } catch (error) {
+          console.error("[Auth] getUserInfo error:", error);
+          return null;
+        }
+      },
     },
   },
   account: {
