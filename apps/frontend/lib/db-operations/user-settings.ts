@@ -1,4 +1,6 @@
-import { prisma } from "@repo/db";
+import { fetchQuery, fetchMutation } from "convex/nextjs";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 export interface UserSettings {
   id: string;
@@ -13,40 +15,44 @@ export interface UserSettings {
   updatedAt: Date;
 }
 
+function mapConvexSettings(settings: {
+  _id: Id<"userSettings"> | null;
+  userId: Id<"users">;
+  autoPullRequest: boolean;
+  enableShadowWiki: boolean;
+  memoriesEnabled: boolean;
+  selectedModels: string[];
+  enableIndexing: boolean;
+  rules?: string;
+  createdAt: number;
+  updatedAt: number;
+}): UserSettings {
+  return {
+    id: settings._id ?? "temp",
+    userId: settings.userId,
+    autoPullRequest: settings.autoPullRequest,
+    enableShadowWiki: settings.enableShadowWiki,
+    memoriesEnabled: settings.memoriesEnabled,
+    selectedModels: settings.selectedModels,
+    enableIndexing: settings.enableIndexing,
+    rules: settings.rules,
+    createdAt: new Date(settings.createdAt),
+    updatedAt: new Date(settings.updatedAt),
+  };
+}
+
 export async function getUserSettings(
   userId: string
 ): Promise<UserSettings | null> {
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId },
-  });
-
-  return settings;
-}
-
-export async function createUserSettings(
-  userId: string,
-  settings: {
-    autoPullRequest: boolean;
-    enableShadowWiki?: boolean;
-    memoriesEnabled?: boolean;
-    selectedModels?: string[];
-    enableIndexing?: boolean;
-    rules?: string;
+  try {
+    const convexUserId = userId as Id<"users">;
+    const settings = await fetchQuery(api.userSettings.get, { userId: convexUserId });
+    if (!settings) return null;
+    return mapConvexSettings(settings);
+  } catch (error) {
+    console.error("[getUserSettings] Error:", error);
+    return null;
   }
-): Promise<UserSettings> {
-  const result = await prisma.userSettings.create({
-    data: {
-      userId,
-      autoPullRequest: settings.autoPullRequest,
-      enableShadowWiki: settings.enableShadowWiki ?? true,
-      memoriesEnabled: settings.memoriesEnabled ?? true,
-      selectedModels: settings.selectedModels ?? [],
-      enableIndexing: settings.enableIndexing ?? false,
-      rules: settings.rules,
-    },
-  });
-
-  return result;
 }
 
 export async function updateUserSettings(
@@ -61,78 +67,20 @@ export async function updateUserSettings(
   }
 ): Promise<UserSettings> {
   try {
-    const updateData: {
-      autoPullRequest?: boolean;
-      enableShadowWiki?: boolean;
-      memoriesEnabled?: boolean;
-      selectedModels?: string[];
-      enableIndexing?: boolean;
-      rules?: string;
-    } = {};
-
-    if (settings.autoPullRequest !== undefined)
-      updateData.autoPullRequest = settings.autoPullRequest;
-    if (settings.enableShadowWiki !== undefined)
-      updateData.enableShadowWiki = settings.enableShadowWiki;
-    if (settings.memoriesEnabled !== undefined)
-      updateData.memoriesEnabled = settings.memoriesEnabled;
-    if (settings.selectedModels !== undefined)
-      updateData.selectedModels = settings.selectedModels;
-    if (settings.enableIndexing !== undefined)
-      updateData.enableIndexing = settings.enableIndexing;
-    if (settings.rules !== undefined)
-      updateData.rules = settings.rules;
-
-    // Build create data object with only non-default values
-    const createData: {
-      userId: string;
-      autoPullRequest?: boolean;
-      enableShadowWiki?: boolean;
-      memoriesEnabled?: boolean;
-      selectedModels?: string[];
-      enableIndexing?: boolean;
-      rules?: string;
-    } = {
-      userId,
-    };
-
-    if (
-      settings.autoPullRequest !== undefined &&
-      settings.autoPullRequest !== false
-    )
-      createData.autoPullRequest = settings.autoPullRequest;
-    if (
-      settings.enableShadowWiki !== undefined &&
-      settings.enableShadowWiki !== true
-    )
-      createData.enableShadowWiki = settings.enableShadowWiki;
-    if (
-      settings.memoriesEnabled !== undefined &&
-      settings.memoriesEnabled !== true
-    )
-      createData.memoriesEnabled = settings.memoriesEnabled;
-    if (
-      settings.selectedModels !== undefined &&
-      settings.selectedModels.length > 0
-    )
-      createData.selectedModels = settings.selectedModels;
-    if (
-      settings.enableIndexing !== undefined &&
-      settings.enableIndexing !== false
-    )
-      createData.enableIndexing = settings.enableIndexing;
-    if (settings.rules !== undefined)
-      createData.rules = settings.rules;
-
-    const result = await prisma.userSettings.upsert({
-      where: { userId },
-      update: updateData,
-      create: createData,
+    const convexUserId = userId as Id<"users">;
+    await fetchMutation(api.userSettings.update, {
+      userId: convexUserId,
+      ...settings,
     });
-
-    return result;
+    
+    // Fetch updated settings
+    const updated = await fetchQuery(api.userSettings.get, { userId: convexUserId });
+    if (!updated) {
+      throw new Error("Settings not found after update");
+    }
+    return mapConvexSettings(updated);
   } catch (error) {
-    console.error("Error in updateUserSettings:", error);
+    console.error("[updateUserSettings] Error:", error);
     throw error;
   }
 }
@@ -140,17 +88,12 @@ export async function updateUserSettings(
 export async function getOrCreateUserSettings(
   userId: string
 ): Promise<UserSettings> {
-  let settings = await getUserSettings(userId);
-
-  if (!settings) {
-    settings = await createUserSettings(userId, {
-      autoPullRequest: false,
-      enableShadowWiki: false,
-      memoriesEnabled: true,
-      selectedModels: [],
-      enableIndexing: false,
-    });
+  try {
+    const convexUserId = userId as Id<"users">;
+    const settings = await fetchQuery(api.userSettings.getOrCreate, { userId: convexUserId });
+    return mapConvexSettings(settings);
+  } catch (error) {
+    console.error("[getOrCreateUserSettings] Error:", error);
+    throw error;
   }
-
-  return settings;
 }

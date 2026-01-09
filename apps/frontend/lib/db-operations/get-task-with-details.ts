@@ -1,6 +1,5 @@
 import type { Task, Todo } from "@repo/db";
 import { getConvexClient, api } from "../convex/client";
-import { makeBackendRequest } from "../make-backend-request";
 
 export interface FileChange {
   filePath: string;
@@ -23,28 +22,37 @@ export interface TaskWithDetails {
   diffStats: DiffStats;
 }
 
+/**
+ * Fetch file changes from Convex (no backend dependency)
+ */
 async function fetchFileChanges(
   taskId: string
 ): Promise<{ fileChanges: FileChange[]; diffStats: DiffStats }> {
   try {
-    const response = await makeBackendRequest(
-      `/api/tasks/${taskId}/file-changes`
-    );
-    if (!response.ok) {
-      console.warn(
-        `Failed to fetch file changes for task ${taskId}: ${response.status}`
-      );
-      return {
-        fileChanges: [],
-        diffStats: { additions: 0, deletions: 0, totalFiles: 0 },
-      };
-    }
-    const data = await response.json();
+    const client = getConvexClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const convexTaskId = taskId as any;
+    
+    const changes = await client.query(api.fileChanges.byTask, {
+      taskId: convexTaskId,
+    });
 
-    return {
-      fileChanges: data.fileChanges,
-      diffStats: data.diffStats,
+    const fileChanges: FileChange[] = changes.map((c: { filePath: string; operation: string; additions: number; deletions: number; createdAt: number }) => ({
+      filePath: c.filePath,
+      operation: c.operation as FileChange["operation"],
+      additions: c.additions,
+      deletions: c.deletions,
+      createdAt: new Date(c.createdAt).toISOString(),
+    }));
+
+    // Calculate diff stats
+    const diffStats: DiffStats = {
+      additions: fileChanges.reduce((sum, f) => sum + f.additions, 0),
+      deletions: fileChanges.reduce((sum, f) => sum + f.deletions, 0),
+      totalFiles: new Set(fileChanges.map((f) => f.filePath)).size,
     };
+
+    return { fileChanges, diffStats };
   } catch (error) {
     console.error(`Error fetching file changes for task ${taskId}:`, error);
     return {

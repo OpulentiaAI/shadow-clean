@@ -1,0 +1,23 @@
+{
+  "buildCommand": "npx turbo build --filter=frontend",
+  "outputDirectory": "apps/frontend/.next",
+  "framework": "nextjs",
+  "installCommand": "npm ci",
+  "functions": {
+    "apps/frontend/app/api/auth/[...auth]/route.ts": {
+      "maxDuration": 30
+    },
+    "apps/frontend/app/api/auth/route.ts": {
+      "maxDuration": 30
+    },
+    "apps/frontend/app/api/tasks/[taskId]/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    }
+  ]
+}

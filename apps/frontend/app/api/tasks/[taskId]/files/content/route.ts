@@ -1,6 +1,10 @@
-import { NextResponse, NextRequest } from "next/server";
-import { makeBackendRequest } from "@/lib/make-backend-request";
+import { NextResponse, type NextRequest } from "next/server";
 import { verifyTaskOwnership } from "@/lib/auth/verify-task-ownership";
+import { getConvexClient, api } from "@/lib/convex/client";
+import { getGitHubFileContent } from "@/lib/github/github-api";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
@@ -9,59 +13,92 @@ export async function GET(
   const { taskId } = await params;
 
   const { searchParams } = new URL(request.url);
-  const filePath = searchParams.get("path");
+  const rawFilePath = searchParams.get("path");
 
-  if (!filePath) {
+  if (!rawFilePath) {
     return NextResponse.json(
       { success: false, error: "File path is required" },
       { status: 400 }
     );
   }
 
+  // Normalize path: remove leading slash and ./ prefix
+  const filePath = rawFilePath.replace(/^\/+/, "").replace(/^\.\//, "");
+
   try {
-    const { error } = await verifyTaskOwnership(taskId);
+    const { error, user } = await verifyTaskOwnership(taskId);
     if (error) return error;
 
-    // Proxy request to backend server
-    const params = new URLSearchParams({ path: filePath });
-    const response = await makeBackendRequest(
-      `/api/tasks/${taskId}/files/content?${params}`
-    );
+    const convex = getConvexClient();
+    const task = await convex.query(api.tasks.get, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      taskId: taskId as any,
+    });
 
-    if (!response.ok) {
-      const data = await response.json();
-      
-      // Handle file not found errors more gracefully
-      if (response.status === 404 && data.errorType === "FILE_NOT_FOUND") {
-        return NextResponse.json(
-          {
-            success: false,
-            error: data.error,
-            errorType: "FILE_NOT_FOUND",
-          },
-          { status: 404 }
-        );
-      }
-      
-      console.error(
-        "[BACKEND_FILE_CONTENT_ERROR]",
-        response.status,
-        response.statusText,
-        data.error
-      );
-      return NextResponse.json(
-        {
-          success: false,
-          error: data.error || "Failed to fetch file content from backend",
-        },
-        { status: 500 }
-      );
+    // Try to get content from Convex first
+    const result = await convex.query((api as any).files.getContent, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      taskId: taskId as any,
+      path: filePath,
+    });
+
+    // If Convex has content, return it
+    if (result?.success && result.content) {
+      return NextResponse.json(result);
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
+    // For scratchpad default README
+    if (task?.isScratchpad && filePath === "README.md") {
+      const defaultReadme =
+        "# Scratchpad\n\nThis scratchpad starts with a default README.\n";
+      return NextResponse.json({
+        success: true,
+        content: defaultReadme,
+        path: filePath,
+        size: defaultReadme.length,
+        truncated: false,
+      });
+    }
+
+    // For non-scratchpad tasks, fetch content from GitHub on-demand
+    if (!task?.isScratchpad && task?.repoFullName && task?.baseBranch && user?.id) {
+      console.log(`[FILE_CONTENT] Fetching from GitHub: ${task.repoFullName}/${task.baseBranch}/${filePath}`);
+      
+      const githubResult = await getGitHubFileContent(
+        task.repoFullName,
+        task.baseBranch,
+        filePath,
+        user.id
+      );
+
+      if (githubResult.success && githubResult.content) {
+        return NextResponse.json({
+          success: true,
+          content: githubResult.content,
+          path: filePath,
+          size: githubResult.content.length,
+          truncated: false,
+        });
+      }
+
+      // GitHub fetch failed
+      console.log(`[FILE_CONTENT] GitHub fetch failed: ${githubResult.error}`);
+    }
+
+    if (result?.errorType === "FILE_NOT_FOUND") {
+      return NextResponse.json(result, { status: 404 });
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: result?.error || "Failed to fetch file content",
+        errorType: result?.errorType || "UNKNOWN",
+      },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("[FILE_CONTENT_PROXY_ERROR]", error);
+    console.error("[FILE_CONTENT_ERROR]", error);
     return NextResponse.json(
       {
         success: false,

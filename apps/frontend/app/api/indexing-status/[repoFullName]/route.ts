@@ -1,9 +1,12 @@
 import { getUser } from "@/lib/auth/get-user";
-import { makeBackendRequest } from "@/lib/make-backend-request";
-import { NextRequest, NextResponse } from "next/server";
+import { getConvexClient, api } from "@/lib/convex/client";
+import { type NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ repoFullName: string }> }
 ) {
   try {
@@ -15,26 +18,35 @@ export async function GET(
     const { repoFullName } = await params;
     const decodedRepoFullName = decodeURIComponent(repoFullName);
 
-    const response = await makeBackendRequest(
-      `/api/indexing-status/${encodeURIComponent(decodedRepoFullName)}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+    // Use Convex query for indexing status (no backend dependency)
+    try {
+      const convex = getConvexClient();
+      const result = await convex.query(api.repositoryIndex.get, {
+        repoFullName: decodedRepoFullName,
+      });
+
+      if (!result) {
+        return NextResponse.json({
+          indexed: false,
+          repoFullName: decodedRepoFullName,
+          message: "Repository not indexed",
+        });
       }
-    );
 
-    if (!response.ok) {
-      console.error(`Backend indexing status API error: ${response.status}`);
-      return NextResponse.json(
-        { error: "Failed to fetch indexing status" },
-        { status: response.status }
-      );
+      return NextResponse.json({
+        indexed: true,
+        repoFullName: decodedRepoFullName,
+        lastIndexedAt: result.lastIndexedAt,
+        lastCommitSha: result.lastCommitSha,
+      });
+    } catch (convexError) {
+      console.error("Convex indexing status query failed:", convexError);
+      return NextResponse.json({
+        indexed: false,
+        repoFullName: decodedRepoFullName,
+        error: "Failed to query indexing status",
+      });
     }
-
-    const data = await response.json();
-    return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching indexing status:", error);
     return NextResponse.json(

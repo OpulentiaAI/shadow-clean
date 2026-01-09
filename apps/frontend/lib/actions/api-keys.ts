@@ -12,9 +12,8 @@ import {
   ModelInfos,
   ModelType,
 } from "@repo/types";
-import { ValidationResult } from "@/lib/types/validation";
-import { auth } from "@/lib/auth/auth";
-import { getUserSettings } from "@/lib/db-operations/user-settings";
+import type { ValidationResult } from "@/lib/types/validation";
+import { isAuthenticated } from "@/lib/auth/auth-server";
 
 export type { ApiKeyProvider };
 
@@ -47,22 +46,13 @@ export async function getModels(): Promise<ModelInfo[]> {
   const apiKeys = await getApiKeys();
 
   try {
-    // Try to get user settings
-    const authHeaders = await import("next/headers").then((m) => m.headers());
-    const session = await auth.api.getSession({ headers: authHeaders });
+    // Try to get user settings if authenticated
+    const authenticated = await isAuthenticated();
 
-    if (session?.user?.id) {
-      const userSettings = await getUserSettings(session.user.id);
-      const selectedModels =
-        (userSettings?.selectedModels as ModelType[]) || [];
-
-      // If user has selected models, use them; otherwise use defaults
-      const models =
-        selectedModels.length > 0
-          ? await getAvailableModels(apiKeys, selectedModels)
-          : await getAvailableModels(apiKeys); // Fallback to all available models
-
-      return models.map((modelId) => ModelInfos[modelId]);
+    if (authenticated) {
+      // For now, use default models since user ID is managed by Convex
+      const availableModels = await getAvailableModels(apiKeys);
+      return availableModels.map((modelId) => ModelInfos[modelId]);
     }
   } catch (_error) {
     // Could not fetch user settings, fall back to all models

@@ -63,3 +63,245 @@ Services:
 ## Background jobs
 
 - `convex/crons.ts` runs `cleanupStalePresence` every 2 minutes (30s heartbeats) to purge stale rows when tabs disconnect unexpectedly.
+
+## Convex CLI Testing Patterns
+
+### Environment Setup
+
+```bash
+export CONVEX_DEPLOY_KEY="prod:veracious-alligator-638|<your-key>"
+```
+
+### Create/Delete Test Scratchpad Task
+
+```bash
+# Create scratchpad task (isScratchpad: true)
+npx convex run api/testHelpers.js:createTestTask '{"name":"Test Task"}'
+# Returns: {"taskId":"k57...","name":"Test Task"}
+
+# Delete test task
+npx convex run api/testHelpers.js:deleteTestTask '{"taskId":"<taskId>"}'
+```
+
+### Individual Tool Tests (Convex-Native for Scratchpad)
+
+```bash
+# list_dir - List files in scratchpad
+npx convex run files.js:getTree '{"taskId":"<taskId>"}'
+
+# edit_file / storeVirtualFile - Create/update file
+npx convex run files.js:storeVirtualFile '{"taskId":"<taskId>","path":"app.py","content":"print(\"hello\")","isDirectory":false}'
+
+# read_file / getContent - Read file
+npx convex run files.js:getContent '{"taskId":"<taskId>","path":"app.py"}'
+
+# grep_search support - Get all files with content
+npx convex run files.js:getAllVirtualFiles '{"taskId":"<taskId>"}'
+
+# delete_file - Delete file
+npx convex run files.js:deleteVirtualFile '{"taskId":"<taskId>","path":"app.py"}'
+```
+
+### Multistep Agent Test (Full Streaming with Tools)
+
+```bash
+# Get OpenRouter API key from Convex env
+npx convex env list | grep OPENROUTER
+
+# Run streaming agent with tools
+npx convex run streaming.js:streamChatWithTools '{
+  "taskId":"<taskId>",
+  "prompt":"List all files, read app.py, then create README.md describing it.",
+  "model":"openai/gpt-4o-mini",
+  "apiKeys":{"openrouter":"<OPENROUTER_API_KEY>"},
+  "clientMessageId":"test-001"
+}'
+```
+
+### Expected Log Output for Scratchpad Tools
+
+```
+[STREAMING] [v7] Scratchpad task - using Convex-native tool execution for list_dir
+[LIST_DIR] Scratchpad task - using Convex virtualFiles
+[STREAMING] [v7] Scratchpad task - using Convex-native tool execution for read_file
+[READ_FILE] Scratchpad task - using Convex virtualFiles
+```
+
+### Scratchpad Tool Implementation Status
+
+| Tool | Convex-Native | Notes |
+|------|---------------|-------|
+| `list_dir` | ✅ | Uses `files.getTree` |
+| `read_file` | ✅ | Uses `files.getContent` |
+| `edit_file` | ✅ | Uses `files.storeVirtualFile` |
+| `search_replace` | ✅ | Read → replace → write virtualFiles |
+| `grep_search` | ✅ | Searches `files.getAllVirtualFiles` content |
+| `file_search` | ✅ | Searches virtualFiles paths |
+| `delete_file` | ✅ | Uses `files.deleteVirtualFile` |
+| `run_terminal_cmd` | ❌ | Returns graceful error (no terminal in scratchpad) |
+| `semantic_search` | ❌ | Returns graceful error with grep_search suggestion |
+| `warp_grep` | ❌ | Returns graceful error with grep_search suggestion |
+
+## Production Test Configs (Frontend Shape Verification)
+
+**CRITICAL**: Tool results must match frontend component expected shapes. Always verify after changes.
+
+### Frontend Expected Data Shapes
+
+```typescript
+// list-dir.tsx expects:
+{ success: boolean; contents: Array<{ name: string; isDirectory: boolean }> }
+
+// read-file.tsx expects:
+{ success: boolean; content: string; path: string }
+
+// edit-file.tsx expects:
+{ success: boolean; message: string; path: string }
+
+// grep-search.tsx expects:
+{ success: boolean; matches: Array<{ file: string; line: number; content: string }> }
+
+// file-search.tsx expects:
+{ success: boolean; files: Array<{ path: string; name: string }> }
+```
+
+### Shape Verification Test
+
+```bash
+# After ANY tool result changes, run this verification:
+export CONVEX_DEPLOY_KEY="prod:veracious-alligator-638|<key>"
+
+# 1. Create test task
+TASK=$(npx convex run api/testHelpers.js:createTestTask '{"name":"Shape Test"}' | jq -r '.taskId')
+
+# 2. Create test file
+npx convex run files.js:storeVirtualFile "{\"taskId\":\"$TASK\",\"path\":\"test.py\",\"content\":\"x=1\",\"isDirectory\":false}"
+
+# 3. Verify list_dir shape (MUST have contents + isDirectory)
+npx convex run streaming.js:streamChatWithTools "{\"taskId\":\"$TASK\",\"prompt\":\"List files\",\"model\":\"openai/gpt-4o-mini\",\"apiKeys\":{\"openrouter\":\"$OPENROUTER_API_KEY\"},\"clientMessageId\":\"test\"}" 2>&1 | grep "Tool result" | grep -q '"contents".*"isDirectory"' && echo "✅ list_dir shape OK" || echo "❌ list_dir shape BROKEN"
+
+# 4. Cleanup
+npx convex run api/testHelpers.js:deleteTestTask "{\"taskId\":\"$TASK\"}"
+```
+
+### Common Shape Bugs
+
+| Bug | Symptom | Fix |
+|-----|---------|-----|
+| `entries` vs `contents` | "Error listing files" in UI | Return `contents` not `entries` |
+| `type` vs `isDirectory` | Files show wrong icons | Return `isDirectory: boolean` not `type: string` |
+| Missing `success` field | Tool shows as failed | Always include `success: true/false` |
+
+## Message Duplication Prevention
+
+**CRITICAL**: Follow these patterns to prevent duplicate messages in chat.
+
+### Root Causes
+1. **Prompt appears twice in the LLM context**
+   - Prompt saved to DB via `appendMessage` / `savePromptMessage`
+   - `fetchConversationContext` loads that prompt again
+   - Prompt is also appended to the LLM `messages` array as the current user message
+   - Result: model "sees" the prompt twice → confusing/duplicative behavior
+2. **Retry-safe prompt, non-idempotent assistant**
+   - `savePromptMessage` is idempotent via `clientMessageId`
+   - If the action is retried with the same `clientMessageId`, the prompt is reused
+   - Without an idempotent "get or create assistant" step, retries can create multiple assistant messages for the same prompt
+
+### Prevention Pattern
+
+```typescript
+// Task Creation (create-task.ts)
+const clientMessageId = crypto.randomUUID();
+const { messageId: promptMessageId } = await appendMessage({ taskId, role: "USER", clientMessageId, ... });
+await streamChatWithTools({ taskId, prompt, promptMessageId, clientMessageId }); // Prevent duplicates + allow retries
+
+// streamChatWithTools (streaming.ts)
+// Excludes promptMessageId from conversation history
+const history = await fetchConversationContext(ctx, taskId, messageId, promptMessageId);
+
+// BP012: assistant message creation must be idempotent for retries
+const assistant = await ctx.runMutation(api.messages.getOrCreateAssistantForPrompt, { taskId, promptMessageId });
+```
+
+### Follow-up Message Flow
+- Frontend calls `startStreamWithTools` with `clientMessageId` (UUID for idempotency)
+- `streamChatWithTools` creates prompt via `savePromptMessage` (has idempotency check)
+- `streamChatWithTools` uses `getOrCreateAssistantForPrompt` to avoid duplicate assistant messages on retry
+
+### Task Status (Avoid "Stuck Generating")
+Streaming actions set `tasks.status` as the UI's coarse "generating" signal:
+- Stream start: `RUNNING`
+- Stream completion: `STOPPED` (allows follow-ups + restores correct keyboard shortcuts)
+
+**Do not** set `tasks.status = RUNNING` after streaming completes (it makes follow-ups behave like a stream is still active).
+
+### Production E2E (Idempotency + STOPPED)
+`npm run e2e:prod-agent` now verifies (by default):
+- `E2E_VERIFY_IDEMPOTENCY` (same `clientMessageId` reuses the same assistant message)
+- `E2E_VERIFY_TASK_STOPPED` (task ends in `STOPPED`)
+
+## Authentication (Convex Better Auth)
+
+Authentication was migrated from Prisma/PostgreSQL (Railway) to Convex-native using `@convex-dev/better-auth`.
+
+### Architecture
+
+- **Better Auth Component**: Uses `@convex-dev/better-auth` package with Convex adapter
+- **Two User Tables**: Better Auth stores users in `user` (singular) table; app uses `users` (plural) table for tasks/settings
+- **User ID Mapping**: `getUser()` and `createTask()` both call `api.auth.upsertUser` with `externalId: authUser._id` to map Better Auth users to our `users` table
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `convex/convex.config.ts` | Registers `betterAuth` component |
+| `convex/auth.config.ts` | Auth config with `getAuthConfigProvider()` |
+| `convex/auth.ts` | `createAuth()`, `authComponent`, `getCurrentUser` query, `upsertUser` mutation |
+| `convex/http.ts` | Registers Better Auth routes via `authComponent.registerRoutes()` |
+| `apps/frontend/lib/auth/auth-server.ts` | `convexBetterAuthNextJs` exports: `fetchAuthQuery`, `fetchAuthMutation`, `isAuthenticated`, `getToken` |
+| `apps/frontend/lib/auth/auth-client.ts` | Client auth with `convexClient()` plugin |
+| `apps/frontend/lib/auth/get-user.ts` | Gets Better Auth user → upserts to `users` table → returns `users` table ID |
+
+### Convex Environment Variables
+
+```bash
+SITE_URL=https://code.opulentia.ai
+GITHUB_CLIENT_ID=<github-oauth-client-id>
+GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
+BETTER_AUTH_SECRET=<random-secret>
+```
+
+### Frontend Environment Variables (Vercel)
+
+```bash
+NEXT_PUBLIC_CONVEX_URL=https://veracious-alligator-638.convex.cloud
+NEXT_PUBLIC_CONVEX_SITE_URL=https://veracious-alligator-638.convex.site
+```
+
+### Prisma → Convex Migration Status
+
+| Operation | Old (Prisma) | New (Convex) |
+|-----------|--------------|--------------|
+| Get user | `auth.api.getSession` | `fetchAuthQuery(api.auth.getCurrentUser)` → `upsertUser` |
+| User settings | `prisma.userSettings.*` | `api.userSettings.get/update/getOrCreate` |
+| GitHub account | `prisma.account.findFirst` | `api.auth.getGitHubAccount` |
+| Task ownership | `db.task.findUnique` | `api.tasks.get` (Convex only) |
+| Create task user | hardcoded ID | `fetchAuthQuery(api.auth.getCurrentUser)` → `upsertUser` |
+
+### Critical Pattern: User ID Consistency
+
+Both `getUser()` and `createTask()` must use the same user ID source:
+
+```typescript
+// In both files:
+const authUser = await fetchAuthQuery(api.auth.getCurrentUser, {});
+const usersTableId = await fetchAuthMutation(api.auth.upsertUser, {
+  externalId: authUser._id,  // Better Auth user ID
+  name: authUser.name,
+  email: authUser.email,
+  ...
+});
+// usersTableId is Id<"users"> - use this for tasks, settings, etc.
+```
+
+This ensures task ownership verification works (task.userId matches getUser().id).

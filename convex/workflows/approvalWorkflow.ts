@@ -40,7 +40,7 @@ export const durableAgentWithApproval: any = workflowManager.define({
       anthropic: v.optional(v.string()),
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
-    }),
+    }) as any,
     requireApproval: v.optional(v.boolean()),
   },
   handler: async (step, args) => {

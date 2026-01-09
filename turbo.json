@@ -1,12 +1,14 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "ui": "tui",
-  "globalEnv": ["NODE_ENV", "DATABASE_URL", "DIRECT_URL"],
+  "globalEnv": ["NODE_ENV", "DATABASE_URL", "DIRECT_URL", "CONVEX_DEPLOY_KEY"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
       "env": [
         "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "SHADOW_API_KEY",
         "GITHUB_CLIENT_ID",
         "GITHUB_CLIENT_SECRET",
         "GITHUB_WEBHOOK_SECRET",
@@ -48,6 +50,8 @@
       "persistent": true,
       "env": [
         "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "SHADOW_API_KEY",
         "GITHUB_PERSONAL_ACCESS_TOKEN",
         "GITHUB_TOKEN", 
         "GITHUB_CLIENT_ID",

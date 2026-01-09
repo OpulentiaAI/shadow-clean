@@ -1,6 +1,5 @@
 import { getUser } from "@/lib/auth/get-user";
 import { getConvexClient, api } from "@/lib/convex/client";
-import { db } from "@repo/db";
 import { NextResponse } from "next/server";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -56,52 +55,16 @@ export async function verifyTaskOwnership(taskId: string) {
     };
   }
 
-  // Try Prisma first (legacy tasks)
-  const task = await db.task.findUnique({
-    where: { id: taskId },
-    select: { userId: true },
-  });
-
-  if (task) {
-    if (task.userId !== user.id) {
-      return {
-        error: NextResponse.json(
-          { success: false, error: "Forbidden" },
-          { status: 403 }
-        ),
-        user: null,
-      };
-    }
-    return { error: null, user };
-  }
-
-  // Fallback: check Convex tasks (Convex IDs are not in Prisma)
+  // Check Convex for task ownership (Prisma/Railway DB is deprecated)
   try {
     const client = getConvexClient();
-
-    // Log Convex URL for debugging production issues
-    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-    console.log(
-      `[verifyTaskOwnership] Checking task ${taskId} in Convex (URL: ${convexUrl?.substring(0, 50)}...)`
-    );
-
-    const convexUser = await client.query(api.auth.getUserByExternalId, {
-      externalId: user.id,
-    });
-
-    if (!convexUser) {
-      console.warn(
-        `[verifyTaskOwnership] Convex user not found for externalId: ${user.id}`
-      );
-    }
 
     // Use retry logic to handle potential race conditions with task creation
     const convexTask = await getConvexTaskWithRetry(client, taskId);
 
     if (!convexTask) {
       console.error(
-        `[verifyTaskOwnership] Task ${taskId} not found in Convex after retries. ` +
-          `User externalId: ${user.id}, Convex user found: ${!!convexUser}`
+        `[verifyTaskOwnership] Task ${taskId} not found in Convex after retries.`
       );
       return {
         error: NextResponse.json(
@@ -112,14 +75,14 @@ export async function verifyTaskOwnership(taskId: string) {
       };
     }
 
-    // Verify ownership
+    // Verify ownership - user.id is now the Convex users table ID
     const taskUserId = (convexTask.userId ?? "").toString();
-    const convexUserId = convexUser?._id?.toString() ?? "";
+    const currentUserId = user.id;
 
-    if (!convexUser || taskUserId !== convexUserId) {
+    if (taskUserId !== currentUserId) {
       console.warn(
         `[verifyTaskOwnership] Ownership mismatch for task ${taskId}. ` +
-          `Task userId: ${taskUserId}, Convex userId: ${convexUserId}`
+          `Task userId: ${taskUserId}, Current userId: ${currentUserId}`
       );
       return {
         error: NextResponse.json(

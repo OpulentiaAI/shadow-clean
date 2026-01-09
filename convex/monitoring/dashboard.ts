@@ -162,7 +162,7 @@ export const getFeatureFlags = query({
   handler: async () => {
     return {
       ENABLE_WORKFLOW: process.env.ENABLE_WORKFLOW === "true",
-      ENABLE_PROMPT_MESSAGE_ID: process.env.ENABLE_PROMPT_MESSAGE_ID === "true",
+      ENABLE_PROMPT_MESSAGE_ID: process.env.ENABLE_PROMPT_MESSAGE_ID !== "false",
       ENABLE_RETRY_WITH_BACKOFF: process.env.ENABLE_RETRY_WITH_BACKOFF === "true",
       ENABLE_MESSAGE_COMPRESSION: process.env.ENABLE_MESSAGE_COMPRESSION === "true",
       LOG_PROVIDER_ENABLED: process.env.LOG_PROVIDER_ENABLED === "true",

@@ -34,20 +34,47 @@ interface McpConnectorInfo {
   nameId: string;
   url: string;
   type: "HTTP" | "SSE";
+  configJson?: string; // User-configured environment variables
   tools: McpToolDefinition[];
 }
 
 /**
+ * Parse config JSON and extract environment variables for MCP calls
+ */
+function parseConfigJson(configJson?: string): Record<string, string> {
+  if (!configJson) return {};
+  try {
+    const parsed = JSON.parse(configJson) as { variables?: Record<string, string> };
+    return parsed.variables || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Call an MCP server tool via JSON-RPC
+ * Includes user-configured environment variables in headers
  */
 async function callMcpTool(
   connectorUrl: string,
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  configJson?: string
 ): Promise<unknown> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  // Parse stored config and add as custom header
+  // MCP servers can read this to authenticate with their backing services
+  const configVars = parseConfigJson(configJson);
+  if (Object.keys(configVars).length > 0) {
+    headers["X-MCP-Config"] = Buffer.from(JSON.stringify(configVars)).toString("base64");
+  }
+
   const response = await fetch(connectorUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: Date.now(),
@@ -80,14 +107,23 @@ export function createMcpProxyTools(
     for (const mcpTool of connector.tools) {
       // Namespace the tool: e.g., "atlassian_search_issues"
       const toolName = `${connector.nameId}_${mcpTool.name}`;
-      
+
+      // Capture connector config for use in closure
+      const connectorConfigJson = connector.configJson;
+
       mcpTools[toolName] = tool({
         description: `[${connector.name}] ${mcpTool.description || mcpTool.name}`,
         parameters: z.object({}).passthrough(), // Accept any parameters
         execute: async (args: Record<string, unknown>) => {
           console.log(`[MCP_TOOL] Calling ${connector.name}:${mcpTool.name}`);
           try {
-            const result = await callMcpTool(connector.url, mcpTool.name, args);
+            // Pass configJson to authenticate with the MCP server's backing service
+            const result = await callMcpTool(
+              connector.url,
+              mcpTool.name,
+              args,
+              connectorConfigJson
+            );
             return { success: true, result };
           } catch (error) {
             console.error(`[MCP_TOOL] Error:`, error);
@@ -283,7 +319,7 @@ const GrepSearchSchema = z.object({
 });
 
 const FileSearchSchema = z.object({
-  query: z.string().describe("Filename or partial filename to search for"),
+  pattern: z.string().describe("Filename or partial filename to search for"),
   explanation: z.string().describe("Why this file search is needed"),
 });
 
@@ -528,12 +564,28 @@ CRITICAL RULES:
       inputSchema: ReadFileSchema,
       execute: async (params: z.infer<typeof ReadFileSchema>) => {
         console.log(`[READ_FILE] ${params.explanation}`);
-        return callServerTool(
-          taskIdStr,
-          "read_file",
-          params,
-          await getWorkspacePath()
-        );
+        
+        // Use Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[READ_FILE] Using Convex virtualFiles for ${params.target_file}`);
+        const result = await ctx.runQuery(api.files.getContent, {
+          taskId,
+          path: params.target_file,
+        });
+        
+        if (result?.success) {
+          return {
+            success: true,
+            content: result.content,
+            path: params.target_file,
+            size: result.size || result.content?.length || 0,
+          };
+        }
+        
+        return {
+          success: false,
+          error: result?.error || "File not found",
+          path: params.target_file,
+        };
       },
     }),
 
@@ -542,12 +594,22 @@ CRITICAL RULES:
       inputSchema: EditFileSchema,
       execute: async (params: z.infer<typeof EditFileSchema>) => {
         console.log(`[EDIT_FILE] ${params.instructions}`);
-        return callServerTool(
-          taskIdStr,
-          "edit_file",
-          params,
-          await getWorkspacePath()
-        );
+        
+        // Store file content in Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[EDIT_FILE] Using Convex virtualFiles for ${params.target_file}`);
+        
+        await ctx.runMutation(api.files.storeVirtualFile, {
+          taskId,
+          path: params.target_file,
+          content: params.code_edit || "",
+          isDirectory: false,
+        });
+        
+        return {
+          success: true,
+          message: `File ${params.target_file} saved`,
+          path: params.target_file,
+        };
       },
     }),
 
@@ -556,12 +618,50 @@ CRITICAL RULES:
       inputSchema: SearchReplaceSchema,
       execute: async (params: z.infer<typeof SearchReplaceSchema>) => {
         console.log(`[SEARCH_REPLACE] Replacing in ${params.file_path}`);
-        return callServerTool(
-          taskIdStr,
-          "search_replace",
-          params,
-          await getWorkspacePath()
-        );
+        
+        // Use Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[SEARCH_REPLACE] Using Convex virtualFiles`);
+        
+        // Get current file content
+        const fileResult = await ctx.runQuery(api.files.getContent, {
+          taskId,
+          path: params.file_path,
+        });
+        
+        if (!fileResult?.success || !fileResult.content) {
+          return {
+            success: false,
+            error: `File not found: ${params.file_path}`,
+            path: params.file_path,
+          };
+        }
+        
+        // Perform search and replace
+        const oldContent = fileResult.content;
+        if (!oldContent.includes(params.old_string)) {
+          return {
+            success: false,
+            error: `Search string not found in file: "${params.old_string.substring(0, 50)}..."`,
+            path: params.file_path,
+          };
+        }
+        
+        const newContent = oldContent.replace(params.old_string, params.new_string);
+        
+        // Save updated content
+        await ctx.runMutation(api.files.storeVirtualFile, {
+          taskId,
+          path: params.file_path,
+          content: newContent,
+          isDirectory: false,
+        });
+        
+        return {
+          success: true,
+          message: `Replaced content in ${params.file_path}`,
+          path: params.file_path,
+          replacements: 1,
+        };
       },
     }),
 
@@ -570,6 +670,19 @@ CRITICAL RULES:
       inputSchema: RunTerminalCmdSchema,
       execute: async (params: z.infer<typeof RunTerminalCmdSchema>) => {
         console.log(`[TERMINAL_CMD] ${params.explanation}`);
+        
+        // Check if task is a scratchpad - terminal commands not supported
+        const task = await ctx.runQuery(api.tasks.get, { taskId });
+        if (task?.isScratchpad) {
+          console.log(`[TERMINAL_CMD] Scratchpad task - terminal not available`);
+          return {
+            success: false,
+            error: "Terminal commands are not available in scratchpad mode. Scratchpad tasks run in a browser-based sandbox without a terminal. Consider using file operations (read_file, edit_file, list_dir) instead.",
+            command: params.command,
+            note: "To run code, create the files and the user can copy/paste to run locally.",
+          };
+        }
+        
         return callServerTool(
           taskIdStr,
           "run_terminal_cmd",
@@ -584,14 +697,57 @@ CRITICAL RULES:
       inputSchema: ListDirSchema,
       execute: async (params: z.infer<typeof ListDirSchema>) => {
         console.log(`[LIST_DIR] ${params.explanation}`);
-        return callServerTool(
-          taskIdStr,
-          "list_dir",
-          params,
-          // Prefer the actual task workspace when available; fall back to /workspace
-          // (guaranteed to exist on the Railway tool server container) for CLI testing.
-          (await getWorkspacePath()) || "/workspace"
-        );
+        
+        // Use Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[LIST_DIR] Using Convex virtualFiles`);
+        const virtualFiles = await ctx.runQuery(api.files.getTree, { taskId });
+        
+        if (virtualFiles?.success && virtualFiles.tree) {
+          // Filter to requested path
+          const requestedPath = params.relative_workspace_path || ".";
+          const normalizedPath = requestedPath === "." ? "" : requestedPath.replace(/^\.\//, "");
+          
+          // Build directory listing from tree - use "contents" to match frontend expectations
+          const contents: Array<{ name: string; isDirectory: boolean; path: string }> = [];
+          
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const processTree = (items: any[], parentPath: string = "") => {
+            for (const item of items) {
+              const itemPath = parentPath ? `${parentPath}/${item.name}` : item.name;
+              if (normalizedPath === "" || itemPath.startsWith(normalizedPath)) {
+                // Only include direct children of the requested path
+                const relativePath = normalizedPath ? itemPath.slice(normalizedPath.length + 1) : itemPath;
+                if (!relativePath.includes("/")) {
+                  contents.push({
+                    name: item.name,
+                    isDirectory: item.type === "folder" || !!item.children,
+                    path: itemPath,
+                  });
+                }
+              }
+              if (item.children) {
+                processTree(item.children, itemPath);
+              }
+            }
+          };
+          
+          processTree(virtualFiles.tree);
+          
+          return {
+            success: true,
+            contents,
+            path: requestedPath,
+            note: "Listed from Convex virtualFiles",
+          };
+        }
+        
+        // Return empty if no files yet
+        return {
+          success: true,
+          contents: [],
+          path: params.relative_workspace_path || ".",
+          note: "No files yet. Use edit_file to create files.",
+        };
       },
     }),
 
@@ -600,12 +756,57 @@ CRITICAL RULES:
       inputSchema: GrepSearchSchema,
       execute: async (params: z.infer<typeof GrepSearchSchema>) => {
         console.log(`[GREP_SEARCH] ${params.explanation}`);
-        return callServerTool(
-          taskIdStr,
-          "grep_search",
-          params,
-          await getWorkspacePath()
-        );
+        
+        // Use Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[GREP_SEARCH] Using Convex virtualFiles`);
+        
+        // Get all virtual files for this task
+        const allFiles = await ctx.runQuery(api.files.getAllVirtualFiles, { taskId });
+        
+        if (!allFiles || allFiles.length === 0) {
+          return {
+            success: true,
+            matches: [],
+            message: "No files to search",
+          };
+        }
+        
+        const matches: Array<{ file: string; line: number; content: string }> = [];
+        const searchPattern = params.pattern;
+        
+        for (const file of allFiles) {
+          if (!file.content) continue;
+          const lines = file.content.split("\n");
+          
+          for (let i = 0; i < lines.length; i++) {
+            try {
+              const regex = new RegExp(searchPattern, "gi");
+              if (regex.test(lines[i] || "")) {
+                matches.push({
+                  file: file.path,
+                  line: i + 1,
+                  content: (lines[i] || "").trim().substring(0, 200),
+                });
+              }
+            } catch {
+              // If regex is invalid, do literal search
+              if ((lines[i] || "").includes(searchPattern)) {
+                matches.push({
+                  file: file.path,
+                  line: i + 1,
+                  content: (lines[i] || "").trim().substring(0, 200),
+                });
+              }
+            }
+          }
+        }
+        
+        return {
+          success: true,
+          matches: matches.slice(0, 50), // Limit results
+          totalMatches: matches.length,
+          note: "Searched Convex virtualFiles",
+        };
       },
     }),
 
@@ -614,12 +815,36 @@ CRITICAL RULES:
       inputSchema: FileSearchSchema,
       execute: async (params: z.infer<typeof FileSearchSchema>) => {
         console.log(`[FILE_SEARCH] ${params.explanation}`);
-        return callServerTool(
-          taskIdStr,
-          "file_search",
-          params,
-          await getWorkspacePath()
-        );
+        
+        // Use Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[FILE_SEARCH] Using Convex virtualFiles`);
+        
+        // Get all virtual files for this task
+        const allFiles = await ctx.runQuery(api.files.getAllVirtualFiles, { taskId });
+        
+        if (!allFiles || allFiles.length === 0) {
+          return {
+            success: true,
+            files: [],
+            message: "No files to search",
+          };
+        }
+        
+        const searchPattern = params.pattern.toLowerCase();
+        const matchingFiles = allFiles
+          .filter((f: { path: string }) => f.path.toLowerCase().includes(searchPattern))
+          .map((f: { path: string; size?: number }) => ({
+            path: f.path,
+            name: f.path.split("/").pop() || f.path,
+            size: f.size || 0,
+          }));
+        
+        return {
+          success: true,
+          files: matchingFiles,
+          count: matchingFiles.length,
+          note: "Searched Convex virtualFiles",
+        };
       },
     }),
 
@@ -628,7 +853,16 @@ CRITICAL RULES:
       inputSchema: DeleteFileSchema,
       execute: async (params: z.infer<typeof DeleteFileSchema>) => {
         console.log(`[DELETE_FILE] ${params.explanation}`);
-        return callServerTool(taskIdStr, "delete_file", params);
+        
+        // Use Convex virtualFiles for all tasks (Convex-native)
+        console.log(`[DELETE_FILE] Using Convex virtualFiles`);
+        
+        const result = await ctx.runMutation(api.files.deleteVirtualFile, {
+          taskId,
+          path: params.target_file,
+        });
+        
+        return result;
       },
     }),
 
@@ -637,6 +871,18 @@ CRITICAL RULES:
       inputSchema: SemanticSearchSchema,
       execute: async (params: z.infer<typeof SemanticSearchSchema>) => {
         console.log(`[SEMANTIC_SEARCH] ${params.explanation}`);
+        
+        // Check if task is a scratchpad - semantic search not available
+        const task = await ctx.runQuery(api.tasks.get, { taskId });
+        if (task?.isScratchpad) {
+          console.log(`[SEMANTIC_SEARCH] Scratchpad task - not available`);
+          return {
+            success: false,
+            error: "Semantic search is not available in scratchpad mode. Use grep_search for pattern matching or file_search to find files by name.",
+            suggestion: "Try grep_search instead for text pattern matching.",
+          };
+        }
+        
         return callServerTool(taskIdStr, "semantic_search", params);
       },
     }),
@@ -646,6 +892,18 @@ CRITICAL RULES:
       inputSchema: WarpGrepSchema,
       execute: async (params: z.infer<typeof WarpGrepSchema>) => {
         console.log(`[WARP_GREP] ${params.explanation}`);
+        
+        // Check if task is a scratchpad - warp grep not available
+        const task = await ctx.runQuery(api.tasks.get, { taskId });
+        if (task?.isScratchpad) {
+          console.log(`[WARP_GREP] Scratchpad task - not available`);
+          return {
+            success: false,
+            error: "Warp grep is not available in scratchpad mode. Use grep_search for pattern matching.",
+            suggestion: "Try grep_search instead for text pattern matching.",
+          };
+        }
+        
         return callServerTool(taskIdStr, "warp_grep", params);
       },
     }),

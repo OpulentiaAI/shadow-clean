@@ -39,6 +39,7 @@
     "@convex-dev/agent": "^0.3.2",
     "@next/swc-wasm-nodejs": "^15.4.6",
     "@openrouter/ai-sdk-provider": "^1.5.3",
+    "@vercel/node": "^5.5.16",
     "ai": "5.0.82",
     "convex": "1.30.0",
     "convex-helpers": "^0.1.104",
@@ -63,9 +64,12 @@
     "packages/*"
   ],
   "dependencies": {
+    "@convex-dev/better-auth": "^0.10.9",
     "@convex-dev/persistent-text-streaming": "^0.3.0",
     "@convex-dev/workflow": "^0.3.3",
+    "@convex-dev/workpool": "^0.3.0",
     "@exalabs/ai-sdk": "^1.0.5",
+    "better-auth": "^1.4.9",
     "exa-js": "^2.0.12"
   }
 }

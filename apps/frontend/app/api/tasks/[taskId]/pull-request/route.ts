@@ -1,10 +1,11 @@
 import { verifyTaskOwnership } from "@/lib/auth/verify-task-ownership";
-import { makeBackendRequest } from "@/lib/make-backend-request";
-import { headers } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }
 ) {
   try {
@@ -19,42 +20,16 @@ export async function POST(
       );
     }
 
-    // Forward request to backend
-    const requestHeaders = await headers();
-    const cookieHeader = requestHeaders.get("cookie");
-
-    const response = await makeBackendRequest(
-      `/api/tasks/${taskId}/pull-request`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(cookieHeader && { Cookie: cookieHeader }),
-        },
-        body: JSON.stringify({
-          userId: user.id,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(
-        `Backend PR creation failed for task ${taskId}:`,
-        errorText
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to create pull request",
-        },
-        { status: response.status }
-      );
-    }
-
-    const result = await response.json();
-    return NextResponse.json(result);
+    // Pull request creation requires GitHub API integration
+    // This should be handled via Convex action with GitHub token
+    // For now, return a helpful message
+    return NextResponse.json({
+      success: false,
+      error: "Pull request creation requires GitHub integration via Convex",
+      note: "Use api.github.createPullRequest action with proper authentication",
+      taskId,
+      userId: user.id,
+    });
   } catch (error) {
     console.error(`Error creating PR for task:`, error);
     return NextResponse.json(

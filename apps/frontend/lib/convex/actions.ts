@@ -144,9 +144,20 @@ export async function appendMessage(input: {
   totalTokens?: number;
   finishReason?: string;
   stackedTaskId?: Id<"tasks">;
+  clientMessageId?: string;
 }) {
   const client = getConvexClient();
   return client.mutation(api.messages.append, input);
+}
+
+export async function savePromptMessage(input: {
+  taskId: Id<"tasks">;
+  content: string;
+  llmModel?: string;
+  clientMessageId?: string;
+}) {
+  const client = getConvexClient();
+  return client.mutation(api.messages.savePromptMessage, input);
 }
 
 export async function updateMessage(input: {
@@ -576,6 +587,8 @@ export async function streamChatWithTools(input: {
   model: string;
   systemPrompt?: string;
   llmModel?: string;
+  promptMessageId?: Id<"chatMessages">; // Pass to prevent duplicate user message creation
+  clientMessageId?: string; // For idempotency across retries
   tools?: Array<{
     name: string;
     description: string;
@@ -672,4 +685,12 @@ export async function listToolCallsByTask(taskId: Id<"tasks">) {
 export async function getToolCallById(toolCallId: string) {
   const client = getConvexClient();
   return client.query(api.toolCallTracking.byToolCallId, { toolCallId });
+}
+
+export async function storeGitHubFileTree(
+  taskId: Id<"tasks">,
+  files: Array<{ path: string; type: string; size?: number }>
+) {
+  const client = getConvexClient();
+  return client.mutation(api.files.storeGitHubFileTree, { taskId, files });
 }

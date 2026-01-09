@@ -91,15 +91,37 @@ export const append = mutation({
     totalTokens: v.optional(v.number()),
     finishReason: v.optional(v.string()),
     stackedTaskId: v.optional(v.id("tasks")),
+    // Client-generated UUID for true idempotency across retries
+    clientMessageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const createdAt = Date.now();
+
+    // TRUE IDEMPOTENCY: Check by clientMessageId index first (instant O(1) lookup)
+    if (args.clientMessageId) {
+      const existingByClientId = await ctx.db
+        .query("chatMessages")
+        .withIndex("by_task_clientMessageId", (q) =>
+          q.eq("taskId", args.taskId).eq("clientMessageId", args.clientMessageId)
+        )
+        .first();
+
+      if (existingByClientId) {
+        console.log(
+          `[MESSAGES] Idempotent hit in append: clientMessageId=${args.clientMessageId} → ` +
+            `existing message ${existingByClientId._id} (sequence=${existingByClientId.sequence})`
+        );
+        return { messageId: existingByClientId._id, sequence: existingByClientId.sequence };
+      }
+    }
+
     const latest = await ctx.db
       .query("chatMessages")
       .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
       .order("desc")
       .first();
     const sequence = latest ? latest.sequence + 1 : 0;
-    const createdAt = Date.now();
+
     const messageId = await ctx.db.insert("chatMessages", {
       taskId: args.taskId,
       role: args.role,
@@ -111,6 +133,7 @@ export const append = mutation({
       totalTokens: args.totalTokens,
       finishReason: args.finishReason,
       stackedTaskId: args.stackedTaskId,
+      clientMessageId: args.clientMessageId,
       sequence,
       createdAt,
       editedAt: undefined,
@@ -347,31 +370,67 @@ export const getLatestSequence = query({
 /**
  * Save a prompt (user) message BEFORE starting LLM generation.
  * This enables retry-safe streaming - the message exists in DB before LLM call.
+ *
+ * Implements TRUE IDEMPOTENCY via clientMessageId:
+ * 1. If clientMessageId provided, check index first (instant upsert behavior)
+ * 2. Always returns existing message if found, never creates duplicates
+ *
+ * Usage pattern:
+ * - Frontend generates clientMessageId (UUID) before sending
+ * - On retry/refresh, same clientMessageId returns same message
  */
 export const savePromptMessage = mutation({
   args: {
     taskId: v.id("tasks"),
     content: v.string(),
     llmModel: v.optional(v.string()),
+    // Client-generated UUID for true idempotency across retries
+    clientMessageId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const now = Date.now();
+
+    // TRUE IDEMPOTENCY: Check by clientMessageId index first (instant O(1) lookup)
+    if (args.clientMessageId) {
+      const existingByClientId = await ctx.db
+        .query("chatMessages")
+        .withIndex("by_task_clientMessageId", (q) =>
+          q.eq("taskId", args.taskId).eq("clientMessageId", args.clientMessageId)
+        )
+        .first();
+
+      if (existingByClientId) {
+        console.log(
+          `[MESSAGES] Idempotent hit: clientMessageId=${args.clientMessageId} → ` +
+            `existing message ${existingByClientId._id} (sequence=${existingByClientId.sequence})`
+        );
+        return { messageId: existingByClientId._id, sequence: existingByClientId.sequence };
+      }
+    }
+
+    // No existing message found, create new one
     const latest = await ctx.db
       .query("chatMessages")
       .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
       .order("desc")
       .first();
     const sequence = latest ? latest.sequence + 1 : 0;
-    const now = Date.now();
 
     const messageId = await ctx.db.insert("chatMessages", {
       taskId: args.taskId,
       role: "USER",
       content: args.content,
       llmModel: args.llmModel,
+      clientMessageId: args.clientMessageId,
       sequence,
       status: "complete", // User messages are immediately complete
       createdAt: now,
     });
+
+    console.log(
+      `[MESSAGES] Created new prompt message ${messageId} ` +
+        `(clientMessageId=${args.clientMessageId}, sequence=${sequence})`
+    );
 
     return { messageId, sequence };
   },
@@ -409,6 +468,58 @@ export const createAssistantMessage = mutation({
     });
 
     return { messageId, sequence };
+  },
+});
+
+/**
+ * Get or create an assistant message for a prompt (BP012 idempotency).
+ *
+ * This prevents duplicate assistant messages when the client retries the same
+ * prompt (e.g., network retries) with the same promptMessageId/clientMessageId.
+ */
+export const getOrCreateAssistantForPrompt = mutation({
+  args: {
+    taskId: v.id("tasks"),
+    promptMessageId: v.id("chatMessages"),
+    llmModel: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .order("desc")
+      .collect();
+
+    const existing = messages.find(
+      (m) => m.role === "ASSISTANT" && m.promptMessageId === args.promptMessageId
+    );
+    if (existing) {
+      return {
+        messageId: existing._id,
+        sequence: existing.sequence,
+        status: existing.status ?? null,
+        content: existing.content ?? "",
+        reused: true,
+      };
+    }
+
+    const latest = messages[0];
+    const sequence = latest ? latest.sequence + 1 : 0;
+    const now = Date.now();
+
+    const messageId = await ctx.db.insert("chatMessages", {
+      taskId: args.taskId,
+      role: "ASSISTANT",
+      content: "",
+      llmModel: args.llmModel,
+      metadataJson: JSON.stringify({ isStreaming: true, parts: [] }),
+      sequence,
+      status: "pending",
+      promptMessageId: args.promptMessageId,
+      createdAt: now,
+    });
+
+    return { messageId, sequence, status: "pending", content: "", reused: false };
   },
 });
 

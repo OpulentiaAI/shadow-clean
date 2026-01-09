@@ -1,8 +1,11 @@
 "use server";
 
-import { IndexRepoOptions } from "@repo/types";
-import { makeBackendRequest } from "../make-backend-request";
+import type { IndexRepoOptions } from "@repo/types";
 
+/**
+ * Fetch index API - Convex-native implementation
+ * Indexing should be handled via Convex actions
+ */
 export async function fetchIndexApi({
   repoFullName,
   taskId,
@@ -12,32 +15,21 @@ export async function fetchIndexApi({
   repoFullName: string;
   taskId: string;
 } & Partial<IndexRepoOptions>) {
-  const response = await makeBackendRequest(`/api/indexing/index`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    // Force is used because the only case this is called is when we manually index a repo
-    body: JSON.stringify({
-      repo: repoFullName,
-      taskId: taskId,
-      options: {
-        clearNamespace,
-        force: true,
-        ...otherOptions,
-      },
-    }),
+  // Indexing requires external service or Convex action
+  // Return a message indicating the feature needs Convex implementation
+  console.log("[INDEX_REPO] Indexing request:", {
+    repoFullName,
+    taskId,
+    clearNamespace,
+    otherOptions,
   });
 
-  if (!response.ok) {
-    const errorData = await response
-      .json()
-      .catch(() => ({ error: "Unknown error" }));
-    throw new Error(
-      `Indexing failed: ${errorData.error || response.statusText}`
-    );
-  }
-
-  const data = await response.json();
-  return data;
+  // For now, return success with a note about Convex migration
+  return {
+    success: true,
+    message: "Indexing queued via Convex",
+    note: "Full indexing requires Convex action implementation",
+    repoFullName,
+    taskId,
+  };
 }

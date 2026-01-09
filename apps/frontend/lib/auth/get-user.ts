@@ -1,7 +1,5 @@
-import { auth } from "@/lib/auth/auth";
-import { upsertUser, syncGitHubAccount } from "@/lib/convex/actions";
-import { db } from "@repo/db";
-import { headers } from "next/headers";
+import { fetchAuthQuery, fetchAuthMutation } from "@/lib/auth/auth-server";
+import { api } from "../../../../convex/_generated/api";
 
 // Dev user for local development without auth
 const DEV_USER_ID = "dev-local-user";
@@ -29,71 +27,46 @@ const DEV_USER: UserLike = {
 
 export type AuthUser = Awaited<ReturnType<typeof getUser>>;
 
-const syncedConvexUsers = new Set<string>();
-
-async function ensureConvexUser(user: UserLike) {
-  // Avoid re-sending upserts for the same user within the same runtime
-  if (syncedConvexUsers.has(user.id)) return;
-  try {
-    // First upsert the user
-    const convexUserId = await upsertUser({
-      externalId: user.id,
-      name: user.name || user.email || "Unknown User",
-      email: user.email || `${user.id}@example.invalid`,
-      image: user.image ?? undefined,
-      emailVerified: Boolean(user.emailVerified),
-    });
-
-    // Then sync their GitHub account from Prisma to Convex
-    // This ensures OAuth tokens are available in Convex for the backend
-    const prismaAccount = await db.account.findFirst({
-      where: {
-        userId: user.id,
-        providerId: "github",
-      },
-    });
-
-    if (prismaAccount && prismaAccount.accessToken) {
-      await syncGitHubAccount({
-        userId: convexUserId,
-        accountId: prismaAccount.accountId,
-        providerId: prismaAccount.providerId,
-        accessToken: prismaAccount.accessToken,
-        refreshToken: prismaAccount.refreshToken ?? undefined,
-        accessTokenExpiresAt: prismaAccount.accessTokenExpiresAt?.getTime(),
-        refreshTokenExpiresAt: prismaAccount.refreshTokenExpiresAt?.getTime(),
-        scope: prismaAccount.scope ?? undefined,
-        githubInstallationId: prismaAccount.githubInstallationId ?? undefined,
-        githubAppConnected: prismaAccount.githubAppConnected,
-      });
-      console.log(
-        `[getUser] Synced GitHub account to Convex for user ${user.id}`
-      );
-    }
-
-    syncedConvexUsers.add(user.id);
-  } catch (error) {
-    console.warn("[getUser] Failed to sync Convex user/account", error);
-    // Allow request to continue; Convex may be temporarily unavailable
-  }
-}
-
 export async function getUser() {
   // Return dev user when bypass auth is enabled
   if (BYPASS_AUTH) {
-    await ensureConvexUser(DEV_USER);
     return DEV_USER;
   }
 
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  try {
+    // Get the authenticated user from Convex Better Auth component
+    // fetchAuthQuery automatically passes the auth token to Convex
+    const authUser = await fetchAuthQuery(api.auth.getCurrentUser, {});
 
-  if (!session?.user) {
+    if (!authUser) {
+      console.log("[getUser] No authenticated user found");
+      return null;
+    }
+
+    // Better Auth uses "user" table (singular), but our app uses "users" table (plural)
+    // We need to upsert to our users table and return that ID for compatibility
+    const usersTableId = await fetchAuthMutation(api.auth.upsertUser, {
+      externalId: authUser._id, // Store Better Auth user ID as external reference
+      name: authUser.name ?? "Unknown User",
+      email: authUser.email,
+      image: authUser.image ?? undefined,
+      emailVerified: authUser.emailVerified ?? false,
+    });
+
+    // Return user with our users table ID
+    const user: UserLike = {
+      id: usersTableId,
+      name: authUser.name ?? null,
+      email: authUser.email ?? null,
+      emailVerified: authUser.emailVerified ?? false,
+      image: authUser.image ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    return user;
+  } catch (error) {
+    console.error("[getUser] Error fetching auth user:", error);
     return null;
   }
-
-  await ensureConvexUser(session.user);
-
-  return session.user;
 }

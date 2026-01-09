@@ -1,29 +1,9 @@
 import { createAuthClient } from "better-auth/react";
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
 
-// Use window.location.origin at runtime; provide SSR fallbacks
-const getBaseURL = () => {
-  if (typeof window !== "undefined") {
-    return window.location.origin;
-  }
-  if (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-    return `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-  }
-  return "http://localhost:3000";
-};
-
-// Create client only in the browser to avoid SSR/localStorage issues
-const createClient = (): ReturnType<typeof createAuthClient> =>
-  typeof window !== "undefined"
-    ? createAuthClient({
-        baseURL: getBaseURL(),
-        basePath: "/api/auth",
-      })
-    : ({} as ReturnType<typeof createAuthClient>);
-
-export const authClient = createClient();
+export const authClient = createAuthClient({
+  plugins: [convexClient()],
+});
 
 // This destructuring is necessary to avoid weird better-auth type errors
 export const signIn: typeof authClient.signIn = authClient.signIn;

@@ -31,7 +31,7 @@ export const durableAgentRun: any = workflowManager.define({
       anthropic: v.optional(v.string()),
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
-    }),
+    }) as any,
   },
   handler: async (step, args) => {
     const startTime = Date.now();

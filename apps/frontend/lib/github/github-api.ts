@@ -489,3 +489,152 @@ export async function getGitHubIssues(
     return [];
   }
 }
+
+/**
+ * Fetch the file tree from a GitHub repository
+ * Uses the Git Trees API to get a recursive listing of all files
+ */
+export interface GitHubFileTreeItem {
+  path: string;
+  type: "blob" | "tree"; // blob = file, tree = directory
+  size?: number;
+  sha: string;
+}
+
+export async function getGitHubFileTree(
+  repoFullName: string,
+  branch: string,
+  userId: string
+): Promise<GitHubFileTreeItem[]> {
+  try {
+    const [owner, repoName] = repoFullName.split("/");
+    if (!owner || !repoName) {
+      throw new Error("Invalid repository format. Expected 'owner/repo'");
+    }
+
+    // Choose auth mode
+    let octokit: Octokit | null = null;
+    if (isPersonalTokenMode()) {
+      octokit = createPersonalOctokit();
+    } else {
+      const account = await getGitHubAccount(userId);
+      if (
+        !account ||
+        !account.githubAppConnected ||
+        !account.githubInstallationId
+      ) {
+        console.log("[GITHUB_FILE_TREE] No GitHub account/installation");
+        return [];
+      }
+      octokit = await createInstallationOctokit(account.githubInstallationId);
+    }
+
+    // Get the branch ref to find the tree SHA
+    const { data: refData } = await octokit.rest.git.getRef({
+      owner,
+      repo: repoName,
+      ref: `heads/${branch}`,
+    });
+
+    const commitSha = refData.object.sha;
+
+    // Get the commit to find the tree SHA
+    const { data: commitData } = await octokit.rest.git.getCommit({
+      owner,
+      repo: repoName,
+      commit_sha: commitSha,
+    });
+
+    const treeSha = commitData.tree.sha;
+
+    // Get the tree recursively
+    const { data: treeData } = await octokit.rest.git.getTree({
+      owner,
+      repo: repoName,
+      tree_sha: treeSha,
+      recursive: "true",
+    });
+
+    // Filter and map to our format
+    const fileTree: GitHubFileTreeItem[] = treeData.tree
+      .filter((item) => item.path && item.sha && (item.type === "blob" || item.type === "tree"))
+      .map((item) => ({
+        path: item.path!,
+        type: item.type as "blob" | "tree",
+        size: item.size,
+        sha: item.sha!,
+      }));
+
+    console.log(`[GITHUB_FILE_TREE] Fetched ${fileTree.length} items from ${repoFullName}/${branch}`);
+    return fileTree;
+  } catch (error) {
+    console.error("Error getting GitHub file tree:", error);
+
+    if (userId) {
+      await handleStaleInstallation(error, userId);
+    }
+
+    return [];
+  }
+}
+
+/**
+ * Fetch file content from a GitHub repository
+ */
+export async function getGitHubFileContent(
+  repoFullName: string,
+  branch: string,
+  filePath: string,
+  userId: string
+): Promise<{ success: boolean; content?: string; error?: string }> {
+  try {
+    const [owner, repoName] = repoFullName.split("/");
+    if (!owner || !repoName) {
+      return { success: false, error: "Invalid repository format" };
+    }
+
+    // Choose auth mode
+    let octokit: Octokit | null = null;
+    if (isPersonalTokenMode()) {
+      octokit = createPersonalOctokit();
+    } else {
+      const account = await getGitHubAccount(userId);
+      if (
+        !account ||
+        !account.githubAppConnected ||
+        !account.githubInstallationId
+      ) {
+        return { success: false, error: "No GitHub account/installation" };
+      }
+      octokit = await createInstallationOctokit(account.githubInstallationId);
+    }
+
+    // Fetch file content from GitHub
+    const { data } = await octokit.rest.repos.getContent({
+      owner,
+      repo: repoName,
+      path: filePath,
+      ref: branch,
+    });
+
+    // Handle file content (not directory)
+    if ("content" in data && data.type === "file") {
+      // Content is base64 encoded
+      const content = Buffer.from(data.content, "base64").toString("utf-8");
+      return { success: true, content };
+    }
+
+    return { success: false, error: "Path is not a file" };
+  } catch (error) {
+    console.error("Error getting GitHub file content:", error);
+    
+    if (error && typeof error === "object" && "status" in error && error.status === 404) {
+      return { success: false, error: "File not found in repository" };
+    }
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}

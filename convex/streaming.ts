@@ -23,7 +23,8 @@ const MAX_CONTEXT_MESSAGES = 20; // Number of recent messages to include as cont
 async function fetchConversationContext(
   ctx: ActionCtx,
   taskId: Id<"tasks">,
-  excludeMessageId?: Id<"chatMessages">
+  excludeMessageId?: Id<"chatMessages">,
+  excludePromptMessageId?: Id<"chatMessages">
 ): Promise<CoreMessage[]> {
   const messages = await ctx.runQuery(api.messages.byTask, { taskId });
   
@@ -31,6 +32,8 @@ async function fetchConversationContext(
   const completedMessages = messages.filter((m) => {
     // Exclude the message we're currently generating
     if (excludeMessageId && m._id === excludeMessageId) return false;
+    // Exclude the prompt message we just saved (will be added separately to LLM)
+    if (excludePromptMessageId && m._id === excludePromptMessageId) return false;
     // Exclude streaming messages (isStreaming in metadata)
     const metadata = m.metadataJson ? JSON.parse(m.metadataJson) : {};
     if (metadata.isStreaming) return false;
@@ -58,8 +61,9 @@ async function fetchConversationContext(
 // Throttle configuration for delta streaming (Best Practice BP005)
 const DELTA_THROTTLE_MS = 100; // Batch writes every 100ms
 
-// Feature flags (Best Practice: new behaviors default OFF)
-const ENABLE_PROMPT_MESSAGE_ID = process.env.ENABLE_PROMPT_MESSAGE_ID === "true";
+// Feature flags
+// BP012 promptMessageId pattern is now enabled by default; set ENABLE_PROMPT_MESSAGE_ID="false" to disable.
+const ENABLE_PROMPT_MESSAGE_ID = process.env.ENABLE_PROMPT_MESSAGE_ID !== "false";
 const ENABLE_RETRY_WITH_BACKOFF = process.env.ENABLE_RETRY_WITH_BACKOFF === "true";
 const ENABLE_MESSAGE_COMPRESSION = process.env.ENABLE_MESSAGE_COMPRESSION === "true";
 const MESSAGE_COMPRESSION_THRESHOLD = parseInt(process.env.MESSAGE_COMPRESSION_THRESHOLD || "50000", 10);
@@ -142,8 +146,12 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
       apiKey: apiKeys.openrouter,
       baseURL: "https://openrouter.ai/api/v1",
       headers: OPENROUTER_HEADERS,
+      name: "openrouter",
     });
-    return openrouter(model);
+    // IMPORTANT: Use Chat Completions mode for OpenRouter.
+    // OpenRouter supports the OpenAI Chat Completions schema broadly across providers/models,
+    // while the OpenAI Responses schema (default in @ai-sdk/openai) is not reliably supported.
+    return openrouter.chat(model);
   }
 
   if (apiKeys.anthropic) {
@@ -167,8 +175,9 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
       apiKey: envOpenRouter,
       baseURL: "https://openrouter.ai/api/v1",
       headers: OPENROUTER_HEADERS,
+      name: "openrouter",
     });
-    return openrouter(model);
+    return openrouter.chat(model);
   }
 
   const envAnthropic = process.env.ANTHROPIC_API_KEY;
@@ -346,6 +355,10 @@ export const streamChatWithTools = action({
     model: v.string(),
     systemPrompt: v.optional(v.string()),
     llmModel: v.optional(v.string()),
+    // Idempotency: if caller already created the prompt message, pass its ID to avoid duplicates
+    promptMessageId: v.optional(v.id("chatMessages")),
+    // Client-generated idempotency key for retry-safe message creation
+    clientMessageId: v.optional(v.string()),
     tools: v.optional(
       v.array(
         v.object({
@@ -406,28 +419,85 @@ export const streamChatWithTools = action({
 
     // Initialize streaming message
     // BP012: Use promptMessageId pattern when enabled for retry-safe streaming
+    // Idempotency: if caller provided promptMessageId, don't create a new prompt message
     let messageId: Id<"chatMessages">;
-    let promptMessageId: Id<"chatMessages"> | undefined;
+    let promptMessageId: Id<"chatMessages"> | undefined = args.promptMessageId;
 
     if (ENABLE_PROMPT_MESSAGE_ID) {
       console.log(`[STREAMING] Using promptMessageId pattern (BP012)`);
-      // Save user prompt first
-      const promptResult = await ctx.runMutation(api.messages.savePromptMessage, {
-        taskId: args.taskId,
-        content: args.prompt,
-        llmModel: args.llmModel,
-      });
-      promptMessageId = promptResult.messageId;
-      console.log(`[STREAMING] Saved prompt message: ${promptMessageId}`);
 
-      // Create assistant message placeholder linked to prompt
-      const assistantResult = await ctx.runMutation(api.messages.createAssistantMessage, {
-        taskId: args.taskId,
-        promptMessageId,
-        llmModel: args.llmModel,
-      });
+      // Only create prompt message if not provided by caller (idempotency)
+      if (!promptMessageId) {
+        console.log(`[STREAMING] Creating new prompt message (no promptMessageId provided)`);
+        // Save user prompt first, with optional clientMessageId for idempotency
+        const promptResult = await ctx.runMutation(api.messages.savePromptMessage, {
+          taskId: args.taskId,
+          content: args.prompt,
+          llmModel: args.llmModel,
+          clientMessageId: args.clientMessageId,
+        });
+        promptMessageId = promptResult.messageId;
+        console.log(`[STREAMING] Saved prompt message: ${promptMessageId}`);
+      } else {
+        console.log(`[STREAMING] Using provided promptMessageId: ${promptMessageId} (caller pre-created)`);
+      }
+
+      // Create/reuse assistant message placeholder linked to prompt (retry-safe).
+      const assistantResult = await ctx.runMutation(
+        api.messages.getOrCreateAssistantForPrompt,
+        {
+          taskId: args.taskId,
+          promptMessageId,
+          llmModel: args.llmModel,
+        }
+      );
       messageId = assistantResult.messageId;
-      console.log(`[STREAMING] Created assistant message: ${messageId} (linked to prompt)`);
+      console.log(
+        `[STREAMING] ${assistantResult.reused ? "Reused" : "Created"} assistant message: ${messageId} (linked to prompt)`
+      );
+
+      // If we're retrying and an assistant message already exists, don't create a duplicate stream.
+      if (assistantResult.reused) {
+        const existingStatus = assistantResult.status ?? "streaming";
+        const shouldReturnExisting =
+          existingStatus === "pending" ||
+          existingStatus === "streaming" ||
+          existingStatus === "complete";
+
+        if (shouldReturnExisting) {
+          const existingTools = await ctx.runQuery(api.toolCallTracking.byMessage, {
+            messageId,
+          });
+
+          // If we returned an already-complete response, restore task to idle state.
+          if (existingStatus === "complete") {
+            await ctx.runMutation(api.tasks.update, {
+              taskId: args.taskId,
+              status: "STOPPED",
+            });
+          }
+
+          return {
+            success: true,
+            messageId,
+            text: assistantResult.content ?? "",
+            toolCallIds: existingTools.map((t) => t.toolCallId),
+            usage: undefined,
+          };
+        }
+
+        // If the previous attempt failed, create a new assistant message so we can retry
+        // without colliding toolCallIds (which are namespaced by assistant messageId).
+        const retryAssistant = await ctx.runMutation(api.messages.createAssistantMessage, {
+          taskId: args.taskId,
+          promptMessageId,
+          llmModel: args.llmModel,
+        });
+        messageId = retryAssistant.messageId;
+        console.log(
+          `[STREAMING] Previous assistant message failed; created new assistant message for retry: ${messageId}`
+        );
+      }
 
       // Update status to streaming
       await ctx.runMutation(api.messages.updateMessageStatus, {
@@ -493,16 +563,33 @@ export const streamChatWithTools = action({
           const enabledConnectors = await ctx.runQuery(api.mcpConnectors.listEnabledByUser, {
             userId: task.userId as Id<"users">,
           });
-          
+
           if (enabledConnectors.length > 0) {
             // Discover tools for each enabled connector
             const connectorsWithTools = await Promise.all(
               enabledConnectors.map(async (connector) => {
                 try {
+                  // Build headers with config if available
+                  const headers: Record<string, string> = { "Content-Type": "application/json" };
+
+                  // Parse and pass config as X-MCP-Config header (base64 encoded JSON)
+                  // Config format: { variables: { key: value } }
+                  if (connector.configJson) {
+                    try {
+                      const parsed = JSON.parse(connector.configJson) as { variables?: Record<string, string> };
+                      const configVars = parsed.variables || {};
+                      if (Object.keys(configVars).length > 0) {
+                        headers["X-MCP-Config"] = Buffer.from(JSON.stringify(configVars)).toString("base64");
+                      }
+                    } catch (e) {
+                      console.warn(`[MCP] Failed to parse configJson for ${connector.name}:`, e);
+                    }
+                  }
+
                   // Call tools/list on the MCP server
                   const response = await fetch(connector.url, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers,
                     body: JSON.stringify({
                       jsonrpc: "2.0",
                       id: 1,
@@ -511,7 +598,7 @@ export const streamChatWithTools = action({
                     }),
                     signal: AbortSignal.timeout(5000),
                   });
-                  
+
                   if (response.ok) {
                     const data = await response.json();
                     const tools = data.result?.tools || [];
@@ -522,6 +609,7 @@ export const streamChatWithTools = action({
                       nameId: connector.nameId,
                       url: connector.url,
                       type: connector.type,
+                      configJson: connector.configJson, // Pass config for tool calls
                       tools,
                     };
                   }
@@ -531,7 +619,7 @@ export const streamChatWithTools = action({
                 return null;
               })
             );
-            
+
             const validConnectors = connectorsWithTools.filter(Boolean);
             if (validConnectors.length > 0) {
               mcpTools = createMcpProxyTools(validConnectors as any);
@@ -661,8 +749,10 @@ export const streamChatWithTools = action({
       const MAX_SINGLE_TOOL_RESULT_CHARS = 12000;
 
       // Fetch conversation history for context (enables multi-turn conversations)
-      const conversationHistory = await fetchConversationContext(ctx, args.taskId, messageId);
-      console.log(`[STREAMING] Loaded ${conversationHistory.length} messages from conversation history`);
+      // CRITICAL: Exclude both the assistant message (messageId) AND the prompt message (promptMessageId)
+      // to prevent the current prompt from appearing twice in the LLM context
+      const conversationHistory = await fetchConversationContext(ctx, args.taskId, messageId, promptMessageId);
+      console.log(`[STREAMING] Loaded ${conversationHistory.length} messages from conversation history (excluding current prompt)`);
 
       let accumulatedText = "";
 
@@ -929,6 +1019,8 @@ Review the above results. If you have enough information, provide your response.
       let totalCompletionTokens = 0;
       let totalTokens = 0;
       let finalFinishReason: unknown = undefined;
+      let consecutiveDuplicateRounds = 0; // Track rounds where only duplicates were called
+      const MAX_CONSECUTIVE_DUPLICATE_ROUNDS = 2; // Stop after 2 rounds of only duplicates (lowered from 3)
 
       for (let round = 0; round < MAX_AGENT_STEPS; round++) {
         toolCallNamespace = round;
@@ -1327,7 +1419,7 @@ Review the above results. If you have enough information, provide your response.
                   Object.assign(execArgs, recovered);
                 } else if (
                   state.toolName === "file_search" &&
-                  typeof (recovered as any).query === "string" &&
+                  typeof (recovered as any).pattern === "string" &&
                   typeof (recovered as any).explanation === "string"
                 ) {
                   Object.assign(execArgs, recovered);
@@ -1342,6 +1434,16 @@ Review the above results. If you have enough information, provide your response.
             ) {
               execArgs.relative_workspace_path = ".";
               execArgs.explanation = "Auto-filled missing tool args";
+            }
+            // Auto-fill file_search when args missing
+            if (
+              state.toolName === "file_search" &&
+              (typeof execArgs.pattern !== "string" ||
+                typeof execArgs.explanation !== "string")
+            ) {
+              execArgs.pattern = "*";
+              execArgs.explanation = "Auto-filled: list all files";
+              console.log(`[STREAMING] [v8] Auto-filled file_search args`);
             }
             // For read_file, try to extract filename from prompt if args missing
             if (
@@ -1447,15 +1549,27 @@ Review the above results. If you have enough information, provide your response.
                   execArgs
                 );
                 if (completedToolSignatures.has(toolSignature)) {
+                  // CRITICAL: Return as FAILURE so LLM doesn't retry
                   toolResult = {
-                    success: true,
+                    success: false,
                     skipped: true,
                     reason: "DUPLICATE_TOOL_CALL",
                     toolName: state.toolName,
                     args: execArgs,
+                    message: `⛔ BLOCKED: You already called "${state.toolName}" with identical arguments. The result was returned in a previous step. STOP calling this tool with the same arguments. Either use the result you already received, try a DIFFERENT tool, or use DIFFERENT arguments.`,
                   };
+                  console.warn(`[STREAMING] [DEDUP] Blocked duplicate: ${state.toolName} with signature ${toolSignature.substring(0, 80)}...`);
                 } else {
-                  toolResult = serverBackedTools.has(state.toolName)
+                  // CRITICAL: For scratchpad tasks, ALWAYS use Convex-native tool execution
+                  // Never call server API for scratchpad tasks - they have no backend
+                  const isScratchpad = (task as any)?.isScratchpad === true;
+                  const shouldUseServerApi = serverBackedTools.has(state.toolName) && !isScratchpad;
+                  
+                  if (isScratchpad && serverBackedTools.has(state.toolName)) {
+                    console.log(`[STREAMING] [v7] Scratchpad task - using Convex-native tool execution for ${state.toolName}`);
+                  }
+                  
+                  toolResult = shouldUseServerApi
                     ? await callToolApiWithWorkspaceFallback()
                     : await toolDef.execute(execArgs);
                   completedToolSignatures.add(toolSignature);
@@ -1665,7 +1779,15 @@ Review the above results. If you have enough information, provide your response.
                 let forcedResult: unknown;
                 try {
                   const toolDef = (aiTools as any)[step.toolName];
-                  forcedResult = serverBackedTools.has(step.toolName)
+                  // CRITICAL: For scratchpad tasks, ALWAYS use Convex-native tool execution
+                  const isScratchpad = (task as any)?.isScratchpad === true;
+                  const shouldUseServerApi = serverBackedTools.has(step.toolName) && !isScratchpad;
+                  
+                  if (isScratchpad && serverBackedTools.has(step.toolName)) {
+                    console.log(`[STREAMING] [v7] Scratchpad forced tool - using Convex-native for ${step.toolName}`);
+                  }
+                  
+                  forcedResult = shouldUseServerApi
                     ? await callToolApiWithWorkspaceFallback()
                     : await toolDef.execute(forcedArgs);
                 } catch (e) {
@@ -1734,10 +1856,38 @@ Review the above results. If you have enough information, provide your response.
           `[STREAMING] Usage: ${JSON.stringify(usage)}, finishReason: ${finishReason}`
         );
 
-        const progressed =
-          completedToolSignatures.size > completedSignaturesBefore ||
-          completedPlanSteps.size > completedPlanBefore ||
-          accumulatedText.length > textBeforeLen;
+        // Track consecutive duplicate rounds: if tools were called but none were new
+        const hadToolCalls = roundToolCallIds.size > 0;
+        const hadNewToolExecutions = completedToolSignatures.size > completedSignaturesBefore;
+        const hadNewPlanProgress = completedPlanSteps.size > completedPlanBefore;
+        const hadTextProgress = accumulatedText.length > textBeforeLen;
+        
+        // CRITICAL FIX: Don't count text-only as progress when tools are all duplicates
+        // This prevents the LLM from looping with repetitive explanatory text
+        const progressed = hadToolCalls
+          ? hadNewToolExecutions || hadNewPlanProgress // If tools called, only count tool/plan progress
+          : hadNewToolExecutions || hadNewPlanProgress || hadTextProgress; // No tools = text counts
+        
+        if (hadToolCalls && !hadNewToolExecutions) {
+          consecutiveDuplicateRounds++;
+          console.warn(
+            `[STREAMING] [ANTI_LOOP] Round ${round}: All ${roundToolCallIds.size} tool calls were duplicates ` +
+            `(consecutive=${consecutiveDuplicateRounds}/${MAX_CONSECUTIVE_DUPLICATE_ROUNDS}, textProgress=${hadTextProgress})`
+          );
+        } else if (hadNewToolExecutions) {
+          consecutiveDuplicateRounds = 0; // Reset counter if we made real progress
+        }
+
+        // Stop if too many consecutive rounds of only duplicate tool calls
+        if (consecutiveDuplicateRounds >= MAX_CONSECUTIVE_DUPLICATE_ROUNDS) {
+          console.error(
+            `[STREAMING] [ANTI_LOOP] Stopping: ${MAX_CONSECUTIVE_DUPLICATE_ROUNDS} consecutive rounds of duplicate tool calls. ` +
+            `The model is stuck in a loop. Final text length: ${accumulatedText.length}`
+          );
+          // Append a message to let the user know
+          accumulatedText += `\n\n⚠️ **Agent stopped**: Detected repetitive behavior (${consecutiveDuplicateRounds} consecutive attempts to call the same tools). Please try rephrasing your request or providing more specific instructions.`;
+          break;
+        }
 
         // Stop if we are not making progress; prevents infinite loops with buggy providers.
         if (!progressed) {
@@ -1829,6 +1979,12 @@ Review the above results. If you have enough information, provide your response.
         streamStatus: "completed",
         streamStartedAt,
         streamEndedAt,
+      });
+
+      // Update task status to STOPPED when streaming completes (allows follow-up messages)
+      await ctx.runMutation(api.tasks.update, {
+        taskId: args.taskId,
+        status: "STOPPED",
       });
 
       console.log(
@@ -1943,6 +2099,12 @@ Review the above results. If you have enough information, provide your response.
       await ctx.runMutation(api.messages.update, {
         messageId,
         content: `⚠️ ${userMessage}`,
+      });
+
+      // Update task status to FAILED on error (preserve failure state)
+      await ctx.runMutation(api.tasks.update, {
+        taskId: args.taskId,
+        status: "FAILED",
       });
 
       throw error;

@@ -128,7 +128,7 @@ function generateMcpNameId(name: string): { ok: true; nameId: string } | { ok: f
 
 /**
  * List all MCP connectors for a user (including global connectors)
- * Note: oauthClientSecret is redacted for security
+ * Note: oauthClientSecret and configJson are redacted for security
  */
 export const listByUser = query({
   args: { userId: v.id("users") },
@@ -151,6 +151,7 @@ export const listByUser = query({
       .map((c) => ({
         ...c,
         oauthClientSecret: c.oauthClientSecret ? "[REDACTED]" : undefined,
+        configJson: c.configJson ? "[CONFIGURED]" : undefined, // Redact config for security
       }));
   },
 });
@@ -207,6 +208,8 @@ export const create = mutation({
     name: v.string(),
     url: v.string(),
     type: McpTransportType,
+    templateId: v.optional(v.string()),
+    configJson: v.optional(v.string()),
     oauthClientId: v.optional(v.string()),
     oauthClientSecret: v.optional(v.string()),
   },
@@ -248,6 +251,8 @@ export const create = mutation({
       nameId: nameIdResult.nameId,
       url: args.url,
       type: args.type,
+      templateId: args.templateId,
+      configJson: args.configJson,
       oauthClientId: args.oauthClientId,
       oauthClientSecret: args.oauthClientSecret,
       enabled: true,
@@ -269,6 +274,8 @@ export const update = mutation({
     name: v.optional(v.string()),
     url: v.optional(v.string()),
     type: v.optional(McpTransportType),
+    templateId: v.optional(v.string()),
+    configJson: v.optional(v.string()),
     oauthClientId: v.optional(v.string()),
     oauthClientSecret: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
@@ -323,6 +330,8 @@ export const update = mutation({
       patchData.url = args.url;
     }
     if (args.type !== undefined) patchData.type = args.type;
+    if (args.templateId !== undefined) patchData.templateId = args.templateId;
+    if (args.configJson !== undefined) patchData.configJson = args.configJson;
     if (args.oauthClientId !== undefined) patchData.oauthClientId = args.oauthClientId;
     if (args.oauthClientSecret !== undefined) patchData.oauthClientSecret = args.oauthClientSecret;
     if (args.enabled !== undefined) patchData.enabled = args.enabled;
@@ -414,18 +423,40 @@ export const listEnabledByUser = query({
 });
 
 /**
+ * Parse config JSON and extract environment variables for MCP calls
+ */
+function parseConfigJson(configJson?: string): Record<string, string> {
+  if (!configJson) return {};
+  try {
+    const parsed = JSON.parse(configJson) as { variables?: Record<string, string> };
+    return parsed.variables || {};
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Discover capabilities from an MCP server
  * This is a simplified implementation for HTTP/SSE MCP servers
  */
 async function discoverMcpCapabilities(connector: {
   url: string;
   type: "HTTP" | "SSE";
+  configJson?: string;
   oauthClientId?: string;
   oauthClientSecret?: string;
 }): Promise<McpDiscoveryResult> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
+
+  // Parse stored config and add as custom headers
+  // MCP servers can read these to authenticate with their backing services
+  const configVars = parseConfigJson(connector.configJson);
+  if (Object.keys(configVars).length > 0) {
+    // Pass config as a JSON-encoded header that MCP servers can parse
+    headers["X-MCP-Config"] = Buffer.from(JSON.stringify(configVars)).toString("base64");
+  }
 
   // Add OAuth credentials if provided
   if (connector.oauthClientId && connector.oauthClientSecret) {
@@ -560,6 +591,7 @@ export const discover = action({
     return discoverMcpCapabilities({
       url: connector.url,
       type: connector.type,
+      configJson: connector.configJson ?? undefined,
       oauthClientId: connector.oauthClientId ?? undefined,
       oauthClientSecret: connector.oauthClientSecret ?? undefined,
     });

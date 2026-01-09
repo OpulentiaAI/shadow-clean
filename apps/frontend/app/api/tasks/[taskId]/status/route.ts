@@ -2,6 +2,9 @@ import { getTaskStatus } from "@/lib/db-operations/get-task-status";
 import { verifyTaskOwnership } from "@/lib/auth/verify-task-ownership";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }

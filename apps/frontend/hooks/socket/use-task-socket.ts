@@ -1053,15 +1053,38 @@ export function useTaskSocket(taskId: string | undefined) {
     };
   }, [socket, taskId, queryClient]);
 
+  // Track last sent message to prevent duplicate submissions
+  const lastSentMessageRef = useRef<{ message: string; timestamp: number } | null>(null);
+  const DUPLICATE_PREVENTION_WINDOW_MS = 2000; // Prevent same message within 2 seconds
+
   // Socket actions (methods to call from components)
   const sendMessage = useCallback(
     (message: string, model: string, queue: boolean = false) => {
       if (!socket || !taskId || !message.trim()) return;
 
+      const trimmedMessage = message.trim();
+      const now = Date.now();
+
+      // Prevent duplicate submissions: same message within prevention window
+      // Uses inline check for performance, logic tested in duplicate-prevention.test.ts
+      if (
+        lastSentMessageRef.current &&
+        lastSentMessageRef.current.message === trimmedMessage &&
+        now - lastSentMessageRef.current.timestamp < DUPLICATE_PREVENTION_WINDOW_MS
+      ) {
+        console.warn(
+          `[SOCKET] Blocking duplicate message submission: "${trimmedMessage.substring(0, 50)}..." (within ${DUPLICATE_PREVENTION_WINDOW_MS}ms window)`
+        );
+        return;
+      }
+
+      // Update last sent message tracking
+      lastSentMessageRef.current = { message: trimmedMessage, timestamp: now };
+
       setIsStreaming(true);
       socket.emit("user-message", {
         taskId,
-        message: message.trim(),
+        message: trimmedMessage,
         llmModel: model as ModelType,
         queue,
       });

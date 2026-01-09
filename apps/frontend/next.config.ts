@@ -1,8 +1,14 @@
 import type { NextConfig } from "next";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   /* config options here */
-  output: "standalone", // Enable standalone build for Docker
+  // Note: standalone mode removed for Vercel compatibility - Vercel handles this automatically
+  // output: "standalone", // Only needed for Docker deployments
+  outputFileTracingRoot: path.join(configDir, "../.."),
   eslint: {
     // Tailwind v4 + eslint-plugin-tailwindcss path export mismatch in CI; ignore during builds
     ignoreDuringBuilds: true,

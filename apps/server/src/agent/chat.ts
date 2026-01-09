@@ -56,6 +56,12 @@ import { TaskInitializationEngine } from "@/initialization";
 import { databaseBatchService } from "../services/database-batch-service";
 import { ChatSummarizationService } from "../services/chat-summarization-service";
 
+// When ENABLE_PROMPT_MESSAGE_ID is true in Convex, the Convex streaming action
+// creates the user message. To avoid duplicates, the server should NOT save
+// user messages when Convex handles it.
+const CONVEX_HANDLES_PROMPT_MESSAGES =
+  process.env.ENABLE_PROMPT_MESSAGE_ID === "true";
+
 // Discriminated union types for queued actions
 type QueuedMessageAction = {
   type: "message";
@@ -165,12 +171,51 @@ export class ChatService {
     return { id: result.messageId, sequence: result.sequence };
   }
 
+  // Track recently saved user messages to prevent duplicates
+  private recentUserMessages = new Map<string, { content: string; timestamp: number }>();
+  private readonly DUPLICATE_MESSAGE_WINDOW_MS = 3000; // 3 second window
+
   async saveUserMessage(
     taskId: string,
     content: string,
     llmModel: string,
     metadata?: MessageMetadata
   ): Promise<{ id: string; sequence: number }> {
+    const now = Date.now();
+    const recentKey = `${taskId}`;
+    const recent = this.recentUserMessages.get(recentKey);
+
+    // Check for duplicate message within time window
+    if (
+      recent &&
+      recent.content === content &&
+      now - recent.timestamp < this.DUPLICATE_MESSAGE_WINDOW_MS
+    ) {
+      console.warn(
+        `[CHAT] Blocking duplicate user message for task ${taskId}: "${content.substring(0, 50)}..." (within ${this.DUPLICATE_MESSAGE_WINDOW_MS}ms window)`
+      );
+      // Return the previous message info instead of creating a duplicate
+      const history = await this.getChatHistory(taskId);
+      const lastUserMessage = history.filter((m) => m.role === "user").pop();
+      if (lastUserMessage) {
+        return { id: lastUserMessage.id, sequence: lastUserMessage.sequence ?? 0 };
+      }
+      throw new Error("Duplicate message detected but no previous message found");
+    }
+
+    // Track this message to prevent duplicates
+    this.recentUserMessages.set(recentKey, { content, timestamp: now });
+
+    // Clean up old entries periodically (keep map from growing indefinitely)
+    if (this.recentUserMessages.size > 100) {
+      const cutoff = now - this.DUPLICATE_MESSAGE_WINDOW_MS * 2;
+      for (const [key, value] of this.recentUserMessages.entries()) {
+        if (value.timestamp < cutoff) {
+          this.recentUserMessages.delete(key);
+        }
+      }
+    }
+
     const message = await this.createMessageWithAtomicSequence(taskId, {
       content,
       role: "USER",
@@ -737,12 +782,20 @@ export class ChatService {
     }
 
     // Save user message to database (unless skipped, e.g. on task initialization)
-    if (!skipUserMessageSave) {
+    // When CONVEX_HANDLES_PROMPT_MESSAGES is true, Convex streamChatWithTools
+    // will create the user message, so we skip saving here to avoid duplicates.
+    const shouldSkipUserMessageSave =
+      skipUserMessageSave || CONVEX_HANDLES_PROMPT_MESSAGES;
+
+    if (!shouldSkipUserMessageSave) {
       console.log(`[CHAT] Saving user message for task ${taskId}`);
       await this.saveUserMessage(taskId, userMessage, context.getMainModel());
       console.log(`[CHAT] User message saved for task ${taskId}`);
     } else {
-      console.log(`[CHAT] Skipping user message save for task ${taskId}`);
+      console.log(
+        `[CHAT] Skipping user message save for task ${taskId} ` +
+          `(skipUserMessageSave=${skipUserMessageSave}, CONVEX_HANDLES_PROMPT_MESSAGES=${CONVEX_HANDLES_PROMPT_MESSAGES})`
+      );
     }
 
     console.log(`[CHAT] Getting chat history for task ${taskId}`);

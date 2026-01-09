@@ -200,7 +200,7 @@ export const testPromptMessageId = action({
   },
   handler: async (ctx, args): Promise<TestPromptMessageIdResult> => {
     const ENABLE_PROMPT_MESSAGE_ID =
-      process.env.ENABLE_PROMPT_MESSAGE_ID === "true";
+      process.env.ENABLE_PROMPT_MESSAGE_ID !== "false";
 
     // Create test task if not provided
     let taskId = args.taskId;
@@ -217,7 +217,7 @@ export const testPromptMessageId = action({
         flagEnabled: false,
         taskId,
         message:
-          "ENABLE_PROMPT_MESSAGE_ID is disabled - legacy behavior active",
+          'ENABLE_PROMPT_MESSAGE_ID is disabled ("false") - legacy behavior active',
       };
     }
 

@@ -1,5 +1,43 @@
+import { createClient, type GenericCtx } from "@convex-dev/better-auth";
+import { convex } from "@convex-dev/better-auth/plugins";
+import { betterAuth } from "better-auth";
 import { mutation, query } from "./_generated/server";
+import { components } from "./_generated/api";
+import { DataModel } from "./_generated/dataModel";
 import { v } from "convex/values";
+import authConfig from "./auth.config";
+
+const siteUrl = process.env.SITE_URL || "https://code.opulentia.ai";
+
+// The component client has methods needed for integrating Convex with Better Auth
+export const authComponent = createClient<DataModel>(components.betterAuth);
+
+export const createAuth = (ctx: GenericCtx<DataModel>) => {
+  return betterAuth({
+    baseURL: siteUrl,
+    database: authComponent.adapter(ctx),
+    socialProviders: {
+      github: {
+        clientId: process.env.GITHUB_CLIENT_ID as string,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+        scope: ["repo", "read:user", "user:email"],
+      },
+    },
+    secret: process.env.BETTER_AUTH_SECRET as string,
+    trustedOrigins: [siteUrl, "https://code.opulentia.ai"],
+    plugins: [
+      convex({ authConfig }),
+    ],
+  });
+};
+
+// Get current authenticated user via Better Auth component
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    return authComponent.getAuthUser(ctx);
+  },
+});
 
 export const currentUser = query({
   args: { userId: v.optional(v.id("users")) },
@@ -336,5 +374,88 @@ export const deleteVerification = mutation({
       await ctx.db.delete(verification._id);
     }
     return { success: true };
+  },
+});
+
+/**
+ * Get current session - Convex-native replacement for /api/get-session
+ * This query should be used with useQuery(api.auth.getSession)
+ */
+export const getSession = query({
+  args: {
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // If no token provided, return null
+    if (!args.token) {
+      return null;
+    }
+
+    // Look up session by token
+    const tokenValue = args.token;
+    if (!tokenValue) return null;
+    
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", tokenValue))
+      .first();
+
+    if (!session) {
+      return null;
+    }
+
+    // Check if session is expired
+    if (session.expiresAt < Date.now()) {
+      return null;
+    }
+
+    // Get associated user
+    const user = await ctx.db.get(session.userId);
+    if (!user) {
+      return null;
+    }
+
+    // Get GitHub account if exists
+    const githubAccount = await ctx.db
+      .query("accounts")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", session.userId).eq("providerId", "github")
+      )
+      .first();
+
+    return {
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        emailVerified: user.emailVerified,
+      },
+      session: {
+        id: session._id,
+        expiresAt: session.expiresAt,
+      },
+      github: githubAccount
+        ? {
+            connected: githubAccount.githubAppConnected,
+            installationId: githubAccount.githubInstallationId,
+          }
+        : null,
+    };
+  },
+});
+
+/**
+ * Get user settings - Convex-native
+ */
+export const getUserSettings = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("userSettings")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
   },
 });

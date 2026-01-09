@@ -5,6 +5,15 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BYPASS_AUTH = process.env.NEXT_PUBLIC_BYPASS_AUTH === "true";
 
+// Check if GitHub App is configured by presence of required env vars
+function isGitHubAppConfigured(): boolean {
+  return !!(
+    process.env.GITHUB_APP_ID &&
+    process.env.GITHUB_APP_SLUG &&
+    process.env.GITHUB_PRIVATE_KEY
+  );
+}
+
 export async function GET(_request: NextRequest) {
   try {
     const user = await getUser();
@@ -13,9 +22,11 @@ export async function GET(_request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // In bypass mode, surface the installation URL so users can still connect if desired.
+    // In bypass mode, compute status from env presence
     if (BYPASS_AUTH) {
+      const appConfigured = isGitHubAppConfigured();
       let installationUrl: string | undefined;
+
       try {
         installationUrl = getGitHubAppInstallationUrl();
       } catch (error) {
@@ -24,11 +35,14 @@ export async function GET(_request: NextRequest) {
       }
 
       return NextResponse.json({
-        isConnected: false,
-        isAppInstalled: false,
+        // In bypass mode with app configured, consider it connected for dev purposes
+        isConnected: appConfigured,
+        // Compute from env presence instead of hardcoding false
+        isAppInstalled: appConfigured,
         installationUrl,
-        message:
-          "GitHub integration disabled in local dev mode. Use Local Repo instead or install the GitHub App.",
+        message: appConfigured
+          ? "GitHub App configured via environment variables."
+          : "GitHub App not configured. Set GITHUB_APP_ID, GITHUB_APP_SLUG, and GITHUB_PRIVATE_KEY.",
       });
     }
 

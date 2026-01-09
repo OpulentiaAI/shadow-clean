@@ -2,6 +2,9 @@ import { verifyTaskOwnership } from "@/lib/auth/verify-task-ownership";
 import { archiveTask } from "@/lib/db-operations/archive-task";
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ taskId: string }> }

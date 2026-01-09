@@ -156,6 +156,8 @@ async function main() {
     const taskLimit = getEnvNumber("E2E_TASK_LIMIT", 3);
     const perActionTimeoutMs = getEnvNumber("E2E_ACTION_TIMEOUT_MS", 120000);
     const betweenRunsMs = getEnvNumber("E2E_BETWEEN_RUNS_MS", 200);
+    const verifyIdempotency = process.env.E2E_VERIFY_IDEMPOTENCY !== "false";
+    const verifyTaskStopped = process.env.E2E_VERIFY_TASK_STOPPED !== "false";
 
     const models = getProductionModels();
     const toolFilter = buildSafeToolsFilter();
@@ -220,10 +222,16 @@ async function main() {
             console.log(`\n[E2E] RUN ${label}`);
 
             let actionResult;
+            let idempotencyResult = null;
             let toolTracking;
+            let finalTaskStatus = null;
             let error = null;
 
             try {
+                const clientMessageId = `e2e-${task._id}-${Date.now()}-${Math.random()
+                    .toString(16)
+                    .slice(2)}`;
+
                 actionResult = await withTimeout(
                     client.action(api.streaming.streamChatWithTools, {
                         taskId: task._id,
@@ -232,14 +240,49 @@ async function main() {
                         llmModel: model,
                         apiKeys: {},
                         tools: toolFilter,
+                        clientMessageId,
                     }),
                     perActionTimeoutMs,
                     `streamChatWithTools ${label}`
                 );
 
+                // Verify idempotency: same clientMessageId should reuse the same assistant message.
+                if (verifyIdempotency) {
+                    try {
+                        const repeat = await withTimeout(
+                            client.action(api.streaming.streamChatWithTools, {
+                                taskId: task._id,
+                                prompt,
+                                model,
+                                llmModel: model,
+                                apiKeys: {},
+                                tools: toolFilter,
+                                clientMessageId,
+                            }),
+                            perActionTimeoutMs,
+                            `streamChatWithTools idempotency ${label}`
+                        );
+                        idempotencyResult = {
+                            ok: repeat?.messageId === actionResult?.messageId,
+                            firstMessageId: actionResult?.messageId || null,
+                            repeatMessageId: repeat?.messageId || null,
+                        };
+                    } catch (e) {
+                        idempotencyResult = {
+                            ok: false,
+                            error: String(e?.message || e),
+                        };
+                    }
+                }
+
                 toolTracking = await client.query(api.toolCallTracking.byMessage, {
                     messageId: actionResult.messageId,
                 });
+
+                if (verifyTaskStopped) {
+                    const status = await client.query(api.tasks.getStatus, { taskId: task._id });
+                    finalTaskStatus = status?.status || null;
+                }
             } catch (e) {
                 error = String(e?.message || e);
             }
@@ -252,13 +295,17 @@ async function main() {
                 !error &&
                 toolSummary &&
                 toolSummary.statuses.RUNNING === 0 &&
-                toolSummary.schemaErrors.length === 0;
+                toolSummary.schemaErrors.length === 0 &&
+                (!verifyIdempotency || idempotencyResult?.ok === true) &&
+                (!verifyTaskStopped || finalTaskStatus === "STOPPED");
 
             const row = {
                 taskId: task._id,
                 repoFullName: task.repoFullName,
                 model,
                 ok,
+                idempotency: idempotencyResult,
+                finalTaskStatus,
                 actionResult: actionResult
                     ? {
                         success: actionResult.success,

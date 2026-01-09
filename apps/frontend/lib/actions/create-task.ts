@@ -1,7 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth/auth";
-import { headers } from "next/headers";
+import { isAuthenticated, fetchAuthQuery, fetchAuthMutation } from "@/lib/auth/auth-server";
+import { randomUUID } from "crypto";
 import { z, type ZodIssue } from "zod";
 import { generateTaskTitleAndBranch } from "./generate-title-branch";
 import {
@@ -13,7 +13,6 @@ import {
   buildScratchpadRepoFullName,
   buildScratchpadRepoUrl,
 } from "@repo/types";
-import { makeBackendRequest } from "../make-backend-request";
 import {
   createTask as createConvexTask,
   countActiveTasks,
@@ -22,8 +21,11 @@ import {
   updateTask,
   getTask as getConvexTask,
   streamChatWithTools,
+  storeGitHubFileTree,
 } from "../convex/actions";
+import { getGitHubFileTree } from "../github/github-api";
 import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "../../../../convex/_generated/api";
 
 // Dev user ID for local development without auth
 const DEV_USER_ID = "dev-local-user";
@@ -102,18 +104,24 @@ export async function createTask(formData: FormData) {
     });
     userId = convexUserId;
   } else {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session?.user?.id) {
+    const authenticated = await isAuthenticated();
+    if (!authenticated) {
       throw new Error("Unauthorized");
     }
-    const convexUserId = await upsertUser({
-      externalId: session.user.id,
-      name: session.user.name ?? "Authenticated User",
-      email: session.user.email ?? "unknown@user.local",
-      image: session.user.image ?? undefined,
-      emailVerified: session.user.emailVerified ?? false,
+    
+    // Get the actual authenticated user from Better Auth
+    const authUser = await fetchAuthQuery(api.auth.getCurrentUser, {});
+    if (!authUser) {
+      throw new Error("Unable to get authenticated user");
+    }
+    
+    // Upsert to our users table using the Better Auth user ID as external reference
+    const convexUserId = await fetchAuthMutation(api.auth.upsertUser, {
+      externalId: authUser._id,
+      name: authUser.name ?? "Unknown User",
+      email: authUser.email,
+      image: authUser.image ?? undefined,
+      emailVerified: authUser.emailVerified ?? false,
     });
     userId = convexUserId;
   }
@@ -227,13 +235,16 @@ export async function createTask(formData: FormData) {
       `[TASK_CREATION] Task ${taskId} verified successfully. Status: ${verifyTask.status}`
     );
 
-    // Create the initial user message
-    await appendMessage({
+    // Create the initial user message and get its ID for streaming
+    const clientMessageId = randomUUID();
+    const { messageId: promptMessageId } = await appendMessage({
       taskId,
       role: "USER",
       content: message,
       llmModel: model,
+      clientMessageId,
     });
+    console.log(`[TASK_CREATION] Created initial user message: ${promptMessageId}`);
 
     // IMPORTANT: Do not block task creation on workspace initialization / streaming.
     // We want to redirect to the task page immediately so the user can see init progress
@@ -244,85 +255,89 @@ export async function createTask(formData: FormData) {
       isScratchpad,
     });
 
-    // Forward cookies from the original request (must capture inside request scope).
-    const requestHeaders = await headers();
-    const cookieHeader = requestHeaders.get("cookie");
-
-    // Check if Convex streaming is enabled to skip backend LLM processing
-    const useConvexStreaming =
-      process.env.NEXT_PUBLIC_USE_CONVEX_REALTIME === "true";
-
+    // Convex-native task initialization (no backend dependency)
     void (async () => {
       try {
-        console.log(`[TASK_CREATION] Initiating task ${taskId} (background)`, {
+        console.log(`[TASK_CREATION] Initiating task ${taskId} via Convex`, {
           model,
           isScratchpad,
-          useConvexStreaming,
         });
 
-        const response = await makeBackendRequest(
-          `/api/tasks/${taskId}/initiate`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(cookieHeader && { Cookie: cookieHeader }),
-            },
-            body: JSON.stringify({
-              message,
-              model,
-              userId: userId,
-              // When Convex streaming is enabled, skip backend LLM processing
-              // Convex streamChatWithTools action will handle the LLM call
-              useConvexStreaming,
-            }),
+        // Update task status to initializing
+        await updateTask({
+          taskId,
+          status: "INITIALIZING",
+          initStatus: "PREPARE_WORKSPACE",
+        });
+
+        // Fetch and store GitHub file tree for non-scratchpad tasks
+        if (!isScratchpad && repoFullName && baseBranch) {
+          try {
+            console.log(`[TASK_CREATION] Fetching GitHub file tree for ${repoFullName}/${baseBranch}`);
+            const fileTree = await getGitHubFileTree(repoFullName, baseBranch, userId.toString());
+            
+            if (fileTree.length > 0) {
+              console.log(`[TASK_CREATION] Storing ${fileTree.length} files in Convex`);
+              await storeGitHubFileTree(
+                taskId,
+                fileTree.map((item) => ({
+                  path: item.path,
+                  type: item.type,
+                  size: item.size,
+                }))
+              );
+              console.log(`[TASK_CREATION] File tree stored successfully`);
+            } else {
+              console.log(`[TASK_CREATION] No files found in GitHub tree`);
+            }
+          } catch (fileTreeError) {
+            console.error(`[TASK_CREATION] Error fetching file tree:`, fileTreeError);
+            // Continue with task creation even if file tree fails
           }
+        }
+
+        // Trigger Convex streaming for initial message
+        // CRITICAL: Pass promptMessageId to prevent duplicate user message creation
+        console.log(
+          `[TASK_CREATION] Triggering Convex streaming for task ${taskId} with promptMessageId ${promptMessageId}`
         );
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(
-            `[TASK_CREATION] Failed to initiate task ${taskId}: status=${response.status}`,
-            errorText
+	        try {
+	          await streamChatWithTools({
+	            taskId,
+	            prompt: message,
+	            model,
+	            llmModel: model,
+	            promptMessageId, // Prevents streamChatWithTools from creating another user message
+	            clientMessageId,
+	            // API keys will be resolved server-side from env vars
+	            apiKeys: {
+	              anthropic: undefined,
+	              openai: undefined,
+	              openrouter: undefined,
+            },
+          });
+	          console.log(
+	            `[TASK_CREATION] Convex streaming completed for task ${taskId}`
+	          );
+	          
+	          // Streaming action sets task status STOPPED on completion; keep STOPPED so follow-ups work.
+	          await updateTask({
+	            taskId,
+	            status: "STOPPED",
+	            initStatus: "ACTIVE",
+	            hasBeenInitialized: true,
+	          });
+	        } catch (streamError) {
+	          console.error(
+	            `[TASK_CREATION] Convex streaming error for task ${taskId}:`,
+	            streamError
           );
-
+          
           await updateTask({
             taskId,
             status: "FAILED",
-            initializationError: `Initialization failed: ${errorText}`,
+            initializationError: `Streaming error: ${streamError instanceof Error ? streamError.message : String(streamError)}`,
           });
-          return;
-        }
-
-        console.log(`[TASK_CREATION] Successfully initiated task ${taskId}`);
-
-        // Trigger Convex streaming for initial message when enabled
-        if (useConvexStreaming) {
-          console.log(
-            `[TASK_CREATION] Triggering Convex streaming for task ${taskId}`
-          );
-          try {
-            await streamChatWithTools({
-              taskId,
-              prompt: message,
-              model,
-              llmModel: model,
-              // API keys will be resolved server-side from env vars
-              apiKeys: {
-                anthropic: undefined,
-                openai: undefined,
-                openrouter: undefined,
-              },
-            });
-            console.log(
-              `[TASK_CREATION] Convex streaming completed for task ${taskId}`
-            );
-          } catch (streamError) {
-            console.error(
-              `[TASK_CREATION] Convex streaming error for task ${taskId}:`,
-              streamError
-            );
-          }
         }
       } catch (error) {
         console.error(

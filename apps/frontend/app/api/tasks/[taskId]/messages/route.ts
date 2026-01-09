@@ -1,7 +1,10 @@
 import { getTaskMessages } from "@/lib/db-operations/get-task-messages";
 import { verifyTaskOwnership } from "@/lib/auth/verify-task-ownership";
-import { makeBackendRequest } from "@/lib/make-backend-request";
-import { NextRequest, NextResponse } from "next/server";
+import { getConvexClient, api } from "@/lib/convex/client";
+import { type NextRequest, NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,
@@ -37,25 +40,24 @@ export async function POST(
 
     const body = await request.json();
 
-    // Proxy to backend server with authentication
-    const response = await makeBackendRequest(`/api/tasks/${taskId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    // Use Convex mutation to append message (Convex-native)
+    try {
+      const convex = getConvexClient();
+      const result = await convex.mutation(api.messages.append, {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        taskId: taskId as any,
+        content: body.content || body.message || "",
+        role: body.role || "USER",
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      return NextResponse.json({ success: true, messageId: result.messageId });
+    } catch (convexError) {
+      console.error("Convex message creation failed:", convexError);
       return NextResponse.json(
-        { error: errorData.error || "Failed to send message" },
-        { status: response.status }
+        { error: "Failed to send message via Convex" },
+        { status: 500 }
       );
     }
-
-    const data = await response.json().catch(() => ({ success: true }));
-    return NextResponse.json(data);
   } catch (error) {
     console.error("Error sending message:", error);
     return NextResponse.json(

@@ -195,11 +195,14 @@ export default defineSchema({
     )),
     // BP012: Link response to its prompt message for retry correlation
     promptMessageId: v.optional(v.id("chatMessages")),
+    // Idempotency: client-generated message ID for deduplication across retries
+    clientMessageId: v.optional(v.string()),
   })
     .index("by_task_sequence", ["taskId", "sequence"])
     .index("by_task_role", ["taskId", "role"])
     .index("by_model_created", ["llmModel", "createdAt"])
-    .index("by_status", ["taskId", "status"]),
+    .index("by_status", ["taskId", "status"])
+    .index("by_task_clientMessageId", ["taskId", "clientMessageId"]),
 
   pullRequestSnapshots: defineTable({
     status: PullRequestStatus,
@@ -303,6 +306,8 @@ export default defineSchema({
     nameId: v.string(), // unique per user, used as namespace for tool IDs
     url: v.string(), // MCP server URL
     type: McpTransportType,
+    templateId: v.optional(v.string()), // Reference to template used (e.g., "atlassian", "linear")
+    configJson: v.optional(v.string()), // JSON string of user-configured environment variables (encrypted)
     oauthClientId: v.optional(v.string()),
     oauthClientSecret: v.optional(v.string()),
     enabled: v.boolean(),

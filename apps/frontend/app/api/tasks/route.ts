@@ -3,6 +3,9 @@ import { createTask } from "@/lib/actions/create-task";
 import { getTasks } from "@/lib/db-operations/get-tasks";
 import { type NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(_request: NextRequest) {
   try {
     const user = await getUser();

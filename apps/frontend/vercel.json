@@ -1,0 +1,7 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && npx turbo build --filter=frontend",
+  "installCommand": "cd ../.. && npm ci",
+  "outputDirectory": ".next",
+  "devCommand": "next dev"
+}

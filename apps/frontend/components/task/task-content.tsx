@@ -52,9 +52,6 @@ function TaskPageContent() {
       if (!taskId || !message.trim()) return;
       if (queue) return; // queuing not supported
 
-      // Optimistic user append
-      sendMessageMutation.mutate({ taskId, message, model });
-
       // Debug: Log at start of every message send
       console.log("[TASK_CONTENT] handleSendMessage called", {
         taskId,
@@ -65,14 +62,19 @@ function TaskPageContent() {
       });
 
       if (USE_CONVEX_STREAMING) {
-        console.log("[TASK_CONTENT] Entering Convex streaming path");
+        // CONVEX-NATIVE PATH: Prompt message is created by streamChatWithTools
+        // DO NOT call sendMessageMutation.mutate - that causes duplicates!
+        console.log("[TASK_CONTENT] Entering Convex streaming path (no separate message creation)");
         if (!convexTaskId) {
           console.warn("[TASK_CONTENT] Convex task id missing; skipping Convex streaming");
           return;
         }
 
         try {
-          console.log("[TASK_CONTENT] Calling startStreamWithTools...");
+          // Generate clientMessageId for idempotency (retries won't duplicate)
+          const clientMessageId = crypto.randomUUID();
+          console.log("[TASK_CONTENT] Calling startStreamWithTools with clientMessageId:", clientMessageId);
+
           await startStreamWithTools({
             taskId: convexTaskId,
             prompt: message,
@@ -86,6 +88,7 @@ function TaskPageContent() {
               openai: undefined,
               openrouter: undefined,
             },
+            clientMessageId,
           });
           console.log("[TASK_CONTENT] startStreamWithTools completed successfully");
         } catch (error) {
@@ -94,9 +97,12 @@ function TaskPageContent() {
         return;
       }
 
+      // LEGACY PATH: Create message separately, then trigger streaming via REST
       console.log("[TASK_CONTENT] Using legacy Socket.IO / REST path");
 
-      // Legacy Socket.IO / REST path
+      // Optimistic user append (only for legacy path)
+      sendMessageMutation.mutate({ taskId, message, model });
+
       setLegacyStreaming(true);
       try {
         const response = await fetch(`/api/tasks/${taskId}/messages`, {

@@ -1,8 +1,7 @@
 "use server";
 
-import { auth } from "@/lib/auth/auth";
+import { isAuthenticated } from "@/lib/auth/auth-server";
 import { prisma } from "@repo/db";
-import { headers } from "next/headers";
 import { z } from "zod";
 
 const editMessageSchema = z.object({
@@ -16,11 +15,9 @@ const editMessageSchema = z.object({
 });
 
 export async function editMessage(formData: FormData) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const authenticated = await isAuthenticated();
 
-  if (!session?.user?.id) {
+  if (!authenticated) {
     throw new Error("Unauthorized");
   }
 
@@ -42,18 +39,6 @@ export async function editMessage(formData: FormData) {
   const { taskId, messageId, content, llmModel } = validation.data;
 
   try {
-    // Verify user owns the task
-    const task = await prisma.task.findFirst({
-      where: {
-        id: taskId,
-        userId: session.user.id,
-      },
-    });
-
-    if (!task) {
-      throw new Error("Task not found or access denied");
-    }
-
     // Verify the message exists and belongs to the task
     const message = await prisma.chatMessage.findFirst({
       where: {
