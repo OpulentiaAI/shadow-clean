@@ -50,7 +50,7 @@ export interface TitleGenerationConfig {
 }
 
 export function getTitleGenerationModel(config: TitleGenerationConfig): {
-  provider: "openai" | "anthropic" | "openrouter" /* | "ollama" */;
+  provider: "openai" | "anthropic" | "openrouter" | "fireworks";
   modelChoice: string;
 } | null {
   const { apiKeys, fallbackModel } = config;
@@ -66,7 +66,7 @@ export function getTitleGenerationModel(config: TitleGenerationConfig): {
   }
 
   let modelChoice: string;
-  let provider: "openai" | "anthropic" | "openrouter" | "ollama";
+  let provider: "openai" | "anthropic" | "openrouter" | "fireworks";
 
   if (fallbackModel) {
     // Use the fallback model directly

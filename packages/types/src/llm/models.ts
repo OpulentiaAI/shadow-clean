@@ -5,7 +5,7 @@ export interface LLMConfig {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
-  provider: "anthropic" | "openai" | "openrouter" /* | "groq" | "ollama" */;
+  provider: "anthropic" | "openai" | "openrouter" | "fireworks" /* | "groq" | "ollama" */;
 }
 
 // Model Selection
@@ -22,6 +22,8 @@ export const AvailableModels = {
   GROK_CODE_FAST_1: "x-ai/grok-code-fast-1",
   ZAI_GLM_4_7: "z-ai/glm-4.7",
   MINIMAX_M2_1: "minimax/minimax-m2.1",
+  // Fireworks models
+  FIREWORKS_GLM_4_7: "accounts/fireworks/models/glm-4p7",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -29,7 +31,7 @@ export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
 export interface ModelInfo {
   id: ModelType;
   name: string;
-  provider: "anthropic" | "openai" | "openrouter" /* | "groq" | "ollama" */;
+  provider: "anthropic" | "openai" | "openrouter" | "fireworks" /* | "groq" | "ollama" */;
 }
 
 export const ModelInfos: Record<ModelType, ModelInfo> = {
@@ -89,11 +91,17 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "MiniMax M2.1",
     provider: "openrouter",
   },
+  // Fireworks models
+  [AvailableModels.FIREWORKS_GLM_4_7]: {
+    id: AvailableModels.FIREWORKS_GLM_4_7,
+    name: "GLM-4.7 (Fireworks)",
+    provider: "fireworks",
+  },
 };
 
 export function getModelProvider(
   model: ModelType
-): "anthropic" | "openai" | "openrouter" /* | "ollama" */ {
+): "anthropic" | "openai" | "openrouter" | "fireworks" /* | "ollama" */ {
   const modelInfo = ModelInfos[model];
   if (modelInfo) {
     return modelInfo.provider;
@@ -134,6 +142,14 @@ export function getModelProvider(
     return "openai";
   }
 
+  // Fireworks models
+  if (modelStr.includes("accounts/fireworks/models/")) {
+    console.warn(
+      `[getModelProvider] Inferred Fireworks provider for model: ${modelStr}`
+    );
+    return "fireworks";
+  }
+
   // Default to OpenRouter for unknown models
   console.warn(
     `[getModelProvider] Defaulting to OpenRouter for unknown model: ${modelStr}`
@@ -153,6 +169,8 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
       return AvailableModels.CLAUDE_HAIKU_4_5;
     case "openrouter":
       return AvailableModels.CLAUDE_OPUS_4_5;
+    case "fireworks":
+      return AvailableModels.FIREWORKS_GLM_4_7;
     case "exa":
       // Exa is a tool provider, not a model provider - return a sensible default
       return AvailableModels.CLAUDE_HAIKU_4_5;
@@ -204,6 +222,11 @@ export async function getAllPossibleModels(
     );
   }
 
+  // Fireworks models
+  if (userApiKeys.fireworks) {
+    models.push(AvailableModels.FIREWORKS_GLM_4_7);
+  }
+
   return models;
 }
 
@@ -230,6 +253,11 @@ export async function getDefaultSelectedModels(
       AvailableModels.ZAI_GLM_4_7,
       AvailableModels.MINIMAX_M2_1
     );
+  }
+
+  // Fireworks models
+  if (userApiKeys.fireworks) {
+    defaultModels.push(AvailableModels.FIREWORKS_GLM_4_7);
   }
 
   return defaultModels;

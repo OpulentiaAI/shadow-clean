@@ -1,6 +1,7 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createFireworks } from "@ai-sdk/fireworks";
 // import { createGroq } from "@ai-sdk/groq";
 // import { createOllama } from "ollama-ai-provider";
 import { ModelType, getModelProvider, ApiKeys, isReasoningModel } from "@repo/types";
@@ -157,6 +158,28 @@ export class ModelProvider {
           return model as unknown as LanguageModel;
         } catch (error) {
           console.error("OpenRouter client creation failed:", error);
+          throw error;
+        }
+      }
+
+      case "fireworks": {
+        if (!userApiKeys.fireworks) {
+          throw new Error(
+            "Fireworks API key not provided. Please configure your API key in settings."
+          );
+        }
+
+        console.log("Creating Fireworks client with API key");
+
+        try {
+          const fireworksClient = createFireworks({
+            apiKey: userApiKeys.fireworks,
+          });
+          const model = fireworksClient(modelId);
+          console.log(`[MODEL_PROVIDER] Created Fireworks model: ${modelId}`);
+          return model as unknown as LanguageModel;
+        } catch (error) {
+          console.error("Fireworks client creation failed:", error);
           throw error;
         }
       }

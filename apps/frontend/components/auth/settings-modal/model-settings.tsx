@@ -57,10 +57,14 @@ export function ModelSettings() {
   const [openrouterInput, setOpenrouterInput] = useState(
     apiKeys?.openrouter ?? ""
   );
+  const [fireworksInput, setFireworksInput] = useState(
+    apiKeys?.fireworks ?? ""
+  );
   const [exaInput, setExaInput] = useState(apiKeys?.exa ?? "");
   const [savingOpenai, setSavingOpenai] = useState(false);
   const [savingAnthropic, setSavingAnthropic] = useState(false);
   const [savingOpenrouter, setSavingOpenrouter] = useState(false);
+  const [savingFireworks, setSavingFireworks] = useState(false);
   const [savingExa, setSavingExa] = useState(false);
 
   const [apiKeyVisibility, setApiKeyVisibility] = useState<
@@ -69,6 +73,7 @@ export function ModelSettings() {
     openai: false,
     anthropic: false,
     openrouter: false,
+    fireworks: false,
     exa: false,
   });
 
@@ -108,6 +113,7 @@ export function ModelSettings() {
     setOpenaiInput(apiKeys?.openai ?? "");
     setAnthropicInput(apiKeys?.anthropic ?? "");
     setOpenrouterInput(apiKeys?.openrouter ?? "");
+    setFireworksInput(apiKeys?.fireworks ?? "");
     setExaInput(apiKeys?.exa ?? "");
   }, [apiKeys]);
 
@@ -120,13 +126,16 @@ export function ModelSettings() {
           ? apiKeys?.anthropic
           : provider === "openrouter"
             ? apiKeys?.openrouter
-            : provider === "exa"
-              ? apiKeys?.exa
-              : undefined;
+            : provider === "fireworks"
+              ? apiKeys?.fireworks
+              : provider === "exa"
+                ? apiKeys?.exa
+                : undefined;
     if (key === currentKey) {
       if (provider === "openai") setSavingOpenai(false);
       else if (provider === "anthropic") setSavingAnthropic(false);
       else if (provider === "openrouter") setSavingOpenrouter(false);
+      else if (provider === "fireworks") setSavingFireworks(false);
       else if (provider === "exa") setSavingExa(false);
       return;
     }
@@ -216,12 +225,15 @@ export function ModelSettings() {
             ? "Anthropic"
             : provider === "openrouter"
               ? "OpenRouter"
-              : "Unknown";
+              : provider === "fireworks"
+                ? "Fireworks"
+                : "Unknown";
       toast.error(`Failed to save ${providerName} API key`);
     } finally {
       if (provider === "openai") setSavingOpenai(false);
       else if (provider === "anthropic") setSavingAnthropic(false);
       else if (provider === "openrouter") setSavingOpenrouter(false);
+      else if (provider === "fireworks") setSavingFireworks(false);
       else if (provider === "exa") setSavingExa(false);
     }
   };
@@ -248,6 +260,14 @@ export function ModelSettings() {
     200
   );
 
+  const {
+    debouncedCallback: debouncedSaveFireworks,
+    cancel: cancelFireworksSave,
+  } = useDebounceCallbackWithCancel(
+    (key: string) => saveApiKey("fireworks", key),
+    200
+  );
+
   const { debouncedCallback: debouncedSaveExa, cancel: cancelExaSave } =
     useDebounceCallbackWithCancel(
       (key: string) => saveApiKey("exa", key),
@@ -270,6 +290,12 @@ export function ModelSettings() {
     setOpenrouterInput(value);
     setSavingOpenrouter(true);
     debouncedSaveOpenrouter(value);
+  };
+
+  const handleFireworksChange = (value: string) => {
+    setFireworksInput(value);
+    setSavingFireworks(true);
+    debouncedSaveFireworks(value);
   };
 
   const handleExaChange = (value: string) => {
@@ -303,6 +329,10 @@ export function ModelSettings() {
         setOpenrouterInput("");
         cancelOpenrouterSave();
         setSavingOpenrouter(false);
+      } else if (provider === "fireworks") {
+        setFireworksInput("");
+        cancelFireworksSave();
+        setSavingFireworks(false);
       } else if (provider === "exa") {
         setExaInput("");
         cancelExaSave();
@@ -326,9 +356,11 @@ export function ModelSettings() {
             ? "Anthropic"
             : provider === "openrouter"
               ? "OpenRouter"
-              : provider === "exa"
-                ? "Exa"
-                : "Unknown";
+              : provider === "fireworks"
+                ? "Fireworks"
+                : provider === "exa"
+                  ? "Exa"
+                  : "Unknown";
       toast.error(`Failed to clear ${providerName} API key`);
     }
   };
@@ -362,6 +394,13 @@ export function ModelSettings() {
       input: openrouterInput,
       saving: savingOpenrouter,
       handleChange: handleOpenrouterChange,
+    },
+    {
+      key: "fireworks",
+      name: "Fireworks",
+      input: fireworksInput,
+      saving: savingFireworks,
+      handleChange: handleFireworksChange,
     },
   ];
 

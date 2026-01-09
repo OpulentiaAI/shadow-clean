@@ -23,6 +23,7 @@
   "license": "ISC",
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.39",
+    "@ai-sdk/fireworks": "^2.0.4",
     "@ai-sdk/groq": "^2.0.2",
     "@ai-sdk/openai": "2.0.57",
     "@kubernetes/client-node": "^1.0.0",
