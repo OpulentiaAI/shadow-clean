@@ -64,6 +64,7 @@
     "packages/*"
   ],
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.4",
     "@convex-dev/better-auth": "^0.10.9",
     "@convex-dev/persistent-text-streaming": "^0.3.0",
     "@convex-dev/workflow": "^0.3.3",

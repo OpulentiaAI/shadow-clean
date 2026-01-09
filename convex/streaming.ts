@@ -5,6 +5,7 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 // createOpenRouter removed in favor of createOpenAI configuration
 import { type LanguageModel, type CoreMessage } from "ai";
 import { createAgentTools, createExaWebSearchTool, createMcpProxyTools, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
@@ -77,6 +78,7 @@ type ProviderOptions = {
     anthropic?: string;
     openai?: string;
     openrouter?: string;
+    nvidia?: string;
   };
 };
 
@@ -99,6 +101,29 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   console.log(
     `[STREAMING]   - openai: ${apiKeys.openai ? `YES (${apiKeys.openai.length} chars)` : "NO"}`
   );
+  console.log(
+    `[STREAMING]   - nvidia: ${apiKeys.nvidia ? `YES (${apiKeys.nvidia.length} chars)` : "NO"}`
+  );
+
+  // Handle NVIDIA NIM models (nim: prefix)
+  if (model.startsWith("nim:")) {
+    const nvidiaKey = apiKeys.nvidia || process.env.NVIDIA_API_KEY;
+    if (!nvidiaKey) {
+      throw new Error("NVIDIA NIM API key not provided. Please configure your API key in settings.");
+    }
+    const actualModelId = model.slice(4); // Remove "nim:" prefix
+    console.log(`[STREAMING] >>> USING: NVIDIA NIM for model: ${actualModelId}`);
+    console.log(`[STREAMING] NVIDIA key source: ${apiKeys.nvidia ? "client-provided" : "environment"}`);
+    
+    const nimClient = createOpenAICompatible({
+      name: "nim",
+      baseURL: "https://integrate.api.nvidia.com/v1",
+      headers: {
+        Authorization: `Bearer ${nvidiaKey}`,
+      },
+    });
+    return nimClient.chatModel(actualModelId);
+  }
   console.log(`[STREAMING] Environment variables:`);
   console.log(
     `[STREAMING]   - OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? `YES (${process.env.OPENROUTER_API_KEY.length} chars, prefix: ${process.env.OPENROUTER_API_KEY.substring(0, 8)}...)` : "NO"}`
@@ -248,6 +273,7 @@ export const streamChat = action({
       anthropic: v.optional(v.string()),
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
+      nvidia: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args): Promise<StreamChatResult> => {
@@ -2210,6 +2236,7 @@ export const resumeStream = action({
       anthropic: v.optional(v.string()),
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
+      nvidia: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args): Promise<StreamChatResult> => {
