@@ -26,6 +26,7 @@ import {
 import { getGitHubFileTree } from "../github/github-api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { api } from "../../../../convex/_generated/api";
+import { getApiKeys } from "./api-keys";
 
 // Dev user ID for local development without auth
 const DEV_USER_ID = "dev-local-user";
@@ -302,6 +303,9 @@ export async function createTask(formData: FormData) {
           `[TASK_CREATION] Triggering Convex streaming for task ${taskId} with promptMessageId ${promptMessageId}`
         );
 	        try {
+	          // Fetch API keys from cookies for streaming
+	          const apiKeys = await getApiKeys();
+	          
 	          await streamChatWithTools({
 	            taskId,
 	            prompt: message,
@@ -309,12 +313,7 @@ export async function createTask(formData: FormData) {
 	            llmModel: model,
 	            promptMessageId, // Prevents streamChatWithTools from creating another user message
 	            clientMessageId,
-	            // API keys will be resolved server-side from env vars
-	            apiKeys: {
-	              anthropic: undefined,
-	              openai: undefined,
-	              openrouter: undefined,
-            },
+	            apiKeys,
           });
 	          console.log(
 	            `[TASK_CREATION] Convex streaming completed for task ${taskId}`

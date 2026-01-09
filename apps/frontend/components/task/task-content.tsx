@@ -12,6 +12,7 @@ import type { ModelType, Message } from "@repo/types";
 import { useTask } from "@/hooks/tasks/use-task";
 import { useConvexChatStreaming } from "@/hooks/convex";
 import { asConvexId } from "@/lib/convex/id";
+import { getClientApiKeys } from "@/lib/utils/client-api-keys";
 
 const USE_CONVEX_STREAMING =
   typeof process !== "undefined" &&
@@ -75,6 +76,9 @@ function TaskPageContent() {
           const clientMessageId = crypto.randomUUID();
           console.log("[TASK_CONTENT] Calling startStreamWithTools with clientMessageId:", clientMessageId);
 
+          // Fetch API keys from cookies for client-side streaming
+          const apiKeys = getClientApiKeys();
+          
           await startStreamWithTools({
             taskId: convexTaskId,
             prompt: message,
@@ -82,12 +86,7 @@ function TaskPageContent() {
             llmModel: model,
             // Allow server to select all available tools via createAgentTools
             tools: undefined,
-            apiKeys: {
-              // Prefer server-side keys; leave empty for server-side resolution.
-              anthropic: undefined,
-              openai: undefined,
-              openrouter: undefined,
-            },
+            apiKeys,
             clientMessageId,
           });
           console.log("[TASK_CONTENT] startStreamWithTools completed successfully");
