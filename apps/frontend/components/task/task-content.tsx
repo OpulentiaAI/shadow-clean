@@ -77,9 +77,16 @@ function TaskPageContent() {
           console.log("[TASK_CONTENT] Calling startStreamWithTools with clientMessageId:", clientMessageId);
 
           // Fetch API keys from cookies for client-side streaming
-          const apiKeys = getClientApiKeys();
-          
-          await startStreamWithTools({
+           const apiKeys = getClientApiKeys();
+           console.log("[TASK_CONTENT] API keys fetched for streaming:", {
+             anthropic: !!apiKeys.anthropic,
+             openai: !!apiKeys.openai,
+             openrouter: !!apiKeys.openrouter,
+             nvidia: !!apiKeys.nvidia,
+             fireworks: !!apiKeys.fireworks,
+           });
+           
+           await startStreamWithTools({
             taskId: convexTaskId,
             prompt: message,
             model,

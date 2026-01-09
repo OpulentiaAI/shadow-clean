@@ -23,7 +23,7 @@ function getCookie(name: string): string | undefined {
 }
 
 export function getClientApiKeys(): ClientApiKeys {
-  return {
+  const keys = {
     anthropic: getCookie("anthropic-key"),
     openai: getCookie("openai-key"),
     openrouter: getCookie("openrouter-key"),
@@ -31,4 +31,19 @@ export function getClientApiKeys(): ClientApiKeys {
     fireworks: getCookie("fireworks-key"),
     exa: getCookie("exa-key"),
   };
+  
+  // Debug logging
+  if (typeof window !== "undefined") {
+    console.log("[CLIENT_API_KEYS] Read from cookies:", {
+      anthropic: !!keys.anthropic,
+      openai: !!keys.openai,
+      openrouter: !!keys.openrouter,
+      nvidia: !!keys.nvidia,
+      fireworks: !!keys.fireworks,
+      exa: !!keys.exa,
+      allCookies: document.cookie,
+    });
+  }
+  
+  return keys;
 }

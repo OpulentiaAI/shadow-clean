@@ -19,6 +19,75 @@ This doc captures the current agent execution flow, Convex integration, and work
   - Some OpenRouter models (notably Kimi) may emit `tool-input-*` parts without streaming args deltas; `streamChatWithTools` includes fallbacks to recover args for CLI verification and still execute tools reliably.
   - Tool call IDs can be provider-local (e.g. `read_file:0`) and are namespaced by `messageId` for safe tracking.
 - **Available OpenRouter Models**: Grok Code Fast 1, Claude Opus 4.5, Kimi K2/K2-Thinking, Codestral 2508, **Devstral 2 (FREE 123B agentic coding)**, DeepSeek R1/Chat V3, Qwen3 Coder/235B.
+- **Available NVIDIA NIM Models** (via NVIDIA Build):
+  - `nim:moonshotai/kimi-k2-thinking` - Kimi K2 Thinking (reasoning model, free credits)
+  - `nim:deepseek-ai/deepseek-v3.2` - DeepSeek V3.2 (reasoning model, free credits)
+  - Requires `NVIDIA_API_KEY` in Convex env or client-provided via settings
+- **Available Fireworks Models** (via Fireworks AI):
+  - `accounts/fireworks/models/llama-v3p1-405b-instruct` - Llama 3.1 405B
+  - `accounts/fireworks/models/deepseek-v3` - DeepSeek V3
+  - Custom fine-tuned models accessible via Fireworks account
+  - Requires `FIREWORKS_API_KEY` in Convex env or client-provided via settings
+
+## Multi-Provider API Key Management
+
+### Architecture
+API keys are managed across two layers:
+1. **Client-side (cookies)**: Encrypted in browser via `apps/frontend/lib/utils/client-api-keys.ts`
+2. **Convex environment variables**: Fallback when client keys aren't provided
+
+### Client-side API Key Flow
+1. User enters API key in Settings → Models → API key field
+2. Key is saved as encrypted cookie (e.g., `nvidia-key`, `fireworks-key`)
+3. On message send, `getClientApiKeys()` reads cookies in `task-content.tsx`
+4. Keys are passed to `startStreamWithTools()` via `apiKeys` parameter
+5. `convex/streaming.ts` receives keys and passes to `resolveProvider()`
+
+### Provider Resolution (in convex/streaming.ts)
+```typescript
+function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
+  // Priority 1: Fireworks (accounts/fireworks/ prefix)
+  if (model.startsWith("accounts/fireworks/")) {
+    const fireworksKey = apiKeys.fireworks || process.env.FIREWORKS_API_KEY;
+    return createOpenAI({
+      apiKey: fireworksKey,
+      baseURL: "https://api.fireworks.ai/inference/v1",
+    }).chat(model);
+  }
+
+  // Priority 2: NVIDIA NIM (nim: prefix)
+  if (model.startsWith("nim:")) {
+    const nvidiaKey = apiKeys.nvidia || process.env.NVIDIA_API_KEY;
+    return createOpenAI({
+      apiKey: nvidiaKey,
+      baseURL: "https://integrate.api.nvidia.com/v1",
+    }).chat(model.slice(4)); // Remove "nim:" prefix
+  }
+
+  // Priority 3: OpenRouter (client-provided or env)
+  // Priority 4: Anthropic
+  // Priority 5: OpenAI
+}
+```
+
+### Setting Environment Variables in Convex
+```bash
+# For NVIDIA NIM
+npx convex env set NVIDIA_API_KEY "nvapi-your-key-here"
+
+# For Fireworks
+npx convex env set FIREWORKS_API_KEY "fw_your-key-here"
+
+# View all env vars
+npx convex env list
+```
+
+### Debugging API Key Issues
+When users report "API key not provided" errors:
+1. Check browser console for `[CLIENT_API_KEYS]` logs showing what cookies were found
+2. Check Convex logs for `[STREAMING] API keys present` showing what reached the action
+3. If cookies are missing, verify cookies are not being blocked by browser security settings
+4. If env vars are missing, set them via `npx convex env set`
 
 ## Workspace initialization (backend)
 
