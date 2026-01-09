@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
       if (apiKeys.openrouter && apiKeys.openrouter.trim()) {
         keysToValidate.openrouter = apiKeys.openrouter;
       }
+      if (apiKeys.fireworks && apiKeys.fireworks.trim()) {
+        keysToValidate.fireworks = apiKeys.fireworks;
+      }
 
       validationResults = await validator.validateMultiple(keysToValidate);
     }

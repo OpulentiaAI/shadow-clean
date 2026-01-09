@@ -4,6 +4,7 @@ import { ApiKeys } from "@repo/types";
 const ENV_OPENAI_KEY = process.env.OPENAI_API_KEY;
 const ENV_ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const ENV_OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+const ENV_FIREWORKS_KEY = process.env.FIREWORKS_API_KEY;
 
 export function parseApiKeysFromCookies(cookieHeader?: string): ApiKeys {
   if (!cookieHeader) {
@@ -12,6 +13,7 @@ export function parseApiKeysFromCookies(cookieHeader?: string): ApiKeys {
       openai: ENV_OPENAI_KEY || undefined,
       anthropic: ENV_ANTHROPIC_KEY || undefined,
       openrouter: ENV_OPENROUTER_KEY || undefined,
+      fireworks: ENV_FIREWORKS_KEY || undefined,
       // groq: undefined,
       // ollama: undefined,
     };
@@ -39,6 +41,7 @@ export function parseApiKeysFromCookies(cookieHeader?: string): ApiKeys {
     openai: cookies["openai-key"] || ENV_OPENAI_KEY || undefined,
     anthropic: cookies["anthropic-key"] || ENV_ANTHROPIC_KEY || undefined,
     openrouter: cookies["openrouter-key"] || ENV_OPENROUTER_KEY || undefined,
+    fireworks: cookies["fireworks-key"] || ENV_FIREWORKS_KEY || undefined,
     // groq: cookies["groq-key"] || undefined,
     // ollama: cookies["ollama-key"] || undefined,
   };
