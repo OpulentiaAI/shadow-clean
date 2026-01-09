@@ -33,6 +33,7 @@ export function useConvexChatStreaming() {
         openai?: string;
         openrouter?: string;
         nvidia?: string;
+        fireworks?: string;
       };
     }) => {
       setIsStreaming(true);
@@ -78,6 +79,7 @@ export function useConvexChatStreaming() {
         openai?: string;
         openrouter?: string;
         nvidia?: string;
+        fireworks?: string;
       };
       // Client-generated UUID for idempotent message creation
       clientMessageId?: string;
@@ -161,6 +163,7 @@ export function useConvexChatStreaming() {
         openai?: string;
         openrouter?: string;
         nvidia?: string;
+        fireworks?: string;
       };
     }) => {
       setIsStreaming(true);

@@ -79,6 +79,7 @@ type ProviderOptions = {
     openai?: string;
     openrouter?: string;
     nvidia?: string;
+    fireworks?: string;
   };
 };
 
@@ -104,6 +105,27 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   console.log(
     `[STREAMING]   - nvidia: ${apiKeys.nvidia ? `YES (${apiKeys.nvidia.length} chars)` : "NO"}`
   );
+  console.log(
+    `[STREAMING]   - fireworks: ${apiKeys.fireworks ? `YES (${apiKeys.fireworks.length} chars)` : "NO"}`
+  );
+
+  // Handle Fireworks models (accounts/fireworks/ prefix)
+  if (model.startsWith("accounts/fireworks/")) {
+    const fireworksKey = apiKeys.fireworks || process.env.FIREWORKS_API_KEY;
+    if (!fireworksKey) {
+      throw new Error("Fireworks API key not provided. Please configure your API key in settings.");
+    }
+    console.log(`[STREAMING] >>> USING: Fireworks for model: ${model}`);
+    console.log(`[STREAMING] Fireworks key source: ${apiKeys.fireworks ? "client-provided" : "environment"}`);
+    
+    // Use createOpenAI with Fireworks baseURL
+    const fireworksClient = createOpenAI({
+      apiKey: fireworksKey,
+      baseURL: "https://api.fireworks.ai/inference/v1",
+      name: "fireworks",
+    });
+    return fireworksClient.chat(model);
+  }
 
   // Handle NVIDIA NIM models (nim: prefix)
   if (model.startsWith("nim:")) {
@@ -273,6 +295,7 @@ export const streamChat = action({
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
       nvidia: v.optional(v.string()),
+      fireworks: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args): Promise<StreamChatResult> => {
@@ -397,6 +420,8 @@ export const streamChatWithTools = action({
       anthropic: v.optional(v.string()),
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
+      nvidia: v.optional(v.string()),
+      fireworks: v.optional(v.string()),
       exa: v.optional(v.string()),
     }),
   },
@@ -409,7 +434,7 @@ export const streamChatWithTools = action({
       `[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`
     );
     console.log(
-      `[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}, exa: ${!!args.apiKeys?.exa}`
+      `[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}, exa: ${!!args.apiKeys?.exa}, fireworks: ${!!args.apiKeys?.fireworks}`
     );
     if (args.apiKeys?.openrouter) {
       console.log(
@@ -1181,7 +1206,6 @@ Review the above results. If you have enough information, provide your response.
             const toolCallId = toolCallIdRaw
               ? normalizeToolCallId(toolCallIdRaw)
               : "";
-
             const rawToolName =
               (part as any).toolName ?? (part as any).name ?? "unknown-tool";
             const incomingToolName = rawToolName
@@ -1618,7 +1642,10 @@ Review the above results. If you have enough information, provide your response.
                 await ctx.runMutation(api.toolCallTracking.updateResult, {
                   toolCallId,
                   result: toolResult,
-                  status: "COMPLETED",
+                  status:
+                    (toolResult as any)?.success === false
+                      ? "FAILED"
+                      : "COMPLETED",
                 });
 
                 // IMPORTANT: Also append tool-call + tool-result parts to the message metadata
@@ -1667,6 +1694,7 @@ Review the above results. If you have enough information, provide your response.
                   result: failedResult,
                   status: "FAILED",
                 });
+
                 // Also surface failures in message parts so the UI doesn't "die silently".
                 await ctx.runMutation(api.messages.appendStreamDelta, {
                   messageId,
@@ -2236,6 +2264,7 @@ export const resumeStream = action({
       openai: v.optional(v.string()),
       openrouter: v.optional(v.string()),
       nvidia: v.optional(v.string()),
+      fireworks: v.optional(v.string()),
     }),
   },
   handler: async (ctx, args): Promise<StreamChatResult> => {
