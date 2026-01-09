@@ -4,6 +4,7 @@ export const API_KEY_PROVIDERS = {
   ANTHROPIC: "anthropic",
   OPENROUTER: "openrouter",
   FIREWORKS: "fireworks",
+  NVIDIA: "nvidia",
   EXA: "exa",
   // GROQ: "groq",
   // OLLAMA: "ollama",
@@ -14,6 +15,7 @@ export const API_KEY_PROVIDER_NAMES = {
   anthropic: "Anthropic",
   openrouter: "OpenRouter",
   fireworks: "Fireworks",
+  nvidia: "NVIDIA NIM",
   exa: "Exa",
 } as const;
 
@@ -32,6 +34,7 @@ export interface ApiKeys {
   anthropic?: string;
   openrouter?: string;
   fireworks?: string;
+  nvidia?: string;
   exa?: string;
   // groq?: string;
   // ollama?: string;
@@ -42,6 +45,7 @@ export interface ApiKeyValidation {
   anthropic?: ApiKeyValidationResult;
   openrouter?: ApiKeyValidationResult;
   fireworks?: ApiKeyValidationResult;
+  nvidia?: ApiKeyValidationResult;
   exa?: ApiKeyValidationResult;
   // groq?: ApiKeyValidationResult;
   // ollama?: ApiKeyValidationResult;

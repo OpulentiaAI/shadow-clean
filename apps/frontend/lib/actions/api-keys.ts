@@ -28,6 +28,7 @@ export async function getApiKeys(): Promise<ApiKeys> {
   const anthropicKey = cookieStore.get("anthropic-key")?.value;
   const openrouterKey = cookieStore.get("openrouter-key")?.value;
   const fireworksKey = cookieStore.get("fireworks-key")?.value;
+  const nvidiaKey = cookieStore.get("nvidia-key")?.value;
   const exaKey = cookieStore.get("exa-key")?.value;
   // const groqKey = cookieStore.get("groq-key")?.value;
   // const ollamaKey = cookieStore.get("ollama-key")?.value;
@@ -38,6 +39,7 @@ export async function getApiKeys(): Promise<ApiKeys> {
     anthropic: anthropicKey || ENV_ANTHROPIC_KEY || undefined,
     openrouter: openrouterKey || ENV_OPENROUTER_KEY || undefined,
     fireworks: fireworksKey || undefined,
+    nvidia: nvidiaKey || undefined,
     exa: exaKey || undefined,
     // groq: groqKey || undefined,
     // ollama: ollamaKey || undefined,
@@ -115,6 +117,7 @@ export async function getApiKeyValidation(): Promise<ApiKeyValidation> {
   const anthropicValidation = cookieStore.get("anthropic-validation")?.value;
   const openrouterValidation = cookieStore.get("openrouter-validation")?.value;
   const fireworksValidation = cookieStore.get("fireworks-validation")?.value;
+  const nvidiaValidation = cookieStore.get("nvidia-validation")?.value;
   const exaValidation = cookieStore.get("exa-validation")?.value;
   // const groqValidation = cookieStore.get("groq-validation")?.value;
   // const ollamaValidation = cookieStore.get("ollama-validation")?.value;
@@ -129,6 +132,9 @@ export async function getApiKeyValidation(): Promise<ApiKeyValidation> {
       : undefined,
     fireworks: fireworksValidation
       ? JSON.parse(fireworksValidation)
+      : undefined,
+    nvidia: nvidiaValidation
+      ? JSON.parse(nvidiaValidation)
       : undefined,
     exa: exaValidation ? JSON.parse(exaValidation) : undefined,
     // groq: groqValidation ? JSON.parse(groqValidation) : undefined,

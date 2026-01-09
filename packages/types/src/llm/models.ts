@@ -5,7 +5,7 @@ export interface LLMConfig {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
-  provider: "anthropic" | "openai" | "openrouter" | "fireworks" /* | "groq" | "ollama" */;
+  provider: "anthropic" | "openai" | "openrouter" | "fireworks" | "nvidia" /* | "groq" | "ollama" */;
 }
 
 // Model Selection
@@ -24,6 +24,9 @@ export const AvailableModels = {
   MINIMAX_M2_1: "minimax/minimax-m2.1",
   // Fireworks models
   FIREWORKS_GLM_4_7: "accounts/fireworks/models/glm-4p7",
+  // NVIDIA NIM models (using nim: prefix to distinguish from OpenRouter versions)
+  NVIDIA_KIMI_K2_THINKING: "nim:moonshotai/kimi-k2-thinking",
+  NVIDIA_DEEPSEEK_V3_2: "nim:deepseek-ai/deepseek-v3.2",
 } as const;
 
 export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
@@ -31,7 +34,7 @@ export type ModelType = (typeof AvailableModels)[keyof typeof AvailableModels];
 export interface ModelInfo {
   id: ModelType;
   name: string;
-  provider: "anthropic" | "openai" | "openrouter" | "fireworks" /* | "groq" | "ollama" */;
+  provider: "anthropic" | "openai" | "openrouter" | "fireworks" | "nvidia" /* | "groq" | "ollama" */;
 }
 
 export const ModelInfos: Record<ModelType, ModelInfo> = {
@@ -97,11 +100,22 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
     name: "GLM-4.7 (Fireworks)",
     provider: "fireworks",
   },
+  // NVIDIA NIM models
+  [AvailableModels.NVIDIA_KIMI_K2_THINKING]: {
+    id: AvailableModels.NVIDIA_KIMI_K2_THINKING,
+    name: "Kimi K2 Thinking (NVIDIA)",
+    provider: "nvidia",
+  },
+  [AvailableModels.NVIDIA_DEEPSEEK_V3_2]: {
+    id: AvailableModels.NVIDIA_DEEPSEEK_V3_2,
+    name: "DeepSeek V3.2 (NVIDIA)",
+    provider: "nvidia",
+  },
 };
 
 export function getModelProvider(
   model: ModelType
-): "anthropic" | "openai" | "openrouter" | "fireworks" /* | "ollama" */ {
+): "anthropic" | "openai" | "openrouter" | "fireworks" | "nvidia" /* | "ollama" */ {
   const modelInfo = ModelInfos[model];
   if (modelInfo) {
     return modelInfo.provider;
@@ -150,6 +164,14 @@ export function getModelProvider(
     return "fireworks";
   }
 
+  // NVIDIA NIM models
+  if (modelStr.startsWith("nim:")) {
+    console.warn(
+      `[getModelProvider] Inferred NVIDIA provider for model: ${modelStr}`
+    );
+    return "nvidia";
+  }
+
   // Default to OpenRouter for unknown models
   console.warn(
     `[getModelProvider] Defaulting to OpenRouter for unknown model: ${modelStr}`
@@ -171,6 +193,8 @@ export function getProviderDefaultModel(provider: ApiKeyProvider): ModelType {
       return AvailableModels.CLAUDE_OPUS_4_5;
     case "fireworks":
       return AvailableModels.FIREWORKS_GLM_4_7;
+    case "nvidia":
+      return AvailableModels.NVIDIA_KIMI_K2_THINKING;
     case "exa":
       // Exa is a tool provider, not a model provider - return a sensible default
       return AvailableModels.CLAUDE_HAIKU_4_5;
@@ -190,6 +214,7 @@ export function isReasoningModel(model: string): boolean {
     "google/gemini-3-pro-preview",
     "google/gemini-3-flash-preview",
     "x-ai/grok-code-fast-1",
+    "deepseek-ai/deepseek-v3.2",
   ];
   return reasoningModels.some((rm) =>
     model.toLowerCase().includes(rm.toLowerCase())
@@ -227,6 +252,14 @@ export async function getAllPossibleModels(
     models.push(AvailableModels.FIREWORKS_GLM_4_7);
   }
 
+  // NVIDIA NIM models
+  if (userApiKeys.nvidia) {
+    models.push(
+      AvailableModels.NVIDIA_KIMI_K2_THINKING,
+      AvailableModels.NVIDIA_DEEPSEEK_V3_2
+    );
+  }
+
   return models;
 }
 
@@ -258,6 +291,14 @@ export async function getDefaultSelectedModels(
   // Fireworks models
   if (userApiKeys.fireworks) {
     defaultModels.push(AvailableModels.FIREWORKS_GLM_4_7);
+  }
+
+  // NVIDIA NIM models
+  if (userApiKeys.nvidia) {
+    defaultModels.push(
+      AvailableModels.NVIDIA_KIMI_K2_THINKING,
+      AvailableModels.NVIDIA_DEEPSEEK_V3_2
+    );
   }
 
   return defaultModels;

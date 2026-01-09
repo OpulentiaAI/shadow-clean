@@ -21,6 +21,8 @@ export class ApiKeyValidator {
           return await this.validateOpenRouter(apiKey, startTime);
         case "fireworks":
           return await this.validateFireworks(apiKey, startTime);
+        case "nvidia":
+          return await this.validateNvidia(apiKey, startTime);
         default:
           throw new Error(`Unsupported provider: ${provider}`);
       }
@@ -310,6 +312,76 @@ export class ApiKeyValidator {
         return {
           isValid: false,
           error: `Fireworks validation failed: ${(error as Error)?.message || "Unknown error"}`,
+          latencyMs,
+        };
+      }
+    }
+  }
+
+  private async validateNvidia(
+    apiKey: string,
+    startTime: number
+  ): Promise<ValidationResult> {
+    try {
+      // Make a simple API call to validate the key using NVIDIA NIM models endpoint
+      const response = await fetch("https://integrate.api.nvidia.com/v1/models", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "User-Agent": "Shadow-Agent/1.0",
+        },
+        signal: AbortSignal.timeout(5000),
+      });
+
+      const latencyMs = Date.now() - startTime;
+
+      if (response.status === 200) {
+        return { isValid: true, latencyMs };
+      } else if (response.status === 401) {
+        return {
+          isValid: false,
+          error: "Invalid NVIDIA NIM API key",
+          latencyMs,
+        };
+      } else if (response.status === 429) {
+        return {
+          isValid: false,
+          error: "NVIDIA NIM API rate limit exceeded",
+          latencyMs,
+        };
+      } else {
+        return {
+          isValid: false,
+          error: `NVIDIA NIM API returned status ${response.status}`,
+          latencyMs,
+        };
+      }
+    } catch (error: unknown) {
+      const latencyMs = Date.now() - startTime;
+
+      // Handle specific error types
+      if (
+        (error as Error)?.message?.includes("401") ||
+        (error as Error)?.message?.includes("Unauthorized")
+      ) {
+        return {
+          isValid: false,
+          error: "Invalid NVIDIA NIM API key",
+          latencyMs,
+        };
+      } else if (
+        (error as Error)?.message?.includes("429") ||
+        (error as Error)?.message?.includes("rate limit")
+      ) {
+        return {
+          isValid: false,
+          error: "NVIDIA NIM API rate limit exceeded",
+          latencyMs,
+        };
+      } else {
+        return {
+          isValid: false,
+          error: `NVIDIA NIM validation failed: ${(error as Error)?.message || "Unknown error"}`,
           latencyMs,
         };
       }

@@ -60,6 +60,9 @@ export async function POST(request: NextRequest) {
       if (apiKeys.fireworks && apiKeys.fireworks.trim()) {
         keysToValidate.fireworks = apiKeys.fireworks;
       }
+      if (apiKeys.nvidia && apiKeys.nvidia.trim()) {
+        keysToValidate.nvidia = apiKeys.nvidia;
+      }
 
       validationResults = await validator.validateMultiple(keysToValidate);
     }
