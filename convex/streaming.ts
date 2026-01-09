@@ -5,8 +5,8 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 // createOpenRouter removed in favor of createOpenAI configuration
+// Note: NVIDIA NIM uses createOpenAI with custom baseURL (same pattern as OpenRouter)
 import { type LanguageModel, type CoreMessage } from "ai";
 import { createAgentTools, createExaWebSearchTool, createMcpProxyTools, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
 import { generateTraceId } from "./observability";
@@ -115,14 +115,13 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
     console.log(`[STREAMING] >>> USING: NVIDIA NIM for model: ${actualModelId}`);
     console.log(`[STREAMING] NVIDIA key source: ${apiKeys.nvidia ? "client-provided" : "environment"}`);
     
-    const nimClient = createOpenAICompatible({
-      name: "nim",
+    // Use createOpenAI with custom baseURL (same pattern as OpenRouter)
+    const nimClient = createOpenAI({
+      apiKey: nvidiaKey,
       baseURL: "https://integrate.api.nvidia.com/v1",
-      headers: {
-        Authorization: `Bearer ${nvidiaKey}`,
-      },
+      name: "nim",
     });
-    return nimClient.chatModel(actualModelId);
+    return nimClient.chat(actualModelId);
   }
   console.log(`[STREAMING] Environment variables:`);
   console.log(
