@@ -24,10 +24,68 @@ This doc captures the current agent execution flow, Convex integration, and work
   - `nim:deepseek-ai/deepseek-v3.2` - DeepSeek V3.2 (reasoning model, free credits)
   - Requires `NVIDIA_API_KEY` in Convex env or client-provided via settings
 - **Available Fireworks Models** (via Fireworks AI):
-  - `accounts/fireworks/models/llama-v3p1-405b-instruct` - Llama 3.1 405B
-  - `accounts/fireworks/models/deepseek-v3` - DeepSeek V3
-  - Custom fine-tuned models accessible via Fireworks account
-  - Requires `FIREWORKS_API_KEY` in Convex env or client-provided via settings
+   - `accounts/fireworks/models/llama-v3p1-405b-instruct` - Llama 3.1 405B
+   - `accounts/fireworks/models/deepseek-v3` - DeepSeek V3
+   - Custom fine-tuned models accessible via Fireworks account
+   - Requires `FIREWORKS_API_KEY` in Convex env or client-provided via settings
+
+## Reasoning Deltas (Streaming Reasoning)
+
+Real-time AI reasoning is now supported for models that emit reasoning streams:
+
+### Supported Models
+- **DeepSeek R1/V3**: Full reasoning capability via OpenRouter
+- **Kimi K2-Thinking**: NVIDIA NIM reasoning model
+- **Claude with Extended Thinking**: OpenRouter variant
+- **Grok 3**: Extended reasoning (when available)
+
+### Implementation Flow
+1. **Backend** (`convex/streaming.ts`):
+   - Detects `reasoning-delta` and `reasoning` stream parts
+   - Accumulates reasoning text via `accumulatedReasoning` variable
+   - Emits via `appendStreamDelta` with `parts: [{ type: "reasoning", text: "..." }]`
+   - Logs: `[STREAMING] Reasoning delta received: N chars`
+
+2. **Storage** (`convex/messages.ts`):
+   - Reasoning parts stored in `message.metadata.parts` array
+   - Each part tracked as: `{ type: "reasoning", text: "..." }`
+
+3. **Frontend Rendering** (`apps/frontend/components/chat/messages/`):
+   - `ReasoningComponent` auto-opens during streaming (`forceOpen` when `isLoading`)
+   - Renders via `ToolComponent` with collapsible UI
+   - Content displayed in faded markdown for readability
+   - Auto-closes when streaming completes
+
+### Using Reasoning Models
+1. Select reasoning model (e.g., "deepseek/deepseek-r1") from dropdown
+2. Send message - watch "Reasoning" component appear automatically
+3. Reasoning streams in real-time as model thinks
+4. Final response appears after reasoning completes
+
+### Debugging Reasoning Streams
+```bash
+# Check logs for reasoning events
+[STREAMING] Reasoning delta received: <chars>
+
+# Verify message has reasoning parts
+npx convex run messages.js:byTask '{"taskId":"<taskId>"}'
+# Look for: metadata.parts[].type === "reasoning"
+
+# Test with CLI
+npx convex run streaming.js:streamChatWithTools '{
+  "taskId":"<taskId>",
+  "prompt":"What is 2+2? Show your reasoning.",
+  "model":"deepseek/deepseek-r1",
+  "apiKeys":{"openrouter":"<KEY>"},
+  "clientMessageId":"test-001"
+}'
+```
+
+### Best Practices
+- Use reasoning models for complex problem-solving, math, and verification
+- Monitor token usage - reasoning models use significantly more tokens
+- Expect longer response times for reasoning models
+- Test models in development first before production use
 
 ## Multi-Provider API Key Management
 

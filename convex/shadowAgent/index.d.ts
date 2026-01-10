@@ -17,7 +17,7 @@ import { Agent } from "@convex-dev/agent";
  * - Streaming with status lifecycle (pending → streaming → complete)
  * - Tool calling with step limits
  */
-export declare const shadowAgent: Agent<object, any>;
+export declare const shadowAgent: any;
 export { Agent };
 export type { Thread } from "@convex-dev/agent";
 //# sourceMappingURL=index.d.ts.map

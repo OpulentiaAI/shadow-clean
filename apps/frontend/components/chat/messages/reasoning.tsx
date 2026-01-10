@@ -36,3 +36,6 @@ export function RedactedReasoningComponent() {
     </ToolComponent>
   );
 }
+
+// Export AI Elements-style components for new implementations
+export { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";

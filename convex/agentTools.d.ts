@@ -30,9 +30,7 @@ export declare function createAgentTools(ctx: ActionCtx, taskId: Id<"tasks">, wo
  * This is a separate function to conditionally include web search capabilities
  */
 export declare function createExaWebSearchTool(exaApiKey?: string): {
-    web_search: import("ai").Tool<{
-        query: string;
-    }, unknown>;
+    web_search: any;
 };
 /**
  * Tool guidance for web search - describes when and how to use web search

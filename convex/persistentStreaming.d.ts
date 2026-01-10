@@ -1,17 +1,17 @@
 export declare const createStream: import("convex/server").RegisteredMutation<"public", {
     taskId?: import("convex/values").GenericId<"tasks">;
 }, Promise<{
-    streamId: import("@convex-dev/persistent-text-streaming", { with: { "resolution-mode": "import" } }).StreamId;
+    streamId: any;
     taskId: import("convex/values").GenericId<"tasks">;
 }>>;
 export declare const getStreamBody: import("convex/server").RegisteredQuery<"public", {
     streamId: string;
-}, Promise<import("@convex-dev/persistent-text-streaming", { with: { "resolution-mode": "import" } }).StreamBody>>;
+}, Promise<any>>;
 export declare const debugGetStream: import("convex/server").RegisteredQuery<"public", {
     streamIdStr: string;
 }, Promise<{
     success: boolean;
-    body: import("@convex-dev/persistent-text-streaming", { with: { "resolution-mode": "import" } }).StreamBody;
+    body: any;
     error?: undefined;
 } | {
     success: boolean;

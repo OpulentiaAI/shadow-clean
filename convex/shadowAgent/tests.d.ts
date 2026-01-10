@@ -14,10 +14,10 @@ export declare const testConversationHistory: import("convex/server").Registered
     taskId: import("convex/values").GenericId<"tasks">;
 }, Promise<{
     success: boolean;
-    threadId: string;
-    conversationRetained: boolean;
-    firstResponse: string;
-    secondResponse: string;
+    threadId: any;
+    conversationRetained: any;
+    firstResponse: any;
+    secondResponse: any;
     test: string;
     result: string;
 }>>;

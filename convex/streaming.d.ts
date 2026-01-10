@@ -34,6 +34,8 @@ export declare const streamChat: import("convex/server").RegisteredAction<"publi
         anthropic?: string;
         openai?: string;
         openrouter?: string;
+        nvidia?: string;
+        fireworks?: string;
     };
 }, Promise<StreamChatResult>>;
 /**
@@ -57,6 +59,8 @@ export declare const streamChatWithTools: import("convex/server").RegisteredActi
         anthropic?: string;
         openai?: string;
         openrouter?: string;
+        nvidia?: string;
+        fireworks?: string;
         exa?: string;
     };
 }, Promise<StreamChatWithToolsResult>>;
@@ -77,7 +81,7 @@ export declare const stopTask: import("convex/server").RegisteredAction<"public"
 }, Promise<{
     success: boolean;
     abortedStreams: number;
-    markedFailed: number;
+    markedComplete: number;
 }>>;
 /**
  * Resume streaming from a previous message
@@ -92,6 +96,8 @@ export declare const resumeStream: import("convex/server").RegisteredAction<"pub
         anthropic?: string;
         openai?: string;
         openrouter?: string;
+        nvidia?: string;
+        fireworks?: string;
     };
     fromMessageId: import("convex/values").GenericId<"chatMessages">;
 }, Promise<StreamChatResult>>;

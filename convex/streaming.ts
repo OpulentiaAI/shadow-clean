@@ -70,6 +70,8 @@ const ENABLE_MESSAGE_COMPRESSION = process.env.ENABLE_MESSAGE_COMPRESSION === "t
 const MESSAGE_COMPRESSION_THRESHOLD = parseInt(process.env.MESSAGE_COMPRESSION_THRESHOLD || "50000", 10);
 
 // Track active stream controllers so cancelStream can abort in-flight actions
+// NOTE: In serverless environments, this map is per-instance and may not persist
+// For reliable stop functionality, use task status checks instead
 const streamControllers = new Map<string, AbortController>();
 
 type ProviderOptions = {
@@ -816,6 +818,8 @@ export const streamChatWithTools = action({
       let toolCallNamespace = 0;
       let toolTranscript = "";
 
+      let accumulatedReasoning = ""; // Track accumulated reasoning text
+
       const stableStringify = (value: unknown): string => {
         const seen = new WeakSet<object>();
         const helper = (v: unknown): unknown => {
@@ -1151,6 +1155,14 @@ Review the above results. If you have enough information, provide your response.
         console.log(`[STREAMING] Starting to iterate fullStream...`);
         // Stream all parts (text, tool calls, tool results)
         for await (const part of result.fullStream as any) {
+          // CRITICAL: Check if task was stopped before processing this part
+          // This allows cancellation to take effect during streaming
+          const currentTask = await ctx.runQuery(api.tasks.get, { taskId: args.taskId });
+          if (currentTask?.status === "STOPPED") {
+            console.log(`[STREAMING] Task was stopped, breaking stream loop`);
+            break;
+          }
+
           const partType = (part as any).type as string;
           roundPartCount++;
           if (roundPartCount === 1) {
@@ -1163,10 +1175,12 @@ Review the above results. If you have enough information, provide your response.
             partType === "tool-input-start" ||
             partType === "tool-call-start" ||
             partType === "tool-call" ||
-            partType === "tool-result"
+            partType === "tool-result" ||
+            partType === "reasoning" ||
+            partType === "reasoning-delta"
           ) {
             console.log(
-              `[STREAMING] TOOL STREAM PART type=${partType} payload=${JSON.stringify(part).substring(0, 500)}`
+              `[STREAMING] STREAM PART type=${partType} payload=${JSON.stringify(part).substring(0, 500)}`
             );
           }
           // Handle error events from the stream
@@ -1177,7 +1191,45 @@ Review the above results. If you have enough information, provide your response.
               `Stream error: ${errorObj.error?.message || JSON.stringify(errorObj.error)}`
             );
           }
-          if (partType === "text-delta") {
+          if (partType === "reasoning-delta") {
+            // Handle streaming reasoning deltas (e.g., from reasoning models like o1, Grok, DeepSeek R1)
+            const reasoningDelta = (part as any).delta ?? (part as any).text ?? "";
+            if (reasoningDelta) {
+              accumulatedReasoning += reasoningDelta;
+              console.log(`[STREAMING] Reasoning delta received: ${reasoningDelta.length} chars`);
+
+              await ctx.runMutation(api.messages.appendStreamDelta, {
+                messageId,
+                deltaText: reasoningDelta,
+                isFinal: false,
+                parts: [
+                  {
+                    type: "reasoning",
+                    text: reasoningDelta,
+                  },
+                ],
+              });
+            }
+          } else if (partType === "reasoning") {
+            // Handle complete reasoning blocks (fallback for models that emit full reasoning at once)
+            const reasoningText = (part as any).reasoning ?? (part as any).text ?? "";
+            if (reasoningText && !accumulatedReasoning.includes(reasoningText)) {
+              accumulatedReasoning += reasoningText;
+              console.log(`[STREAMING] Reasoning block received: ${reasoningText.length} chars`);
+
+              await ctx.runMutation(api.messages.appendStreamDelta, {
+                messageId,
+                deltaText: reasoningText,
+                isFinal: false,
+                parts: [
+                  {
+                    type: "reasoning",
+                    text: reasoningText,
+                  },
+                ],
+              });
+            }
+          } else if (partType === "text-delta") {
             accumulatedText += part.text;
 
             await ctx.runMutation(api.messages.appendStreamDelta, {
@@ -2222,29 +2274,30 @@ export const stopTask = action({
         console.log(`[STREAMING] Aborted stream for message: ${message._id}`);
       }
       
-      // Mark streaming/pending messages as stopped so they don't block next request
+      // Mark streaming/pending messages as complete with stopped reason
+      // This prevents duplicates and allows the UI to show what was received
       const metadata = message.metadataJson ? JSON.parse(message.metadataJson) : {};
       if (metadata.isStreaming || message.status === "streaming" || message.status === "pending") {
         await ctx.runMutation(api.messages.updateMessageStatus, {
           messageId: message._id,
-          status: "failed",
-          finishReason: "stopped",
-          errorMessage: "Task was stopped by user",
+          status: "complete",
+          finishReason: "stop",
+          // Keep existing content - don't zero it out
         });
         markedFailedCount++;
-        console.log(`[STREAMING] Marked message ${message._id} as failed (was streaming/pending)`);
+        console.log(`[STREAMING] Marked message ${message._id} as complete (was streaming/pending)`);
       }
     }
     
-    // Update task status to STOPPED - but make it resumable
-    // Set to STOPPED instead of FAILED so user can continue
+    // Update task status to STOPPED (resumable)
+    // This signals the UI to accept new prompts
     await ctx.runMutation(api.tasks.update, {
       taskId: args.taskId,
       status: "STOPPED",
     });
     
-    console.log(`[STREAMING] Task stopped. Aborted ${abortedCount} active streams, marked ${markedFailedCount} messages as failed.`);
-    return { success: true, abortedStreams: abortedCount, markedFailed: markedFailedCount };
+    console.log(`[STREAMING] Task stopped. Aborted ${abortedCount} active streams, marked ${markedFailedCount} messages as complete.`);
+    return { success: true, abortedStreams: abortedCount, markedComplete: markedFailedCount };
   },
 });
 

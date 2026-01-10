@@ -213,6 +213,7 @@ declare const _default: import("convex/server").SchemaDefinition<{
         by_model_created: ["llmModel", "createdAt", "_creationTime"];
         by_status: ["taskId", "status", "_creationTime"];
         by_task_clientMessageId: ["taskId", "clientMessageId", "_creationTime"];
+        by_task_promptMessageId: ["taskId", "promptMessageId", "_creationTime"];
     }, {}, {}>;
     pullRequestSnapshots: import("convex/server").TableDefinition<import("convex/values").VObject<{
         status: "CREATED" | "UPDATED";

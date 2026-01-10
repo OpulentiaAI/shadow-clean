@@ -202,7 +202,8 @@ export default defineSchema({
     .index("by_task_role", ["taskId", "role"])
     .index("by_model_created", ["llmModel", "createdAt"])
     .index("by_status", ["taskId", "status"])
-    .index("by_task_clientMessageId", ["taskId", "clientMessageId"]),
+    .index("by_task_clientMessageId", ["taskId", "clientMessageId"])
+    .index("by_task_promptMessageId", ["taskId", "promptMessageId"]),
 
   pullRequestSnapshots: defineTable({
     status: PullRequestStatus,

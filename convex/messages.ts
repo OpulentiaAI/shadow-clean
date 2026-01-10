@@ -484,16 +484,18 @@ export const getOrCreateAssistantForPrompt = mutation({
     llmModel: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const messages = await ctx.db
+    // BP012: Use index for faster lookup (prevents duplicate creation in high-concurrency scenarios)
+    const existing = await ctx.db
       .query("chatMessages")
-      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
-      .order("desc")
-      .collect();
+      .withIndex("by_task_promptMessageId", (q) =>
+        q.eq("taskId", args.taskId).eq("promptMessageId", args.promptMessageId)
+      )
+      .first();
 
-    const existing = messages.find(
-      (m) => m.role === "ASSISTANT" && m.promptMessageId === args.promptMessageId
-    );
     if (existing) {
+      console.log(
+        `[MESSAGES] Found existing assistant message for prompt ${args.promptMessageId}: ${existing._id}`
+      );
       return {
         messageId: existing._id,
         sequence: existing.sequence,
@@ -503,8 +505,13 @@ export const getOrCreateAssistantForPrompt = mutation({
       };
     }
 
-    const latest = messages[0];
-    const sequence = latest ? latest.sequence + 1 : 0;
+    // No existing assistant found, create new one
+    const latestMessage = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_task_sequence", (q) => q.eq("taskId", args.taskId))
+      .order("desc")
+      .first();
+    const sequence = latestMessage ? latestMessage.sequence + 1 : 0;
     const now = Date.now();
 
     const messageId = await ctx.db.insert("chatMessages", {
