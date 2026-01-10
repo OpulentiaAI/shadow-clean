@@ -37,12 +37,21 @@ export function useTaskMessages(taskId: string) {
   
   const data = useConvexMessages(convexTaskId as Id<"tasks"> | undefined);
   
-  // Debug: Check raw data from Convex
-  console.log("[USE_TASK_MESSAGES] Raw Convex data:", {
-    dataExists: data !== undefined,
-    dataLength: data?.length,
-    rawRoles: data?.map((d: any) => d.role),
-  });
+  // Debug: Check raw data from Convex with metadata details
+  if (data) {
+    console.log("[USE_TASK_MESSAGES] Raw Convex data:", {
+      dataExists: data !== undefined,
+      dataLength: data?.length,
+      rawRoles: data?.map((d: any) => d.role),
+      messages: data?.map((d: any) => ({
+        id: d._id,
+        role: d.role,
+        hasMetadata: !!d.metadataJson,
+        metadataKeys: d.metadataJson ? Object.keys(JSON.parse(d.metadataJson)) : [],
+        hasparts: d.metadataJson ? JSON.parse(d.metadataJson).parts?.length : 0,
+      })),
+    });
+  }
   
   const mapped = data?.map(mapMessage) ?? [];
   return {

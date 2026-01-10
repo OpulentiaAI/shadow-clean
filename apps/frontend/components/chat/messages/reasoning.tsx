@@ -12,6 +12,14 @@ export function ReasoningComponent({
   isLoading?: boolean;
   forceOpen?: boolean;
 }) {
+  console.log("[REASONING_COMPONENT] Rendering with:", {
+    partType: part.type,
+    textLength: part.text?.length || 0,
+    isLoading,
+    forceOpen,
+    first100Chars: part.text?.substring(0, 100),
+  });
+  
   const trimmedPart = part.text.trim();
 
   return (
