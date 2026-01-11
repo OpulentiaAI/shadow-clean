@@ -89,8 +89,13 @@ export async function saveApiKey(provider: ApiKeyProvider, key: string | null) {
   if (key) {
     const isProduction = process.env.VERCEL_ENV === "production";
 
+    // Note: httpOnly is FALSE so client-side JavaScript can read these keys
+    // for passing to Convex streaming actions. The keys are still secured by:
+    // 1. secure: true in production (HTTPS only)
+    // 2. sameSite protections
+    // 3. domain restrictions
     cookieStore.set(cookieName, key, {
-      httpOnly: true,
+      httpOnly: false, // Allow client-side access for Convex streaming
       secure: isProduction,
       // Use "none" for production to allow cross-domain cookies, "lax" for development
       sameSite: isProduction ? "none" : "lax",

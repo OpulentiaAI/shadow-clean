@@ -1170,6 +1170,12 @@ Review the above results. If you have enough information, provide your response.
               `[STREAMING] Received first stream part, type: ${partType}`
             );
           }
+          // Log ALL part types for debugging NVIDIA NIM reasoning
+          if (roundPartCount <= 20 || partType !== "text-delta") {
+            console.log(
+              `[STREAMING] Part #${roundPartCount} type=${partType} keys=${Object.keys(part).join(",")} fullPart=${JSON.stringify(part).substring(0, 300)}`
+            );
+          }
           // Avoid log overflow: only log tool start/result events (not every delta).
           if (
             partType === "tool-input-start" ||
@@ -1177,7 +1183,9 @@ Review the above results. If you have enough information, provide your response.
             partType === "tool-call" ||
             partType === "tool-result" ||
             partType === "reasoning" ||
-            partType === "reasoning-delta"
+            partType === "reasoning-delta" ||
+            partType === "thinking" ||
+            partType === "thinking-delta"
           ) {
             console.log(
               `[STREAMING] STREAM PART type=${partType} payload=${JSON.stringify(part).substring(0, 500)}`
@@ -1191,16 +1199,16 @@ Review the above results. If you have enough information, provide your response.
               `Stream error: ${errorObj.error?.message || JSON.stringify(errorObj.error)}`
             );
           }
-          if (partType === "reasoning-delta") {
-            // Handle streaming reasoning deltas (e.g., from reasoning models like o1, Grok, DeepSeek R1)
-            const reasoningDelta = (part as any).delta ?? (part as any).text ?? "";
+          if (partType === "reasoning-delta" || partType === "thinking-delta") {
+            // Handle streaming reasoning deltas (e.g., from reasoning models like o1, Grok, DeepSeek R1, Kimi K2)
+            const reasoningDelta = (part as any).delta ?? (part as any).text ?? (part as any).thinking ?? (part as any).reasoning_content ?? "";
             if (reasoningDelta) {
               accumulatedReasoning += reasoningDelta;
               console.log(`[STREAMING] Reasoning delta received: ${reasoningDelta.length} chars`);
 
               await ctx.runMutation(api.messages.appendStreamDelta, {
                 messageId,
-                deltaText: reasoningDelta,
+                deltaText: "", // Don't add reasoning to main content
                 isFinal: false,
                 parts: [
                   {
@@ -1210,16 +1218,16 @@ Review the above results. If you have enough information, provide your response.
                 ],
               });
             }
-          } else if (partType === "reasoning") {
+          } else if (partType === "reasoning" || partType === "thinking") {
             // Handle complete reasoning blocks (fallback for models that emit full reasoning at once)
-            const reasoningText = (part as any).reasoning ?? (part as any).text ?? "";
+            const reasoningText = (part as any).reasoning ?? (part as any).thinking ?? (part as any).reasoning_content ?? (part as any).text ?? "";
             if (reasoningText && !accumulatedReasoning.includes(reasoningText)) {
               accumulatedReasoning += reasoningText;
               console.log(`[STREAMING] Reasoning block received: ${reasoningText.length} chars`);
 
               await ctx.runMutation(api.messages.appendStreamDelta, {
                 messageId,
-                deltaText: reasoningText,
+                deltaText: "", // Don't add reasoning to main content
                 isFinal: false,
                 parts: [
                   {
@@ -1230,6 +1238,25 @@ Review the above results. If you have enough information, provide your response.
               });
             }
           } else if (partType === "text-delta") {
+            // Check if this text-delta contains reasoning_content (NVIDIA NIM models like Kimi K2)
+            const reasoningContent = (part as any).reasoning_content;
+            if (reasoningContent && !accumulatedReasoning.includes(reasoningContent)) {
+              accumulatedReasoning += reasoningContent;
+              console.log(`[STREAMING] Text-delta with reasoning_content: ${reasoningContent.length} chars`);
+
+              await ctx.runMutation(api.messages.appendStreamDelta, {
+                messageId,
+                deltaText: "", // Don't add reasoning to main content
+                isFinal: false,
+                parts: [
+                  {
+                    type: "reasoning",
+                    text: reasoningContent,
+                  },
+                ],
+              });
+            }
+            
             accumulatedText += part.text;
 
             await ctx.runMutation(api.messages.appendStreamDelta, {

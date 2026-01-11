@@ -39,6 +39,8 @@
     "@convex-dev/agent": "^0.3.2",
     "@next/swc-wasm-nodejs": "^15.4.6",
     "@openrouter/ai-sdk-provider": "^1.5.3",
+    "@shikijs/transformers": "^3.21.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "@vercel/node": "^5.5.16",
     "ai": "5.0.82",
     "convex": "1.30.0",

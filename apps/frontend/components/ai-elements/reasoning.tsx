@@ -47,7 +47,7 @@ const ReasoningTrigger = React.forwardRef<
     return () => clearInterval(interval);
   }, [ref]);
 
-  const isStreaming = isOpen && !getThinkingMessage;
+  const isStreaming = isOpen;
   const duration = Date.now() - startTime;
 
   return (
