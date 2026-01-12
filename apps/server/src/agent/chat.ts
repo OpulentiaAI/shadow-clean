@@ -997,7 +997,7 @@ These are specific instructions from the user that should be followed throughout
         `[CHAT] isFirstMessage: ${isFirstMessage}, messages count before user: ${messages.length - 1}`
       );
       console.log(
-        `[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}`
+        `[CHAT] API keys present - anthropic: ${!!apiKeys.anthropic}, openai: ${!!apiKeys.openai}, openrouter: ${!!apiKeys.openrouter}, nvidia: ${!!apiKeys.nvidia}, fireworks: ${!!apiKeys.fireworks}`
       );
       if (apiKeys.openrouter) {
         const prefix = apiKeys.openrouter.substring(0, 12);
@@ -1036,6 +1036,9 @@ These are specific instructions from the user that should be followed throughout
             anthropic: apiKeys.anthropic,
             openai: apiKeys.openai,
             openrouter: apiKeys.openrouter,
+            nvidia: apiKeys.nvidia,
+            fireworks: apiKeys.fireworks,
+            exa: apiKeys.exa,
           },
         }
       );
