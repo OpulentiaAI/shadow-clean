@@ -766,12 +766,15 @@ CRITICAL RULES:
         if (!allFiles || allFiles.length === 0) {
           return {
             success: true,
-            matches: [],
             message: "No files to search",
+            matches: [],
+            detailedMatches: [],
+            query: params.pattern,
+            matchCount: 0,
           };
         }
         
-        const matches: Array<{ file: string; line: number; content: string }> = [];
+        const detailedMatches: Array<{ file: string; lineNumber: number; content: string }> = [];
         const searchPattern = params.pattern;
         
         for (const file of allFiles) {
@@ -782,18 +785,18 @@ CRITICAL RULES:
             try {
               const regex = new RegExp(searchPattern, "gi");
               if (regex.test(lines[i] || "")) {
-                matches.push({
+                detailedMatches.push({
                   file: file.path,
-                  line: i + 1,
+                  lineNumber: i + 1,
                   content: (lines[i] || "").trim().substring(0, 200),
                 });
               }
             } catch {
               // If regex is invalid, do literal search
               if ((lines[i] || "").includes(searchPattern)) {
-                matches.push({
+                detailedMatches.push({
                   file: file.path,
-                  line: i + 1,
+                  lineNumber: i + 1,
                   content: (lines[i] || "").trim().substring(0, 200),
                 });
               }
@@ -801,11 +804,19 @@ CRITICAL RULES:
           }
         }
         
+        const limitedMatches = detailedMatches.slice(0, 50);
+        // Convert to string format for matches array: "file:line:content"
+        const matches = limitedMatches.map(m => `${m.file}:${m.lineNumber}:${m.content}`);
+        
         return {
           success: true,
-          matches: matches.slice(0, 50), // Limit results
-          totalMatches: matches.length,
-          note: "Searched Convex virtualFiles",
+          message: limitedMatches.length > 0 
+            ? `Found ${detailedMatches.length} matches for "${searchPattern}"` 
+            : `No matches found for "${searchPattern}"`,
+          matches,
+          detailedMatches: limitedMatches,
+          query: searchPattern,
+          matchCount: detailedMatches.length,
         };
       },
     }),
@@ -825,25 +836,26 @@ CRITICAL RULES:
         if (!allFiles || allFiles.length === 0) {
           return {
             success: true,
-            files: [],
             message: "No files to search",
+            files: [],
+            query: params.pattern,
+            count: 0,
           };
         }
         
         const searchPattern = params.pattern.toLowerCase();
         const matchingFiles = allFiles
           .filter((f: { path: string }) => f.path.toLowerCase().includes(searchPattern))
-          .map((f: { path: string; size?: number }) => ({
-            path: f.path,
-            name: f.path.split("/").pop() || f.path,
-            size: f.size || 0,
-          }));
+          .map((f: { path: string }) => f.path); // Return just the path strings
         
         return {
           success: true,
+          message: matchingFiles.length > 0 
+            ? `Found ${matchingFiles.length} files matching "${params.pattern}"`
+            : `No files found matching "${params.pattern}"`,
           files: matchingFiles,
+          query: params.pattern,
           count: matchingFiles.length,
-          note: "Searched Convex virtualFiles",
         };
       },
     }),
