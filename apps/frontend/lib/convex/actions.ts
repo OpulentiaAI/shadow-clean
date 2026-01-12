@@ -575,6 +575,9 @@ export async function streamChat(input: {
     anthropic?: string;
     openai?: string;
     openrouter?: string;
+    nvidia?: string;
+    fireworks?: string;
+    exa?: string;
   };
 }) {
   const client = getConvexClient();
@@ -598,6 +601,9 @@ export async function streamChatWithTools(input: {
     anthropic?: string;
     openai?: string;
     openrouter?: string;
+    nvidia?: string;
+    fireworks?: string;
+    exa?: string;
   };
 }) {
   const client = getConvexClient();
@@ -620,6 +626,9 @@ export async function resumeStream(input: {
     anthropic?: string;
     openai?: string;
     openrouter?: string;
+    nvidia?: string;
+    fireworks?: string;
+    exa?: string;
   };
 }) {
   const client = getConvexClient();
