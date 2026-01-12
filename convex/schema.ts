@@ -591,4 +591,21 @@ export default defineSchema({
   })
     .index("by_task", ["taskId"])
     .index("by_task_path", ["taskId", "path"]),
+
+  // Daytona sandbox sessions for terminal streaming
+  daytonaSandboxes: defineTable({
+    taskId: v.id("tasks"),
+    sandboxId: v.string(),
+    sessionId: v.string(),
+    status: v.union(
+      v.literal("creating"),
+      v.literal("active"),
+      v.literal("stopped"),
+      v.literal("error")
+    ),
+    createdAt: v.number(),
+    lastActivityAt: v.number(),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_sandbox", ["sandboxId"]),
 });

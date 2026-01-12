@@ -15,6 +15,8 @@ import type * as api_testHelpers from "../api/testHelpers.js";
 import type * as auth from "../auth.js";
 import type * as codebaseUnderstanding from "../codebaseUnderstanding.js";
 import type * as crons from "../crons.js";
+import type * as daytona from "../daytona.js";
+import type * as daytonaActions from "../daytonaActions.js";
 import type * as fileChanges from "../fileChanges.js";
 import type * as files from "../files.js";
 import type * as git from "../git.js";
@@ -65,6 +67,8 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   codebaseUnderstanding: typeof codebaseUnderstanding;
   crons: typeof crons;
+  daytona: typeof daytona;
+  daytonaActions: typeof daytonaActions;
   fileChanges: typeof fileChanges;
   files: typeof files;
   git: typeof git;

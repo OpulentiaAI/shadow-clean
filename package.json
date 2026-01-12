@@ -71,6 +71,7 @@
     "@convex-dev/persistent-text-streaming": "^0.3.0",
     "@convex-dev/workflow": "^0.3.3",
     "@convex-dev/workpool": "^0.3.0",
+    "@daytonaio/sdk": "^0.130.0",
     "@exalabs/ai-sdk": "^1.0.5",
     "better-auth": "^1.4.9",
     "exa-js": "^2.0.12"
