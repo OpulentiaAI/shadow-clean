@@ -727,7 +727,19 @@ export const streamChatWithTools = action({
       // ============================================================
       const executedToolSignatures = new Set<string>();
       const toolCallAttempts = new Map<string, number>(); // Track attempts per signature
-      const MAX_TOOL_ATTEMPTS = 3;
+      const MAX_TOOL_ATTEMPTS = 5; // Increased from 3 - allow more retries for legitimate use
+      
+      // Read-only tools that are safe to call multiple times (no side effects)
+      const READ_ONLY_TOOLS = new Set([
+        "read_file",
+        "list_dir", 
+        "grep_search",
+        "file_search",
+        "find_by_name",
+        "get_file_info",
+        "search_codebase",
+        "get_terminal_output",
+      ]);
       
       const createToolSignature = (toolName: string, toolArgs: unknown): string => {
         // Normalize args for comparison (exclude 'explanation' field)
@@ -746,11 +758,17 @@ export const streamChatWithTools = action({
         return {
           ...originalTool,
           execute: async (args: any) => {
+            // Skip deduplication for read-only tools - they're safe to call multiple times
+            if (READ_ONLY_TOOLS.has(toolName)) {
+              console.log(`[DEDUP_SKIP] Skipping dedup for read-only tool: ${toolName}`);
+              return originalExecute(args);
+            }
+            
             const signature = createToolSignature(toolName, args);
             const attempts = (toolCallAttempts.get(signature) || 0) + 1;
             toolCallAttempts.set(signature, attempts);
             
-            // Check for duplicate execution
+            // Check for duplicate execution (only for non-read-only tools)
             if (executedToolSignatures.has(signature)) {
               console.warn(`[DEDUP_BLOCK] Blocking duplicate tool call: ${toolName} with signature ${signature.substring(0, 100)}...`);
               return {
@@ -763,7 +781,7 @@ export const streamChatWithTools = action({
               };
             }
             
-            // Check for too many attempts (even with different args)
+            // Check for too many attempts (even with different args) - only for mutating tools
             if (attempts > MAX_TOOL_ATTEMPTS) {
               console.warn(`[DEDUP_BLOCK] Tool "${toolName}" exceeded max attempts (${MAX_TOOL_ATTEMPTS})`);
               return {
