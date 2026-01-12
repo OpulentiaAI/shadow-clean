@@ -17,6 +17,7 @@ import type * as codebaseUnderstanding from "../codebaseUnderstanding.js";
 import type * as crons from "../crons.js";
 import type * as daytona from "../daytona.js";
 import type * as daytonaActions from "../daytonaActions.js";
+import type * as daytonaIngest from "../daytonaIngest.js";
 import type * as fileChanges from "../fileChanges.js";
 import type * as files from "../files.js";
 import type * as git from "../git.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   daytona: typeof daytona;
   daytonaActions: typeof daytonaActions;
+  daytonaIngest: typeof daytonaIngest;
   fileChanges: typeof fileChanges;
   files: typeof files;
   git: typeof git;

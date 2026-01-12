@@ -107,23 +107,32 @@ export const createSandbox = action({
 });
 
 /**
- * Execute a command in the Daytona sandbox with streaming output
+ * Start command execution via Daytona Runner service
+ * 
+ * This action calls the external Daytona Runner service which uses
+ * @daytonaio/sdk to properly resolve toolbox URLs and stream output.
+ * Output is pushed back to Convex via the ingest endpoint.
+ * 
+ * Returns immediately with jobId - does NOT wait for command to complete.
  */
-export const executeCommand = action({
+export const startDaytonaExec = action({
   args: {
     taskId: v.id("tasks"),
     command: v.string(),
     cwd: v.optional(v.string()),
+    env: v.optional(v.record(v.string(), v.string())),
   },
   handler: async (ctx, args) => {
-    const apiKey = process.env.DAYTONA_API_KEY;
-
-    if (!apiKey) {
+    // Check feature flag
+    const enableDaytona = process.env.ENABLE_DAYTONA_TERMINAL === "true";
+    if (!enableDaytona) {
       return {
         success: false,
-        error: "Daytona API key not configured",
+        error: "Daytona terminal is disabled. Set ENABLE_DAYTONA_TERMINAL=true to enable.",
       };
     }
+
+    const runnerUrl = process.env.DAYTONA_RUNNER_URL || "http://localhost:5100";
 
     // Get sandbox info
     let sandboxInfo = await ctx.runQuery(api.daytona.getSandboxInfo, {
@@ -154,12 +163,170 @@ export const executeCommand = action({
     }
 
     try {
+      console.log(`[DAYTONA] Calling Runner to execute: ${args.command}`);
+
+      // Call Daytona Runner service
+      const response = await fetch(`${runnerUrl}/v1/exec`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskId: args.taskId,
+          sessionId: sandboxInfo.sessionId,
+          sandboxId: sandboxInfo.sandboxId,
+          command: args.command,
+          cwd: args.cwd || "/workspace",
+          env: args.env || {},
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Runner error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+
+      console.log(`[DAYTONA] Runner started job: ${result.jobId}`);
+
+      return {
+        success: true,
+        jobId: result.jobId,
+        sessionId: result.sessionId,
+        status: result.status,
+      };
+    } catch (error) {
+      console.error("[DAYTONA] Error calling Runner:", error);
+
+      // Write error to terminal output
+      await ctx.runMutation(api.terminalOutput.append, {
+        taskId: args.taskId,
+        commandId: `cmd-${Date.now()}`,
+        content: `Error: ${error instanceof Error ? error.message : "Failed to start command execution"}`,
+        streamType: "stderr" as const,
+        timestamp: Date.now(),
+      });
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to start command execution",
+      };
+    }
+  },
+});
+
+/**
+ * Cancel a running Daytona command execution
+ */
+export const cancelDaytonaExec = action({
+  args: {
+    jobId: v.string(),
+  },
+  handler: async (_ctx, args) => {
+    const enableDaytona = process.env.ENABLE_DAYTONA_TERMINAL === "true";
+    if (!enableDaytona) {
+      return {
+        success: false,
+        error: "Daytona terminal is disabled",
+      };
+    }
+
+    const runnerUrl = process.env.DAYTONA_RUNNER_URL || "http://localhost:5100";
+
+    try {
+      const response = await fetch(`${runnerUrl}/v1/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ jobId: args.jobId }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Runner error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        jobId: result.jobId,
+        status: result.status,
+      };
+    } catch (error) {
+      console.error("[DAYTONA] Error cancelling job:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to cancel job",
+      };
+    }
+  },
+});
+
+/**
+ * Legacy executeCommand - kept for backward compatibility
+ * Now routes through startDaytonaExec when ENABLE_DAYTONA_TERMINAL is true
+ */
+export const executeCommand = action({
+  args: {
+    taskId: v.id("tasks"),
+    command: v.string(),
+    cwd: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    // Check if Daytona terminal is enabled - use Runner if so
+    const enableDaytona = process.env.ENABLE_DAYTONA_TERMINAL === "true";
+    if (enableDaytona) {
+      // Route through Runner service for proper SDK-based execution
+      return ctx.runAction(api.daytonaActions.startDaytonaExec, {
+        taskId: args.taskId,
+        command: args.command,
+        cwd: args.cwd,
+      });
+    }
+
+    // Legacy direct REST API path (fallback, may not work for all endpoints)
+    const apiKey = process.env.DAYTONA_API_KEY;
+
+    if (!apiKey) {
+      return {
+        success: false,
+        error: "Daytona API key not configured",
+      };
+    }
+
+    // Get sandbox info
+    let sandboxInfo = await ctx.runQuery(api.daytona.getSandboxInfo, {
+      taskId: args.taskId,
+    });
+
+    if (!sandboxInfo) {
+      const createResult = await ctx.runAction(api.daytonaActions.createSandbox, {
+        taskId: args.taskId,
+      });
+      
+      if (!createResult.success) {
+        return createResult;
+      }
+      
+      sandboxInfo = await ctx.runQuery(api.daytona.getSandboxInfo, {
+        taskId: args.taskId,
+      });
+    }
+
+    if (!sandboxInfo) {
+      return {
+        success: false,
+        error: "Failed to get sandbox info",
+      };
+    }
+
+    try {
       const commandId = `cmd-${Date.now()}`;
-      const sessionId = sandboxInfo.sessionId;
 
       console.log(`[DAYTONA] Executing command in sandbox ${sandboxInfo.sandboxId}: ${args.command}`);
 
-      // Write command to terminal output
       await ctx.runMutation(api.terminalOutput.append, {
         taskId: args.taskId,
         commandId,
@@ -168,7 +335,6 @@ export const executeCommand = action({
         timestamp: Date.now(),
       });
 
-      // Execute command via REST API (using sandbox toolbox proxy endpoint)
       const response = await daytonaFetch(
         `/sandbox/${sandboxInfo.sandboxId}/toolbox/process/execute`,
         {
@@ -182,7 +348,6 @@ export const executeCommand = action({
 
       const result = await response.json();
 
-      // Write stdout to terminal
       if (result.stdout) {
         await ctx.runMutation(api.terminalOutput.append, {
           taskId: args.taskId,
@@ -193,7 +358,6 @@ export const executeCommand = action({
         });
       }
 
-      // Write stderr to terminal
       if (result.stderr) {
         await ctx.runMutation(api.terminalOutput.append, {
           taskId: args.taskId,
@@ -204,7 +368,6 @@ export const executeCommand = action({
         });
       }
 
-      // Update last activity
       await ctx.runMutation(api.daytona.updateActivity, {
         taskId: args.taskId,
       });
@@ -219,7 +382,6 @@ export const executeCommand = action({
     } catch (error) {
       console.error("[DAYTONA] Error executing command:", error);
       
-      // Write error to terminal
       await ctx.runMutation(api.terminalOutput.append, {
         taskId: args.taskId,
         commandId: `cmd-${Date.now()}`,

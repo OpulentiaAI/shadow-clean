@@ -1,0 +1,26 @@
+{
+  "name": "daytona-runner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Daytona terminal execution service - bridges @daytonaio/sdk with Convex terminal streaming",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@daytonaio/sdk": "^0.130.0",
+    "express": "^4.21.2",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.15.21",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
