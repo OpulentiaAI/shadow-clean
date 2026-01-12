@@ -84,6 +84,9 @@ function TaskPageContent() {
              openrouter: !!apiKeys.openrouter,
              nvidia: !!apiKeys.nvidia,
              fireworks: !!apiKeys.fireworks,
+             // Debug: log nvidia key length if present
+             nvidiaKeyLength: apiKeys.nvidia?.length || 0,
+             model,
            });
            
            await startStreamWithTools({

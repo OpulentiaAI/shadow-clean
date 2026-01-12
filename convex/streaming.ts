@@ -455,8 +455,12 @@ export const streamChatWithTools = action({
       `[STREAMING] Model: ${args.model}, prompt length: ${args.prompt?.length || 0}`
     );
     console.log(
-      `[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}, exa: ${!!args.apiKeys?.exa}, fireworks: ${!!args.apiKeys?.fireworks}`
+      `[STREAMING] API keys present - anthropic: ${!!args.apiKeys?.anthropic}, openai: ${!!args.apiKeys?.openai}, openrouter: ${!!args.apiKeys?.openrouter}, nvidia: ${!!args.apiKeys?.nvidia}, fireworks: ${!!args.apiKeys?.fireworks}, exa: ${!!args.apiKeys?.exa}`
     );
+    // CRITICAL DEBUG: Log nvidia key specifically since follow-ups are failing
+    if (args.model?.startsWith("nim:")) {
+      console.log(`[STREAMING] NVIDIA model detected. Key from args: ${args.apiKeys?.nvidia ? `YES (${args.apiKeys.nvidia.length} chars)` : "NO"}, env fallback: ${process.env.NVIDIA_API_KEY ? "YES" : "NO"}`);
+    }
     if (args.apiKeys?.openrouter) {
       console.log(
         `[STREAMING] OpenRouter key from args: ${args.apiKeys.openrouter.length} chars`
