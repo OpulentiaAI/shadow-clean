@@ -122,7 +122,13 @@ export const startDaytonaExec = action({
     cwd: v.optional(v.string()),
     env: v.optional(v.record(v.string(), v.string())),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    error?: string;
+    jobId?: string;
+    sessionId?: string;
+    status?: string;
+  }> => {
     // Check feature flag
     const enableDaytona = process.env.ENABLE_DAYTONA_TERMINAL === "true";
     if (!enableDaytona) {
@@ -143,10 +149,10 @@ export const startDaytonaExec = action({
       // Try to create sandbox first
       const createResult = await ctx.runAction(api.daytonaActions.createSandbox, {
         taskId: args.taskId,
-      });
+      }) as { success: boolean; error?: string; sandboxId?: string; sessionId?: string };
       
       if (!createResult.success) {
-        return createResult;
+        return { success: false, error: createResult.error || "Failed to create sandbox" };
       }
       
       // Re-fetch sandbox info
@@ -274,7 +280,17 @@ export const executeCommand = action({
     command: v.string(),
     cwd: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    success: boolean;
+    error?: string;
+    jobId?: string;
+    sessionId?: string;
+    status?: string;
+    commandId?: string;
+    exitCode?: number;
+    stdout?: string;
+    stderr?: string;
+  }> => {
     // Check if Daytona terminal is enabled - use Runner if so
     const enableDaytona = process.env.ENABLE_DAYTONA_TERMINAL === "true";
     if (enableDaytona) {
@@ -304,10 +320,10 @@ export const executeCommand = action({
     if (!sandboxInfo) {
       const createResult = await ctx.runAction(api.daytonaActions.createSandbox, {
         taskId: args.taskId,
-      });
+      }) as { success: boolean; error?: string; sandboxId?: string; sessionId?: string };
       
       if (!createResult.success) {
-        return createResult;
+        return { success: false, error: createResult.error || "Failed to create sandbox" };
       }
       
       sandboxInfo = await ctx.runQuery(api.daytona.getSandboxInfo, {
