@@ -1,5 +1,6 @@
 {
-  "buildCommand": "npm run build --filter=frontend",
+  "buildCommand": "cd apps/frontend && npm run build",
   "outputDirectory": "apps/frontend/.next",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "framework": "nextjs"
 }
