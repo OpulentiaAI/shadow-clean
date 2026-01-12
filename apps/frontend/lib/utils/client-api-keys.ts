@@ -17,7 +17,15 @@ function getCookie(name: string): string | undefined {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) {
-    return parts.pop()?.split(";").shift();
+    const raw = parts.pop()?.split(";").shift();
+    if (raw) {
+      try {
+        // Decode URI-encoded cookie values
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
   }
   return undefined;
 }

@@ -80,6 +80,7 @@ export function useConvexChatStreaming() {
         openrouter?: string;
         nvidia?: string;
         fireworks?: string;
+        exa?: string;
       };
       // Client-generated UUID for idempotent message creation
       clientMessageId?: string;
@@ -91,6 +92,14 @@ export function useConvexChatStreaming() {
         const clientMessageId = args.clientMessageId || crypto.randomUUID();
 
         console.log("[CONVEX_STREAMING] Starting stream with clientMessageId:", clientMessageId);
+        console.log("[CONVEX_STREAMING] API keys present:", {
+          anthropic: !!args.apiKeys?.anthropic,
+          openai: !!args.apiKeys?.openai,
+          openrouter: !!args.apiKeys?.openrouter,
+          nvidia: !!args.apiKeys?.nvidia,
+          fireworks: !!args.apiKeys?.fireworks,
+          exa: !!args.apiKeys?.exa,
+        });
 
         const result = await streamChatWithToolsAction({
           ...args,
