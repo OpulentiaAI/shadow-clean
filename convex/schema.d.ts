@@ -750,6 +750,24 @@ declare const _default: import("convex/server").SchemaDefinition<{
         by_task: ["taskId", "_creationTime"];
         by_task_path: ["taskId", "path", "_creationTime"];
     }, {}, {}>;
+    daytonaSandboxes: import("convex/server").TableDefinition<import("convex/values").VObject<{
+        status: "error" | "creating" | "active" | "stopped";
+        createdAt: number;
+        taskId: import("convex/values").GenericId<"tasks">;
+        sandboxId: string;
+        sessionId: string;
+        lastActivityAt: number;
+    }, {
+        taskId: import("convex/values").VId<import("convex/values").GenericId<"tasks">, "required">;
+        sandboxId: import("convex/values").VString<string, "required">;
+        sessionId: import("convex/values").VString<string, "required">;
+        status: import("convex/values").VUnion<"error" | "creating" | "active" | "stopped", [import("convex/values").VLiteral<"creating", "required">, import("convex/values").VLiteral<"active", "required">, import("convex/values").VLiteral<"stopped", "required">, import("convex/values").VLiteral<"error", "required">], "required", never>;
+        createdAt: import("convex/values").VFloat64<number, "required">;
+        lastActivityAt: import("convex/values").VFloat64<number, "required">;
+    }, "required", "status" | "createdAt" | "taskId" | "sandboxId" | "sessionId" | "lastActivityAt">, {
+        by_task: ["taskId", "_creationTime"];
+        by_sandbox: ["sandboxId", "_creationTime"];
+    }, {}, {}>;
 }, true>;
 export default _default;
 //# sourceMappingURL=schema.d.ts.map

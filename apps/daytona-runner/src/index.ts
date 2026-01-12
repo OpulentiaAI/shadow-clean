@@ -88,6 +88,11 @@ async function pushToConvex(payload: {
 
 /**
  * Execute command in Daytona sandbox with streaming output
+ * 
+ * Uses session-based execution with getSessionCommandLogs for streaming:
+ * 1. Create a session
+ * 2. Execute command asynchronously in the session
+ * 3. Stream logs using getSessionCommandLogs with callbacks
  */
 async function executeCommand(job: Job): Promise<void> {
   const { id: jobId, taskId, sessionId, sandboxId, command } = job;
@@ -110,37 +115,53 @@ async function executeCommand(job: Job): Promise<void> {
       ts: Date.now(),
     });
 
-    // Execute command using SDK - this handles toolbox URL routing
-    const result = await sandbox.process.executeCommand(command, {
-      cwd: "/workspace",
-      timeout: 300, // 5 minute timeout
-      onStdout: async (data: Uint8Array) => {
-        const text = new TextDecoder().decode(data);
-        if (text && activeJobs.get(jobId)?.status === "running") {
+    // Create a session for streaming output
+    const ptySessionId = `pty-${jobId}`;
+    await sandbox.process.createSession(ptySessionId);
+
+    // Execute command asynchronously in the session
+    const execResult = await sandbox.process.executeSessionCommand(ptySessionId, {
+      command,
+      runAsync: true, // Required for streaming logs
+    });
+
+    const commandId = execResult.cmdId;
+    if (!commandId) {
+      throw new Error("No command ID returned from executeSessionCommand");
+    }
+    console.log(`[RUNNER] Command started with cmdId: ${commandId}`);
+
+    // Stream logs using callbacks
+    await sandbox.process.getSessionCommandLogs(
+      ptySessionId,
+      commandId,
+      // onStdout callback
+      async (chunk: string) => {
+        if (chunk && activeJobs.get(jobId)?.status === "running") {
           await pushToConvex({
             taskId,
             sessionId,
             sandboxId,
             stream: "stdout",
-            data: text,
+            data: chunk,
             ts: Date.now(),
           });
         }
       },
-      onStderr: async (data: Uint8Array) => {
-        const text = new TextDecoder().decode(data);
-        if (text && activeJobs.get(jobId)?.status === "running") {
+      // onStderr callback
+      async (chunk: string) => {
+        if (chunk && activeJobs.get(jobId)?.status === "running") {
           await pushToConvex({
             taskId,
             sessionId,
             sandboxId,
             stream: "stderr",
-            data: text,
+            data: chunk,
             ts: Date.now(),
           });
         }
-      },
-    });
+      }
+    );
 
     // Update job status
     const currentJob = activeJobs.get(jobId);
@@ -156,11 +177,11 @@ async function executeCommand(job: Job): Promise<void> {
         data: "",
         ts: Date.now(),
         done: true,
-        exitCode: result.exitCode,
+        exitCode: execResult.exitCode ?? 0,
       });
     }
 
-    console.log(`[RUNNER] Job ${jobId} completed with exit code ${result.exitCode}`);
+    console.log(`[RUNNER] Job ${jobId} completed`);
   } catch (error) {
     console.error(`[RUNNER] Job ${jobId} failed:`, error);
     

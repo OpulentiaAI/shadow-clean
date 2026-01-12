@@ -43,7 +43,7 @@ type WorkflowStatusResult = {
  * Get the status of a workflow
  */
 export declare const getWorkflowStatus: import("convex/server").RegisteredQuery<"public", {
-    [x: string]: any;
+    workflowId: import("@convex-dev/workflow", { with: { "resolution-mode": "import" } }).WorkflowId;
 }, Promise<WorkflowStatusResult>>;
 export {};
 //# sourceMappingURL=agentWorkflow.d.ts.map

@@ -10,6 +10,6 @@ import { WorkflowManager } from "@convex-dev/workflow";
  *
  * Configuration is passed via workpoolOptions for the underlying workpool.
  */
-export declare const workflowManager: any;
+export declare const workflowManager: WorkflowManager;
 export type { WorkflowManager };
 //# sourceMappingURL=index.d.ts.map

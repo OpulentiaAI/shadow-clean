@@ -12,11 +12,11 @@ export declare const generateTextWithOpenRouter: import("convex/server").Registe
     maxTokens?: number;
     prompt: string;
 }, Promise<{
-    text: any;
+    text: string;
     usage: {
-        promptTokens: any;
-        completionTokens: any;
-        totalTokens: any;
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
     };
     model: string;
 }>>;
@@ -28,11 +28,11 @@ export declare const generateText: import("convex/server").RegisteredAction<"pub
     prompt: string;
 }, Promise<{
     threadId: string;
-    text: any;
+    text: string;
     usage: {
-        promptTokens: any;
-        completionTokens: any;
-        totalTokens: any;
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
     };
 }>>;
 export declare const continueThread: import("convex/server").RegisteredAction<"public", {
@@ -41,11 +41,11 @@ export declare const continueThread: import("convex/server").RegisteredAction<"p
     prompt: string;
 }, Promise<{
     threadId: string;
-    text: any;
+    text: string;
     usage: {
-        promptTokens: any;
-        completionTokens: any;
-        totalTokens: any;
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
     };
 }>>;
 export declare const analyzeCode: import("convex/server").RegisteredAction<"public", {
@@ -53,7 +53,7 @@ export declare const analyzeCode: import("convex/server").RegisteredAction<"publ
     question?: string;
     code: string;
 }, Promise<{
-    analysis: any;
+    analysis: string;
     threadId: string;
 }>>;
 export declare const generateCode: import("convex/server").RegisteredAction<"public", {
@@ -61,7 +61,7 @@ export declare const generateCode: import("convex/server").RegisteredAction<"pub
     description: string;
     language: string;
 }, Promise<{
-    code: any;
+    code: string;
     threadId: string;
 }>>;
 export declare const explainError: import("convex/server").RegisteredAction<"public", {
@@ -69,7 +69,7 @@ export declare const explainError: import("convex/server").RegisteredAction<"pub
     language?: string;
     error: string;
 }, Promise<{
-    explanation: any;
+    explanation: string;
     threadId: string;
 }>>;
 export declare const agentStreamText: ReturnType<typeof action>;
