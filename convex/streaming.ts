@@ -111,6 +111,25 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
     `[STREAMING]   - fireworks: ${apiKeys.fireworks ? `YES (${apiKeys.fireworks.length} chars)` : "NO"}`
   );
 
+  // Handle Vercel AI Gateway models (gateway: prefix)
+  // Supports: Gemini 3 Flash, GLM-4.7, MiniMax M2.1
+  if (model.startsWith("gateway:")) {
+    const gatewayKey = apiKeys.openai || process.env.OPENAI_API_KEY;
+    if (!gatewayKey) {
+      throw new Error("Vercel AI Gateway requires an OpenAI API key. Please configure your API key in settings.");
+    }
+    const actualModelId = model.slice(8); // Remove "gateway:" prefix
+    console.log(`[STREAMING] >>> USING: Vercel AI Gateway for model: ${actualModelId}`);
+    
+    // Vercel AI Gateway uses OpenAI-compatible API
+    const gatewayClient = createOpenAI({
+      apiKey: gatewayKey,
+      baseURL: "https://gateway.ai.vercel.app/v1",
+      name: "vercel-gateway",
+    });
+    return gatewayClient.chat(actualModelId);
+  }
+
   // Handle Fireworks models (accounts/fireworks/ prefix)
   if (model.startsWith("accounts/fireworks/")) {
     const fireworksKey = apiKeys.fireworks || process.env.FIREWORKS_API_KEY;
@@ -1994,11 +2013,18 @@ Review the above results. If you have enough information, provide your response.
         const hadNewPlanProgress = completedPlanSteps.size > completedPlanBefore;
         const hadTextProgress = accumulatedText.length > textBeforeLen;
         
-        // CRITICAL FIX: Don't count text-only as progress when tools are all duplicates
-        // This prevents the LLM from looping with repetitive explanatory text
-        const progressed = hadToolCalls
-          ? hadNewToolExecutions || hadNewPlanProgress // If tools called, only count tool/plan progress
-          : hadNewToolExecutions || hadNewPlanProgress || hadTextProgress; // No tools = text counts
+        // DIAGNOSTIC: Log all progress indicators for debugging
+        console.log(
+          `[STREAMING] [LOOP_DEBUG] Round ${round} progress check: ` +
+          `hadToolCalls=${hadToolCalls}, hadNewToolExecutions=${hadNewToolExecutions}, ` +
+          `hadNewPlanProgress=${hadNewPlanProgress}, hadTextProgress=${hadTextProgress}, ` +
+          `roundToolCallIds=${roundToolCallIds.size}, completedSignatures=${completedToolSignatures.size}, ` +
+          `completedSignaturesBefore=${completedSignaturesBefore}, finishReason=${finalFinishReason}`
+        );
+        
+        // FIX: If we executed tools this round, always count as progress
+        // The previous logic was too strict - any successful tool execution is progress
+        const progressed = hadNewToolExecutions || hadNewPlanProgress || (hadToolCalls && completedToolCalls.size > 0) || hadTextProgress;
         
         if (hadToolCalls && !hadNewToolExecutions) {
           consecutiveDuplicateRounds++;
@@ -2021,10 +2047,11 @@ Review the above results. If you have enough information, provide your response.
           break;
         }
 
-        // Stop if we are not making progress; prevents infinite loops with buggy providers.
-        if (!progressed) {
+        // FIX: Only stop for no progress if we also had no tool calls AND no text
+        // This prevents premature exit when tools are being processed
+        if (!progressed && roundToolCallIds.size === 0 && !hadTextProgress) {
           console.log(
-            `[STREAMING] [v9] No progress in round=${round}; stopping continuation loop`
+            `[STREAMING] [LOOP_EXIT] No progress in round=${round}; stopping (no tools, no text)`
           );
           break;
         }
@@ -2034,12 +2061,20 @@ Review the above results. If you have enough information, provide your response.
           planSteps.length > 0 &&
           completedPlanSteps.size >= planSteps.length
         ) {
+          console.log(`[STREAMING] [LOOP_EXIT] Plan complete (${completedPlanSteps.size}/${planSteps.length} steps)`);
           break;
         }
 
-        // If there were no tool calls in this round, there's nothing to continue from.
-        if (roundToolCallIds.size === 0) {
+        // FIX: Don't break just because no tool calls in this round - check if model wants to continue
+        // Only break if there were no tool calls AND the model finished with 'stop' (not 'tool_calls')
+        if (roundToolCallIds.size === 0 && finalFinishReason === "stop") {
+          console.log(`[STREAMING] [LOOP_EXIT] No tool calls and finishReason=stop; ending loop`);
           break;
+        }
+        
+        // If tools were called, continue to next round to process results
+        if (hadToolCalls) {
+          console.log(`[STREAMING] [LOOP_CONTINUE] Tools called (${roundToolCallIds.size}), continuing to next round`);
         }
       }
 
