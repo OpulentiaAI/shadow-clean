@@ -1222,10 +1222,13 @@ Review the above results. If you have enough information, provide your response.
               `[STREAMING] Received first stream part, type: ${partType}`
             );
           }
-          // Log ALL part types for debugging NVIDIA NIM reasoning
-          if (roundPartCount <= 20 || partType !== "text-delta") {
+          // Enhanced logging for ALL part types to debug reasoning capture
+          // Log first 30 parts or any non-text-delta parts
+          if (roundPartCount <= 30 || partType !== "text-delta") {
+            const partKeys = Object.keys(part);
+            const hasReasoning = partKeys.some(k => k.toLowerCase().includes('reason') || k.toLowerCase().includes('think'));
             console.log(
-              `[STREAMING] Part #${roundPartCount} type=${partType} keys=${Object.keys(part).join(",")} fullPart=${JSON.stringify(part).substring(0, 300)}`
+              `[STREAMING] Part #${roundPartCount} type=${partType} keys=${partKeys.join(",")}${hasReasoning ? " [HAS_REASONING_FIELD]" : ""} fullPart=${JSON.stringify(part).substring(0, 500)}`
             );
           }
           // Avoid log overflow: only log tool start/result events (not every delta).
