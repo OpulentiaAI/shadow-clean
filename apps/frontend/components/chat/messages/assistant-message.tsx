@@ -138,6 +138,14 @@ export function AssistantMessage({
         };
       }
 
+      if (normalizedType === "reasoning" || normalizedType === "reasoning-delta") {
+        return {
+          ...part,
+          type: "reasoning",
+          text: part.text ?? part.delta ?? "",
+        };
+      }
+
       return { ...part, type: normalizedType || part.type };
     });
   }, [message.metadata?.parts]);
