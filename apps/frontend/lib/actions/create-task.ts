@@ -274,41 +274,40 @@ export async function createTask(formData: FormData) {
         });
         const statusUpdateTime = Date.now() - initStart;
 
-        // PARALLEL: Start file tree fetch in background (don't await before streaming)
-        // File tree is useful but NOT required for streaming to start
-        let fileTreePromise: Promise<void> | null = null;
+        // Fetch and store GitHub file tree BEFORE streaming for non-scratchpad tasks
+        // Agent tools need the file tree to understand the codebase context
+        let fileTreeTime = 0;
         if (!isScratchpad && repoFullName && baseBranch) {
           const fileTreeStart = Date.now();
-          fileTreePromise = (async () => {
-            try {
-              console.log(`[TASK_CREATION] [BACKGROUND] Fetching GitHub file tree for ${repoFullName}/${baseBranch}`);
-              const fileTree = await getGitHubFileTree(repoFullName, baseBranch, userId.toString());
-              const fetchTime = Date.now() - fileTreeStart;
-              
-              if (fileTree.length > 0) {
-                console.log(`[TASK_CREATION] [BACKGROUND] Storing ${fileTree.length} files in Convex (fetch=${fetchTime}ms)`);
-                await storeGitHubFileTree(
-                  taskId,
-                  fileTree.map((item) => ({
-                    path: item.path,
-                    type: item.type,
-                    size: item.size,
-                  }))
-                );
-                const totalTime = Date.now() - fileTreeStart;
-                console.log(`[TASK_CREATION] [BACKGROUND] File tree stored successfully (total=${totalTime}ms)`);
-              } else {
-                console.log(`[TASK_CREATION] [BACKGROUND] No files found in GitHub tree`);
-              }
-            } catch (fileTreeError) {
-              console.error(`[TASK_CREATION] [BACKGROUND] Error fetching file tree:`, fileTreeError);
-              // Don't fail task - file tree is optional for streaming
+          try {
+            console.log(`[TASK_CREATION] Fetching GitHub file tree for ${repoFullName}/${baseBranch}`);
+            const fileTree = await getGitHubFileTree(repoFullName, baseBranch, userId.toString());
+            const fetchTime = Date.now() - fileTreeStart;
+            
+            if (fileTree.length > 0) {
+              console.log(`[TASK_CREATION] Storing ${fileTree.length} files in Convex (fetch=${fetchTime}ms)`);
+              await storeGitHubFileTree(
+                taskId,
+                fileTree.map((item) => ({
+                  path: item.path,
+                  type: item.type,
+                  size: item.size,
+                }))
+              );
+              fileTreeTime = Date.now() - fileTreeStart;
+              console.log(`[TASK_CREATION] File tree stored successfully (total=${fileTreeTime}ms)`);
+            } else {
+              console.log(`[TASK_CREATION] No files found in GitHub tree`);
+              fileTreeTime = Date.now() - fileTreeStart;
             }
-          })();
+          } catch (fileTreeError) {
+            console.error(`[TASK_CREATION] Error fetching file tree:`, fileTreeError);
+            fileTreeTime = Date.now() - fileTreeStart;
+            // Continue with task creation even if file tree fails
+          }
         }
 
-        // START STREAMING IMMEDIATELY (don't wait for file tree)
-        // This is the critical path optimization - streaming starts in parallel with file tree
+        // Start streaming after file tree is ready
         const streamStart = Date.now();
         console.log(
           `[TASK_CREATION] Triggering Convex streaming for task ${taskId} (statusUpdate=${statusUpdateTime}ms, streamStart=${streamStart - initStart}ms)`
@@ -332,11 +331,6 @@ export async function createTask(formData: FormData) {
             `[TASK_CREATION] Convex streaming completed for task ${taskId} (stream=${streamTime}ms, total=${Date.now() - initStart}ms)`
           );
           
-          // Wait for file tree to complete before marking fully initialized
-          if (fileTreePromise) {
-            await fileTreePromise;
-          }
-          
           // Streaming action sets task status STOPPED on completion; keep STOPPED so follow-ups work.
           await updateTask({
             taskId,
@@ -345,7 +339,7 @@ export async function createTask(formData: FormData) {
             hasBeenInitialized: true,
           });
           
-          console.log(`[INIT_TIMING] taskId=${taskId} statusUpdate=${statusUpdateTime}ms streamStart=${streamStart - initStart}ms total=${Date.now() - initStart}ms`);
+          console.log(`[INIT_TIMING] taskId=${taskId} fileTree=${fileTreeTime}ms streamStart=${streamStart - initStart}ms stream=${streamTime}ms total=${Date.now() - initStart}ms`);
         } catch (streamError) {
           console.error(
             `[TASK_CREATION] Convex streaming error for task ${taskId}:`,
