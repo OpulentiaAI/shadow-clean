@@ -176,6 +176,7 @@ export function AssistantMessage({
 
     const parts: GroupedPart[] = [];
     let currentTextGroup = "";
+    let currentReasoningGroup = "";
     const toolCallIndex = new Map<string, number>();
 
     const flushTextGroup = () => {
@@ -186,6 +187,17 @@ export function AssistantMessage({
         key: `${message.id}-text-${parts.length}`,
       });
       currentTextGroup = "";
+    };
+
+    const flushReasoningGroup = () => {
+      if (!currentReasoningGroup) return;
+      parts.push({
+        type: "reasoning",
+        part: { type: "reasoning", text: currentReasoningGroup } as ReasoningPart,
+        index: parts.length,
+        key: `${message.id}-reasoning-${parts.length}`,
+      });
+      currentReasoningGroup = "";
     };
 
     const pushToolCall = (part: any, index: number) => {
@@ -208,9 +220,14 @@ export function AssistantMessage({
 
     normalizedParts.forEach((part: any, index: number) => {
       if (part.type === "text" && part.text !== undefined) {
+        flushReasoningGroup();
         currentTextGroup += part.text;
+      } else if (part.type === "reasoning" && part.text !== undefined) {
+        flushTextGroup();
+        currentReasoningGroup += part.text;
       } else {
         flushTextGroup();
+        flushReasoningGroup();
         if (part.type === "tool-call") {
           pushToolCall(part, index);
         } else if (part.type === "tool-result") {
@@ -226,13 +243,6 @@ export function AssistantMessage({
             part: part as ErrorPart,
             index,
             key: `${message.id}-error-${index}`,
-          });
-        } else if (part.type === "reasoning") {
-          parts.push({
-            type: "reasoning",
-            part: part as ReasoningPart,
-            index,
-            key: `${message.id}-reasoning-${index}`,
           });
         } else if (part.type === "redacted-reasoning") {
           parts.push({
@@ -252,13 +262,8 @@ export function AssistantMessage({
       }
     });
 
-    if (currentTextGroup) {
-      parts.push({
-        type: "text",
-        text: currentTextGroup,
-        key: `${message.id}-text-${parts.length}`,
-      });
-    }
+    flushTextGroup();
+    flushReasoningGroup();
 
     return parts;
   }, [normalizedParts, message.content, message.id]);
