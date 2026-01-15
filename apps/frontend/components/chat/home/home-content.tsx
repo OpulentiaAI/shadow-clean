@@ -124,9 +124,11 @@ export function HomePageContent({
       );
 
       if (!hasCompletedWelcome) {
-        setTimeout(() => {
+        const timeoutId = window.setTimeout(() => {
           setShowWelcomeModal(true);
         }, WELCOME_MODAL_DELAY);
+
+        return () => window.clearTimeout(timeoutId);
       }
     }
   }, [session, isLoading]);

@@ -15,15 +15,44 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { AppWindowMac } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ImperativePanelGroupHandle } from "react-resizable-panels";
 import { StickToBottom } from "use-stick-to-bottom";
-import { MemoizedAgentEnvironment as AgentEnvironment } from "@/components/agent-environment/agent-environment";
-import { MemoizedTaskPageContent as TaskPageContent } from "@/components/task/task-content";
 import { useAgentEnvironment } from "@/components/agent-environment/agent-environment-context";
 import { useTaskTitle, useUpdateTaskTitle } from "@/hooks/tasks/use-task-title";
 import { useTaskStatus } from "@/hooks/tasks/use-task-status";
 import { useParams } from "next/navigation";
+
+const AgentEnvironment = dynamic(
+  () =>
+    import("@/components/agent-environment/agent-environment").then(
+      (mod) => mod.MemoizedAgentEnvironment
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
+        Loading environment...
+      </div>
+    ),
+  }
+);
+
+const TaskPageContent = dynamic(
+  () =>
+    import("@/components/task/task-content").then(
+      (mod) => mod.MemoizedTaskPageContent
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="text-muted-foreground flex w-full items-center justify-center py-6 text-sm">
+        Loading task...
+      </div>
+    ),
+  }
+);
 
 export default function TaskPage() {
   const { taskId } = useParams<{ taskId: string }>();
