@@ -40,17 +40,29 @@ export function getClientApiKeys(): ClientApiKeys {
     exa: getCookie("exa-key"),
   };
   
-  // Debug logging
+  // Enhanced debug logging
   if (typeof window !== "undefined") {
-    console.log("[CLIENT_API_KEYS] Read from cookies:", {
-      anthropic: !!keys.anthropic,
-      openai: !!keys.openai,
-      openrouter: !!keys.openrouter,
-      nvidia: !!keys.nvidia,
-      fireworks: !!keys.fireworks,
-      exa: !!keys.exa,
-      allCookies: document.cookie,
+    const allCookies = document.cookie;
+    const cookieNames = allCookies.split(";").map(c => c.trim().split("=")[0]);
+    
+    console.log("[CLIENT_API_KEYS] === Cookie Diagnostic ===");
+    console.log("[CLIENT_API_KEYS] Current domain:", window.location.hostname);
+    console.log("[CLIENT_API_KEYS] Cookie names found:", cookieNames);
+    console.log("[CLIENT_API_KEYS] Keys extracted:", {
+      anthropic: keys.anthropic ? `YES (${keys.anthropic.length} chars)` : "NO",
+      openai: keys.openai ? `YES (${keys.openai.length} chars)` : "NO",
+      openrouter: keys.openrouter ? `YES (${keys.openrouter.length} chars)` : "NO",
+      nvidia: keys.nvidia ? `YES (${keys.nvidia.length} chars)` : "NO",
+      fireworks: keys.fireworks ? `YES (${keys.fireworks.length} chars)` : "NO",
+      exa: keys.exa ? `YES (${keys.exa.length} chars)` : "NO",
     });
+    
+    // Check if fireworks-key cookie exists but wasn't parsed correctly
+    const hasFireworksCookie = allCookies.includes("fireworks-key");
+    if (hasFireworksCookie && !keys.fireworks) {
+      console.error("[CLIENT_API_KEYS] !!! fireworks-key cookie exists but failed to parse !!!");
+      console.log("[CLIENT_API_KEYS] Raw cookies:", allCookies);
+    }
   }
   
   return keys;
