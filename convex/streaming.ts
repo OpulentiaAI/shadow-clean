@@ -7,7 +7,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 // createOpenRouter removed in favor of createOpenAI configuration
 // Note: NVIDIA NIM uses createOpenAI with custom baseURL (same pattern as OpenRouter)
-import { type LanguageModel, type CoreMessage } from "ai";
+import { type LanguageModel, type CoreMessage, wrapLanguageModel, extractReasoningMiddleware } from "ai";
 import { createAgentTools, createExaWebSearchTool, createMcpProxyTools, WEB_SEARCH_SYSTEM_PROMPT } from "./agentTools";
 import { generateTraceId } from "./observability";
 import { withRetry, isTransientError } from "./lib/retry";
@@ -624,11 +624,57 @@ export const streamChatWithTools = action({
       // Import AI SDK dynamically
       console.log(`[STREAMING] Importing AI SDK and resolving provider`);
       const { streamText, stepCountIs } = await import("ai");
-      const providerModel = resolveProvider({
+      const baseProviderModel = resolveProvider({
         model: args.model,
         apiKeys: args.apiKeys || {},
       });
       console.log(`[STREAMING] Provider resolved for model: ${args.model}`);
+
+      // ============================================================
+      // REASONING EXTRACTION MIDDLEWARE
+      // For models that embed reasoning in <think> tags (NVIDIA NIM,
+      // DeepSeek R1, Kimi K2, etc.), wrap with extractReasoningMiddleware
+      // to properly capture reasoning as separate parts in the stream.
+      //
+      // Common tag patterns:
+      // - Kimi K2: <think>...</think>
+      // - DeepSeek R1: <think>...</think>
+      // - QwQ/Qwen: <thinking>...</thinking>
+      // - Some models: <reasoning>...</reasoning>
+      // ============================================================
+      const reasoningModelPatterns = [
+        "kimi-k2-thinking",
+        "deepseek-r1",
+        "deepseek-v3",
+        "deepseek-reasoner",
+        "qwq",
+        "thinking",
+        "gpt-oss",
+      ];
+      const isReasoningModel = reasoningModelPatterns.some(
+        (pattern) => args.model.toLowerCase().includes(pattern)
+      );
+
+      // Determine tag name based on model - most use "think" but QwQ uses "thinking"
+      const reasoningTagName = args.model.toLowerCase().includes("qwq")
+        ? "thinking"
+        : "think";
+
+      const providerModel = isReasoningModel
+        ? wrapLanguageModel({
+            model: baseProviderModel,
+            middleware: extractReasoningMiddleware({
+              tagName: reasoningTagName,
+              startWithReasoning: true, // Expect reasoning at start for thinking models
+            }),
+          })
+        : baseProviderModel;
+
+      if (isReasoningModel) {
+        console.log(
+          `[STREAMING] Applied extractReasoningMiddleware (tag=${reasoningTagName}) for reasoning model: ${args.model}`
+        );
+      }
       const controller = new AbortController();
       streamControllers.set(messageId, controller);
 
@@ -1222,14 +1268,58 @@ Review the above results. If you have enough information, provide your response.
               `[STREAMING] Received first stream part, type: ${partType}`
             );
           }
-          // Enhanced logging for ALL part types to debug reasoning capture
-          // Log first 30 parts or any non-text-delta parts
-          if (roundPartCount <= 30 || partType !== "text-delta") {
+          // ============================================================
+          // PHASE 1 INSTRUMENTATION: Normalized Part Classification
+          // Purpose: Debug reasoning capture for NVIDIA NIM / Kimi K2
+          // Set DEBUG_STREAM_PARTS=true to enable verbose logging
+          // ============================================================
+          const DEBUG_STREAM_PARTS = process.env.DEBUG_STREAM_PARTS === "true";
+          // Only log reasoning-related parts in production for monitoring
+          const isReasoningRelatedPart =
+            partType === "reasoning" ||
+            partType === "reasoning-delta" ||
+            partType === "thinking" ||
+            partType === "thinking-delta";
+          if (DEBUG_STREAM_PARTS || (isReasoningRelatedPart && roundPartCount <= 5)) {
             const partKeys = Object.keys(part);
-            const hasReasoning = partKeys.some(k => k.toLowerCase().includes('reason') || k.toLowerCase().includes('think'));
-            console.log(
-              `[STREAMING] Part #${roundPartCount} type=${partType} keys=${partKeys.join(",")}${hasReasoning ? " [HAS_REASONING_FIELD]" : ""} fullPart=${JSON.stringify(part).substring(0, 500)}`
+            const partObj = part as Record<string, unknown>;
+
+            // Classify part for reasoning detection
+            const hasTextDelta = partType === "text-delta" && typeof partObj.text === "string";
+            const hasReasoningDelta = partType === "reasoning-delta" || partType === "thinking-delta";
+            const reasoningFieldNames = ["reasoning", "thinking", "reasoning_content", "thought", "chain_of_thought"];
+            const hasReasoningFieldAnywhere = partKeys.some(k =>
+              reasoningFieldNames.includes(k.toLowerCase()) ||
+              k.toLowerCase().includes('reason') ||
+              k.toLowerCase().includes('think')
             );
+
+            // Get string fields with their lengths (not content, for security)
+            const stringFieldsPresent = partKeys
+              .filter(k => typeof partObj[k] === "string")
+              .map(k => `${k}(len=${(partObj[k] as string).length})`)
+              .join(",");
+
+            // Determine provider from model string
+            const provider = args.model.startsWith("nim:") ? "nvidia-nim"
+              : args.model.startsWith("accounts/fireworks/") ? "fireworks"
+              : args.model.startsWith("gateway:") ? "vercel-gateway"
+              : args.apiKeys?.openrouter ? "openrouter"
+              : args.apiKeys?.anthropic ? "anthropic"
+              : args.apiKeys?.openai ? "openai" : "unknown";
+
+            console.log(
+              `[STREAM_PART] idx=${roundPartCount} type=${partType} keys=${partKeys.join(",")}` +
+              `\n  provider=${provider} model=${args.model}` +
+              `\n  flags: textDelta=${hasTextDelta} reasoningDelta=${hasReasoningDelta} reasoningField=${hasReasoningFieldAnywhere}` +
+              `\n  stringFields: ${stringFieldsPresent || "(none)"}`
+            );
+
+            // Deep inspection for reasoning detection: log any non-standard fields
+            if (hasReasoningFieldAnywhere && !hasReasoningDelta && partType !== "reasoning" && partType !== "thinking") {
+              console.log(`[STREAM_PART_REASONING_DETECTED] Part #${roundPartCount} has reasoning field in non-reasoning part type!`);
+              console.log(`[STREAM_PART_REASONING_DETECTED] Full part (truncated): ${JSON.stringify(part).substring(0, 800)}`);
+            }
           }
           // Avoid log overflow: only log tool start/result events (not every delta).
           if (
@@ -1543,6 +1633,17 @@ Review the above results. If you have enough information, provide your response.
         );
         console.log(
           `[STREAMING] Accumulated text length: ${accumulatedText.length}`
+        );
+        // ============================================================
+        // PHASE 1 INSTRUMENTATION: Round Summary
+        // ============================================================
+        const reasoningPresent = accumulatedReasoning.length > 0;
+        console.log(
+          `[STREAM_ROUND_SUMMARY] round=${round} parts=${roundPartCount} ` +
+          `reasoningPresent=${reasoningPresent} reasoningLen=${accumulatedReasoning.length} ` +
+          `textLen=${accumulatedText.length} toolCalls=${roundToolCallIds.size} ` +
+          `provider=${args.model.startsWith("nim:") ? "nvidia-nim" : args.apiKeys?.openrouter ? "openrouter" : "other"} ` +
+          `model=${args.model}`
         );
 
         // Check if we got any output - if not, this might be a model issue
