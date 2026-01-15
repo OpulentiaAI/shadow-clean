@@ -134,10 +134,16 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   if (model.startsWith("accounts/fireworks/")) {
     const fireworksKey = apiKeys.fireworks || process.env.FIREWORKS_API_KEY;
     if (!fireworksKey) {
-      throw new Error("Fireworks API key not provided. Please configure your API key in settings.");
+      // Check if ALL keys are missing (suggests cookie domain issue)
+      const hasAnyKey = apiKeys.openrouter || apiKeys.anthropic || apiKeys.openai || apiKeys.nvidia;
+      const hint = hasAnyKey 
+        ? "Please configure your Fireworks API key in settings."
+        : "No API keys found - cookies may not be accessible. Please re-enter your API key in Settings → Models.";
+      throw new Error(`Fireworks API key not provided. ${hint}`);
     }
     console.log(`[STREAMING] >>> USING: Fireworks for model: ${model}`);
     console.log(`[STREAMING] Fireworks key source: ${apiKeys.fireworks ? "client-provided" : "environment"}`);
+    console.log(`[STREAMING] Fireworks key length: ${fireworksKey.length} chars`);
     
     // Use createOpenAI with Fireworks baseURL
     const fireworksClient = createOpenAI({
@@ -152,7 +158,12 @@ function resolveProvider({ model, apiKeys }: ProviderOptions): LanguageModel {
   if (model.startsWith("nim:")) {
     const nvidiaKey = apiKeys.nvidia || process.env.NVIDIA_API_KEY;
     if (!nvidiaKey) {
-      throw new Error("NVIDIA NIM API key not provided. Please configure your API key in settings.");
+      // Check if ALL keys are missing (suggests cookie domain issue)
+      const hasAnyKey = apiKeys.openrouter || apiKeys.anthropic || apiKeys.openai || apiKeys.fireworks;
+      const hint = hasAnyKey 
+        ? "Please configure your NVIDIA NIM API key in settings."
+        : "No API keys found - if you recently switched domains (e.g., from preview to custom domain), please re-enter your API key in Settings.";
+      throw new Error(`NVIDIA NIM API key not provided. ${hint}`);
     }
     const actualModelId = model.slice(4); // Remove "nim:" prefix
     console.log(`[STREAMING] >>> USING: NVIDIA NIM for model: ${actualModelId}`);
