@@ -621,14 +621,19 @@ export const streamChatWithTools = action({
     console.log(`[STREAMING] Trace started: ${traceId}`);
 
     try {
+      // TIMING INSTRUMENTATION - identify initialization bottlenecks
+      const t0 = Date.now();
+      
       // Import AI SDK dynamically
-      console.log(`[STREAMING] Importing AI SDK and resolving provider`);
+      console.log(`[STREAMING] [T+0ms] Importing AI SDK...`);
       const { streamText, stepCountIs } = await import("ai");
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] AI SDK imported`);
+      
       const baseProviderModel = resolveProvider({
         model: args.model,
         apiKeys: args.apiKeys || {},
       });
-      console.log(`[STREAMING] Provider resolved for model: ${args.model}`);
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Provider resolved for model: ${args.model}`);
 
       // ============================================================
       // REASONING EXTRACTION MIDDLEWARE
@@ -672,29 +677,33 @@ export const streamChatWithTools = action({
 
       if (isReasoningModel) {
         console.log(
-          `[STREAMING] Applied extractReasoningMiddleware (tag=${reasoningTagName}) for reasoning model: ${args.model}`
+          `[STREAMING] [T+${Date.now() - t0}ms] Applied extractReasoningMiddleware (tag=${reasoningTagName}) for reasoning model: ${args.model}`
         );
       }
       const controller = new AbortController();
       streamControllers.set(messageId, controller);
 
       // Build allowed tools from the Convex agent toolset; optionally filter by requested names
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Creating agent tools...`);
       const availableTools = createAgentTools(
         ctx as any,
         args.taskId,
         (task as any)?.workspacePath
       );
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Agent tools created: ${Object.keys(availableTools).length} tools`);
       
       // Add Exa web search tool if API key is available
       const exaTools = createExaWebSearchTool(args.apiKeys?.exa);
       
       // Fetch enabled MCP connectors and their tools for this user
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Fetching MCP connectors...`);
       let mcpTools: Record<string, unknown> = {};
       if (task?.userId) {
         try {
           const enabledConnectors = await ctx.runQuery(api.mcpConnectors.listEnabledByUser, {
             userId: task.userId as Id<"users">,
           });
+          console.log(`[STREAMING] [T+${Date.now() - t0}ms] Found ${enabledConnectors.length} MCP connectors`);
 
           if (enabledConnectors.length > 0) {
             // Discover tools for each enabled connector
@@ -755,14 +764,17 @@ export const streamChatWithTools = action({
             const validConnectors = connectorsWithTools.filter(Boolean);
             if (validConnectors.length > 0) {
               mcpTools = createMcpProxyTools(validConnectors as any);
-              console.log(`[MCP] Added ${Object.keys(mcpTools).length} MCP tools to agent`);
+              console.log(`[STREAMING] [T+${Date.now() - t0}ms] MCP tools created: ${Object.keys(mcpTools).length}`);
             }
           }
         } catch (e) {
           console.warn("[MCP] Failed to fetch MCP connectors:", e);
         }
+      } else {
+        console.log(`[STREAMING] [T+${Date.now() - t0}ms] No userId, skipping MCP`);
       }
       
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Building final tool set...`);
       const allTools = {
         ...availableTools,
         ...(exaTools || {}),
@@ -873,7 +885,7 @@ export const streamChatWithTools = action({
           wrapToolWithDedup(name, tool),
         ])
       );
-      console.log(`[DEDUP_INIT] Wrapped ${Object.keys(aiTools).length} tools with deduplication guardrail`);
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Wrapped ${Object.keys(aiTools).length} tools with deduplication`);
       
       // Enhance system prompt with web search guidance if Exa is available
       const effectiveSystemPrompt = args.apiKeys?.exa
@@ -884,7 +896,7 @@ export const streamChatWithTools = action({
 
       // Start streaming with tools
       console.log(
-        `[STREAMING] Starting streamText with ${Object.keys(aiTools).length} tools`
+        `[STREAMING] [T+${Date.now() - t0}ms] Starting streamText with ${Object.keys(aiTools).length} tools`
       );
       console.log(
         `[STREAMING] Prompt preview: ${args.prompt?.substring(0, 100)}...`
@@ -901,8 +913,9 @@ export const streamChatWithTools = action({
       // Fetch conversation history for context (enables multi-turn conversations)
       // CRITICAL: Exclude both the assistant message (messageId) AND the prompt message (promptMessageId)
       // to prevent the current prompt from appearing twice in the LLM context
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Fetching conversation history...`);
       const conversationHistory = await fetchConversationContext(ctx, args.taskId, messageId, promptMessageId);
-      console.log(`[STREAMING] Loaded ${conversationHistory.length} messages from conversation history (excluding current prompt)`);
+      console.log(`[STREAMING] [T+${Date.now() - t0}ms] Loaded ${conversationHistory.length} messages from history`);
 
       let accumulatedText = "";
 
@@ -1206,8 +1219,9 @@ Review the above results. If you have enough information, provide your response.
             // Add current prompt as user message
             { role: "user" as const, content: effectivePrompt },
           ];
-          console.log(`[STREAMING] Sending ${messagesForLLM.length} messages to LLM (${conversationHistory.length} history + 1 current)`);
+          console.log(`[STREAMING] [T+${Date.now() - t0}ms] Sending ${messagesForLLM.length} messages to LLM (round=${round})`);
 
+          const llmCallStart = Date.now();
           const llmCall = async (): Promise<ReturnType<typeof streamText>> => {
             return streamText({
               model: providerModel,
@@ -1237,8 +1251,9 @@ Review the above results. If you have enough information, provide your response.
           } else {
             result = await llmCall();
           }
+          const llmCallDuration = Date.now() - llmCallStart;
           console.log(
-            `[STREAMING] streamText promise resolved, processing stream... (round=${round}, promptLen=${effectivePrompt.length})`
+            `[STREAMING] [T+${Date.now() - t0}ms] streamText resolved in ${llmCallDuration}ms (round=${round})`
           );
         } catch (streamTextError) {
           // Check if it's a transient error for better error messaging
@@ -1250,7 +1265,8 @@ Review the above results. If you have enough information, provide your response.
           throw streamTextError;
         }
 
-        console.log(`[STREAMING] Starting to iterate fullStream...`);
+        console.log(`[STREAMING] [T+${Date.now() - t0}ms] Starting to iterate fullStream...`);
+        let firstPartTime: number | null = null;
         // Stream all parts (text, tool calls, tool results)
         for await (const part of result.fullStream as any) {
           // CRITICAL: Check if task was stopped before processing this part
@@ -1264,8 +1280,9 @@ Review the above results. If you have enough information, provide your response.
           const partType = (part as any).type as string;
           roundPartCount++;
           if (roundPartCount === 1) {
+            firstPartTime = Date.now();
             console.log(
-              `[STREAMING] Received first stream part, type: ${partType}`
+              `[STREAMING] [T+${Date.now() - t0}ms] FIRST PART received (type=${partType}) - TTFB=${firstPartTime - llmCallStart}ms`
             );
           }
           // ============================================================
