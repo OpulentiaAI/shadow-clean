@@ -1199,6 +1199,7 @@ Review the above results. If you have enough information, provide your response.
         const textBeforeLen = accumulatedText.length;
 
         let result: ReturnType<typeof streamText>;
+        let llmCallStart = Date.now(); // Moved to loop scope for TTFB calculation
         try {
           // BP003: Apply message compression if enabled and prompt is long
           let effectivePrompt = promptForRound;
@@ -1221,7 +1222,7 @@ Review the above results. If you have enough information, provide your response.
           ];
           console.log(`[STREAMING] [T+${Date.now() - t0}ms] Sending ${messagesForLLM.length} messages to LLM (round=${round})`);
 
-          const llmCallStart = Date.now();
+          llmCallStart = Date.now(); // Update timing marker
           const llmCall = async (): Promise<ReturnType<typeof streamText>> => {
             return streamText({
               model: providerModel,
