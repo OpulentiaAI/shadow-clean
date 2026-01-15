@@ -62,7 +62,32 @@ export const internalAppendStreamDelta = internalMutation({
     const currentContent = existing.content || "";
     const updatedContent = currentContent + args.deltaText;
     const currentParts: any[] = currentMetadata.parts || [];
-    const updatedParts = args.parts ? [...currentParts, ...args.parts] : currentParts;
+    
+    // Merge consecutive reasoning parts instead of appending each delta separately
+    let updatedParts = currentParts;
+    if (args.parts && args.parts.length > 0) {
+      for (const newPart of args.parts) {
+        const partType = (newPart.type || "").replace(/_/g, "-");
+        const isReasoningPart = partType === "reasoning" || partType === "reasoning-delta";
+        
+        if (isReasoningPart && updatedParts.length > 0) {
+          const lastPart = updatedParts[updatedParts.length - 1];
+          const lastPartType = (lastPart.type || "").replace(/_/g, "-");
+          const lastIsReasoning = lastPartType === "reasoning" || lastPartType === "reasoning-delta";
+          
+          if (lastIsReasoning) {
+            // Merge with last reasoning part
+            updatedParts = [
+              ...updatedParts.slice(0, -1),
+              { ...lastPart, type: "reasoning", text: (lastPart.text || "") + (newPart.text || newPart.delta || "") },
+            ];
+            continue;
+          }
+        }
+        updatedParts = [...updatedParts, newPart];
+      }
+    }
+    
     const updatedMetadata = {
       ...currentMetadata,
       isStreaming: !args.isFinal,
@@ -201,7 +226,32 @@ export const appendStreamDelta = mutation({
     const currentContent = existing.content || "";
     const updatedContent = currentContent + args.deltaText;
     const currentParts: any[] = currentMetadata.parts || [];
-    const updatedParts = args.parts ? [...currentParts, ...args.parts] : currentParts;
+    
+    // Merge consecutive reasoning parts instead of appending each delta separately
+    let updatedParts = currentParts;
+    if (args.parts && args.parts.length > 0) {
+      for (const newPart of args.parts) {
+        const partType = (newPart.type || "").replace(/_/g, "-");
+        const isReasoningPart = partType === "reasoning" || partType === "reasoning-delta";
+        
+        if (isReasoningPart && updatedParts.length > 0) {
+          const lastPart = updatedParts[updatedParts.length - 1];
+          const lastPartType = (lastPart.type || "").replace(/_/g, "-");
+          const lastIsReasoning = lastPartType === "reasoning" || lastPartType === "reasoning-delta";
+          
+          if (lastIsReasoning) {
+            // Merge with last reasoning part
+            updatedParts = [
+              ...updatedParts.slice(0, -1),
+              { ...lastPart, type: "reasoning", text: (lastPart.text || "") + (newPart.text || newPart.delta || "") },
+            ];
+            continue;
+          }
+        }
+        updatedParts = [...updatedParts, newPart];
+      }
+    }
+    
     const updatedMetadata = {
       ...currentMetadata,
       isStreaming: !args.isFinal,
