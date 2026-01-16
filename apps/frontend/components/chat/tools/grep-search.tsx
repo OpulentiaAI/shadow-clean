@@ -51,9 +51,9 @@ export function GrepSearchTool({ message }: { message: Message }) {
 
       {result && status === "COMPLETED" && (
         <div className="flex flex-col gap-0.5">
-          {result.detailedMatches && result.detailedMatches.length > 0 ? (
+          {Array.isArray(result.detailedMatches) && result.detailedMatches.length > 0 ? (
             <>
-              {result.detailedMatches.slice(0, 10).map((match, index) => (
+              {result.detailedMatches.slice(0, 10).map((match: { file: string; lineNumber: number; lineContent?: string }, index: number) => (
                 <div key={index} className="flex items-center gap-2 py-px">
                   <File className="size-4 shrink-0" />
                   <span className="truncate">
@@ -68,9 +68,9 @@ export function GrepSearchTool({ message }: { message: Message }) {
                 </div>
               )}
             </>
-          ) : result.matches && result.matches.length > 0 ? (
+          ) : Array.isArray(result.matches) && result.matches.length > 0 ? (
             <>
-              {result.matches.slice(0, 10).map((match, index) => {
+              {result.matches.slice(0, 10).map((match: string, index: number) => {
                 // Parse typical grep format: "filename:linenumber:content"
                 const parts = match.split(":");
                 const filePath = parts[0];
