@@ -15,11 +15,7 @@ import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { webSearch } from "@exalabs/ai-sdk";
 
-// Server URL for tool API calls
-const getServerUrl = () =>
-  process.env.SHADOW_SERVER_URL || "http://localhost:4000";
-const getToolApiKey = () =>
-  process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
+// Note: All tools are now Convex-native - no backend server dependency
 
 // MCP tool proxy types
 interface McpToolDefinition {
@@ -140,38 +136,6 @@ export function createMcpProxyTools(
   return mcpTools;
 }
 
-// Helper to make tool API calls to the server
-async function callServerTool<T>(
-  taskId: string,
-  toolName: string,
-  params: Record<string, unknown>,
-  workspacePathOverride?: string
-): Promise<T> {
-  const serverUrl = getServerUrl();
-  const apiKey = getToolApiKey();
-  console.log(
-    `[TOOL_API_CALL] tool=${toolName} serverUrl=${serverUrl} workspaceOverride=${workspacePathOverride ? "YES" : "NO"}`
-  );
-
-  const response = await fetch(`${serverUrl}/api/tools/${taskId}/${toolName}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-convex-tool-key": apiKey,
-      ...(workspacePathOverride
-        ? { "x-shadow-workspace-path": workspacePathOverride }
-        : {}),
-    },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Tool API error: ${response.status} - ${errorText}`);
-  }
-
-  return response.json() as Promise<T>;
-}
 
 // Status conversion helper
 const TODO_STATUS_MAP = {
@@ -353,22 +317,9 @@ const WebSearchSchema = z.object({
 export function createAgentTools(
   ctx: ActionCtx,
   taskId: Id<"tasks">,
-  workspacePathOverride?: string
+  _workspacePathOverride?: string
 ): Record<string, unknown> {
-  const taskIdStr = taskId as string;
-  let workspacePathPromise: Promise<string | undefined> | null = null;
-  const getWorkspacePath = async (): Promise<string | undefined> => {
-    if (workspacePathOverride) return workspacePathOverride;
-    if (!workspacePathPromise) {
-      workspacePathPromise = ctx
-        .runQuery(api.tasks.get, { taskId })
-        .then((t: any) =>
-          t?.workspacePath ? String(t.workspacePath) : undefined
-        )
-        .catch(() => undefined);
-    }
-    return workspacePathPromise;
-  };
+  // All tools are now Convex-native - no backend server dependency
 
   return {
     // ==================== DATA TOOLS (Direct Convex) ====================
@@ -666,29 +617,55 @@ CRITICAL RULES:
     }),
 
     run_terminal_cmd: tool({
-      description: `Execute a terminal command in the workspace. Use for building, testing, installing dependencies, or running scripts.`,
+      description: `Execute a terminal command. Note: Terminal execution requires a configured Daytona sandbox. If unavailable, use file operations to create scripts that the user can run locally.`,
       inputSchema: RunTerminalCmdSchema,
       execute: async (params: z.infer<typeof RunTerminalCmdSchema>) => {
         console.log(`[TERMINAL_CMD] ${params.explanation}`);
         
-        // Check if task is a scratchpad - terminal commands not supported
-        const task = await ctx.runQuery(api.tasks.get, { taskId });
-        if (task?.isScratchpad) {
-          console.log(`[TERMINAL_CMD] Scratchpad task - terminal not available`);
+        // Try to execute command via Daytona sandbox
+        try {
+          const result = await ctx.runAction(api.daytonaActions.executeCommand, {
+            taskId,
+            command: params.command,
+            cwd: "/workspace",
+          });
+          
+          // Check if command actually produced output
+          if (result.success && (result.stdout || result.exitCode === 0)) {
+            return {
+              success: true,
+              command: params.command,
+              exitCode: result.exitCode ?? 0,
+              stdout: result.stdout || "(no output)",
+              stderr: result.stderr || "",
+            };
+          }
+          
+          // Daytona returned but no useful output - sandbox may not be ready
+          if (result.exitCode === -1 && !result.stdout) {
+            return {
+              success: false,
+              error: "Daytona sandbox not fully initialized. Terminal commands are not available in this session.",
+              command: params.command,
+              suggestion: "Use file operations instead: create files with edit_file, then user can run locally. Or create a shell script.",
+              workaround: `To run '${params.command}', create a script file and instruct the user to execute it.`,
+            };
+          }
+          
           return {
             success: false,
-            error: "Terminal commands are not available in scratchpad mode. Scratchpad tasks run in a browser-based sandbox without a terminal. Consider using file operations (read_file, edit_file, list_dir) instead.",
+            error: result.error || "Command execution failed",
             command: params.command,
-            note: "To run code, create the files and the user can copy/paste to run locally.",
+          };
+        } catch (error) {
+          console.error("[TERMINAL_CMD] Daytona execution error:", error);
+          return {
+            success: false,
+            error: "Terminal commands unavailable. Daytona sandbox not configured or not ready.",
+            command: params.command,
+            suggestion: "Use file operations to create scripts. The user can run them locally.",
           };
         }
-        
-        return callServerTool(
-          taskIdStr,
-          "run_terminal_cmd",
-          params,
-          await getWorkspacePath()
-        );
       },
     }),
 
@@ -758,7 +735,7 @@ CRITICAL RULES:
         console.log(`[GREP_SEARCH] ${params.explanation}`);
         
         // Use Convex virtualFiles for all tasks (Convex-native)
-        console.log(`[GREP_SEARCH] Using Convex virtualFiles`);
+        console.log(`[GREP_SEARCH] Using Convex virtualFiles for query: "${params.query}"`);
         
         // Get all virtual files for this task
         const allFiles = await ctx.runQuery(api.files.getAllVirtualFiles, { taskId });
@@ -769,13 +746,13 @@ CRITICAL RULES:
             message: "No files to search",
             matches: [],
             detailedMatches: [],
-            query: params.pattern,
+            query: params.query,
             matchCount: 0,
           };
         }
         
         const detailedMatches: Array<{ file: string; lineNumber: number; content: string }> = [];
-        const searchPattern = params.pattern;
+        const searchPattern = params.query;
         
         for (const file of allFiles) {
           if (!file.content) continue;
@@ -879,44 +856,133 @@ CRITICAL RULES:
     }),
 
     semantic_search: tool({
-      description: `Search the codebase using AI-powered semantic understanding. Use for conceptual searches like "authentication logic" or "error handling".`,
+      description: `Search the codebase using pattern matching. For conceptual searches, use keywords like "authentication", "error handling", etc. with grep_search.`,
       inputSchema: SemanticSearchSchema,
       execute: async (params: z.infer<typeof SemanticSearchSchema>) => {
         console.log(`[SEMANTIC_SEARCH] ${params.explanation}`);
         
-        // Check if task is a scratchpad - semantic search not available
-        const task = await ctx.runQuery(api.tasks.get, { taskId });
-        if (task?.isScratchpad) {
-          console.log(`[SEMANTIC_SEARCH] Scratchpad task - not available`);
+        // Convex-native: Use grep_search as the implementation
+        // Get all virtual files for this task
+        const allFiles = await ctx.runQuery(api.files.getAllVirtualFiles, { taskId });
+        
+        if (!allFiles || allFiles.length === 0) {
           return {
-            success: false,
-            error: "Semantic search is not available in scratchpad mode. Use grep_search for pattern matching or file_search to find files by name.",
-            suggestion: "Try grep_search instead for text pattern matching.",
+            success: true,
+            message: "No files to search. Use edit_file to create files first.",
+            matches: [],
+            query: params.query,
+            matchCount: 0,
           };
         }
         
-        return callServerTool(taskIdStr, "semantic_search", params);
+        // Extract keywords from query for pattern matching
+        const keywords = params.query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        
+        const detailedMatches: Array<{ file: string; lineNumber: number; content: string; score: number }> = [];
+        
+        for (const file of allFiles) {
+          if (!file.content) continue;
+          const lines = file.content.split("\n");
+          
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] || "";
+            const lineLower = line.toLowerCase();
+            let matchCount = 0;
+            
+            for (const keyword of keywords) {
+              if (lineLower.includes(keyword)) matchCount++;
+            }
+            
+            if (matchCount > 0) {
+              detailedMatches.push({
+                file: file.path,
+                lineNumber: i + 1,
+                content: line.trim().substring(0, 200),
+                score: matchCount / keywords.length,
+              });
+            }
+          }
+        }
+        
+        // Sort by relevance score and limit results
+        detailedMatches.sort((a, b) => b.score - a.score);
+        const limitedMatches = detailedMatches.slice(0, 30);
+        
+        return {
+          success: true,
+          message: limitedMatches.length > 0 
+            ? `Found ${detailedMatches.length} matches for "${params.query}"` 
+            : `No matches found for "${params.query}"`,
+          matches: limitedMatches.map(m => `${m.file}:${m.lineNumber}:${m.content}`),
+          detailedMatches: limitedMatches,
+          query: params.query,
+          matchCount: detailedMatches.length,
+        };
       },
     }),
 
     warp_grep: tool({
-      description: `Semantic code search using natural language. Faster alternative to semantic_search for quick code lookups.`,
+      description: `Fast code search using natural language keywords. Searches all files for matching patterns.`,
       inputSchema: WarpGrepSchema,
       execute: async (params: z.infer<typeof WarpGrepSchema>) => {
         console.log(`[WARP_GREP] ${params.explanation}`);
         
-        // Check if task is a scratchpad - warp grep not available
-        const task = await ctx.runQuery(api.tasks.get, { taskId });
-        if (task?.isScratchpad) {
-          console.log(`[WARP_GREP] Scratchpad task - not available`);
+        // Convex-native: Implement keyword-based search directly
+        const allFiles = await ctx.runQuery(api.files.getAllVirtualFiles, { taskId });
+        
+        if (!allFiles || allFiles.length === 0) {
           return {
-            success: false,
-            error: "Warp grep is not available in scratchpad mode. Use grep_search for pattern matching.",
-            suggestion: "Try grep_search instead for text pattern matching.",
+            success: true,
+            message: "No files to search. Use edit_file to create files first.",
+            matches: [],
+            query: params.query,
+            matchCount: 0,
           };
         }
         
-        return callServerTool(taskIdStr, "warp_grep", params);
+        // Extract keywords and build search pattern
+        const keywords = params.query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+        
+        const detailedMatches: Array<{ file: string; lineNumber: number; content: string; relevance: number }> = [];
+        
+        for (const file of allFiles) {
+          if (!file.content) continue;
+          const lines = file.content.split("\n");
+          
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] || "";
+            const lineLower = line.toLowerCase();
+            let matchCount = 0;
+            
+            for (const keyword of keywords) {
+              if (lineLower.includes(keyword)) matchCount++;
+            }
+            
+            if (matchCount > 0) {
+              detailedMatches.push({
+                file: file.path,
+                lineNumber: i + 1,
+                content: line.trim().substring(0, 200),
+                relevance: matchCount / keywords.length,
+              });
+            }
+          }
+        }
+        
+        // Sort by relevance and limit
+        detailedMatches.sort((a, b) => b.relevance - a.relevance);
+        const limitedMatches = detailedMatches.slice(0, 50);
+        
+        return {
+          success: true,
+          message: limitedMatches.length > 0 
+            ? `Found ${detailedMatches.length} matches for "${params.query}"` 
+            : `No matches found for "${params.query}"`,
+          matches: limitedMatches.map(m => `${m.file}:${m.lineNumber}:${m.content}`),
+          detailedMatches: limitedMatches,
+          query: params.query,
+          matchCount: detailedMatches.length,
+        };
       },
     }),
   };

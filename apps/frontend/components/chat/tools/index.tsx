@@ -25,6 +25,7 @@ const TOOL_COMPONENTS = {
   run_terminal_cmd: RunTerminalCmdTool,
   list_dir: ListDirTool,
   grep_search: GrepSearchTool,
+  warp_grep: GrepSearchTool, // Reuse grep search UI for warp_grep
   edit_file: EditFileTool,
   search_replace: SearchReplaceTool,
   file_search: FileSearchTool,
