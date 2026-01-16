@@ -62,6 +62,121 @@ async function fetchConversationContext(
 // Throttle configuration for delta streaming (Best Practice BP005)
 const DELTA_THROTTLE_MS = 100; // Batch writes every 100ms
 
+// ============================================================
+// STRUCTURED ERROR CLASSIFICATION FOR FAILURE TAXONOMY
+// Maps raw errors to structured errorCode/errorSource for RCA
+// ============================================================
+type ErrorClassification = {
+  errorCode: string;
+  errorSource: "tool" | "llm" | "workspace" | "convex" | "frontend";
+  errorMessage: string;
+  errorDetails: string;
+};
+
+function classifyError(error: unknown, context?: { toolName?: string; provider?: string }): ErrorClassification {
+  const errorStr = error instanceof Error ? error.message : String(error);
+  const errorStack = error instanceof Error ? error.stack : undefined;
+  
+  // Tool HTTP errors
+  if (errorStr.includes("Tool API error: 404") || errorStr.includes("ENOENT")) {
+    return {
+      errorCode: "TOOL_HTTP_404",
+      errorSource: "tool",
+      errorMessage: `Tool endpoint not found${context?.toolName ? ` (${context.toolName})` : ""}. The workspace may not be initialized.`,
+      errorDetails: JSON.stringify({ tool: context?.toolName, error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("Tool API error: 5") || errorStr.includes("500") || errorStr.includes("502") || errorStr.includes("503")) {
+    return {
+      errorCode: "TOOL_HTTP_500",
+      errorSource: "tool",
+      errorMessage: `Tool server error${context?.toolName ? ` (${context.toolName})` : ""}. Please retry.`,
+      errorDetails: JSON.stringify({ tool: context?.toolName, error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("timeout") || errorStr.includes("TimeoutError") || errorStr.includes("aborted")) {
+    return {
+      errorCode: "TOOL_TIMEOUT",
+      errorSource: "tool",
+      errorMessage: `Tool timed out${context?.toolName ? ` (${context.toolName})` : ""}. The operation took too long.`,
+      errorDetails: JSON.stringify({ tool: context?.toolName, error: errorStr.substring(0, 500) }),
+    };
+  }
+  
+  // LLM provider errors
+  if (errorStr.includes("401") || errorStr.includes("Unauthorized")) {
+    return {
+      errorCode: "LLM_PROVIDER_401",
+      errorSource: "llm",
+      errorMessage: `API authentication failed. Your ${context?.provider || "provider"} API key may be invalid or expired.`,
+      errorDetails: JSON.stringify({ provider: context?.provider, error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("403") || errorStr.includes("Forbidden")) {
+    return {
+      errorCode: "LLM_PROVIDER_403",
+      errorSource: "llm",
+      errorMessage: `API access forbidden. Your API key may not have permission for this model.`,
+      errorDetails: JSON.stringify({ provider: context?.provider, error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("429") || errorStr.includes("rate limit") || errorStr.includes("Rate limit")) {
+    return {
+      errorCode: "LLM_PROVIDER_429",
+      errorSource: "llm",
+      errorMessage: `Rate limit exceeded. Please wait before retrying or switch to a different model.`,
+      errorDetails: JSON.stringify({ provider: context?.provider, error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("quota")) {
+    return {
+      errorCode: "LLM_PROVIDER_429",
+      errorSource: "llm",
+      errorMessage: `API quota exceeded. Check your API key credits or switch providers.`,
+      errorDetails: JSON.stringify({ provider: context?.provider, error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("No output generated") || errorStr.includes("AI_NoOutputGeneratedError")) {
+    return {
+      errorCode: "LLM_NO_OUTPUT",
+      errorSource: "llm",
+      errorMessage: `Model returned no response. This may be due to rate limiting on free-tier models.`,
+      errorDetails: JSON.stringify({ provider: context?.provider, error: errorStr.substring(0, 500) }),
+    };
+  }
+  
+  // Workspace errors
+  if (errorStr.includes("filetree") || errorStr.includes("file tree") || errorStr.includes("No files to search")) {
+    return {
+      errorCode: "WORKSPACE_FILETREE_MISSING",
+      errorSource: "workspace",
+      errorMessage: `Workspace file tree not available. The repository may not be fully initialized.`,
+      errorDetails: JSON.stringify({ error: errorStr.substring(0, 500) }),
+    };
+  }
+  if (errorStr.includes("workspace") || errorStr.includes("WORKSPACE_NOT_READY")) {
+    return {
+      errorCode: "WORKSPACE_NOT_READY",
+      errorSource: "workspace",
+      errorMessage: `Workspace not ready. Please wait for initialization to complete.`,
+      errorDetails: JSON.stringify({ error: errorStr.substring(0, 500) }),
+    };
+  }
+  
+  // Default: unknown error
+  return {
+    errorCode: "UNKNOWN_ERROR",
+    errorSource: "convex",
+    errorMessage: errorStr.substring(0, 300),
+    errorDetails: JSON.stringify({ 
+      error: errorStr.substring(0, 500), 
+      stack: errorStack?.substring(0, 500),
+      tool: context?.toolName,
+      provider: context?.provider,
+    }),
+  };
+}
+
 // Feature flags
 // BP012 promptMessageId pattern is now enabled by default; set ENABLE_PROMPT_MESSAGE_ID="false" to disable.
 const ENABLE_PROMPT_MESSAGE_ID = process.env.ENABLE_PROMPT_MESSAGE_ID !== "false";
@@ -620,6 +735,9 @@ export const streamChatWithTools = action({
     });
     console.log(`[STREAMING] Trace started: ${traceId}`);
 
+    // Track last executed tool for error attribution
+    let lastToolName: string | undefined;
+    
     try {
       // TIMING INSTRUMENTATION - identify initialization bottlenecks
       const t0 = Date.now();
@@ -1772,81 +1890,47 @@ Review the above results. If you have enough information, provide your response.
             }
 
             if (toolDef?.execute && Object.keys(execArgs).length > 0) {
+              // Track for error attribution
+              lastToolName = state.toolName;
               console.log(`[STREAMING] [v6] Executing ${state.toolName}...`);
               try {
-                console.log(`[STREAMING] [v7] DIRECT_CALL_MARKER`);
-                // Prefer direct HTTP execution for server-backed tools so we can
-                // pass workspacePath explicitly (avoids tool API needing to read task from Convex).
-                // Prefer the actual task workspace when available; fall back to /workspace
-                // (guaranteed to exist on the Railway tool server container) for CLI testing.
-                // If this task doesn't have an initialized workspace directory on the tool server,
-                // fall back to /workspace so CLI tool execution can still be verified.
-                const candidateTaskWorkspace = (task as any)?.workspacePath as
-                  | string
-                  | undefined;
-                const workspacePathOverride =
-                  candidateTaskWorkspace || "/workspace";
-                const serverUrl =
-                  process.env.SHADOW_SERVER_URL || "http://localhost:4000";
-                const toolApiKey =
-                  process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
-
-                let toolResult: unknown;
-                const serverBackedTools = new Set([
-                  "read_file",
-                  "edit_file",
-                  "search_replace",
-                  "run_terminal_cmd",
-                  "list_dir",
-                  "grep_search",
-                  "file_search",
-                  "delete_file",
-                  "semantic_search",
-                  "warp_grep",
+                // Workspace readiness gating for file-based tools
+                const fileBasedTools = new Set([
+                  "read_file", "edit_file", "search_replace", "list_dir",
+                  "grep_search", "file_search", "delete_file", "warp_grep"
                 ]);
-
-                const callToolApiWithWorkspaceFallback = async () => {
-                  console.log(
-                    `[STREAMING] [v7] Using direct tool API call (tool=${state.toolName}, workspaceOverride=${workspacePathOverride})`
-                  );
-                  const callOnce = async (workspacePath: string) => {
-                    // Add 60s timeout to prevent hanging on unresponsive server
-                    const resp = await fetch(
-                      `${serverUrl}/api/tools/${args.taskId}/${state.toolName}`,
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          "x-convex-tool-key": toolApiKey,
-                          "x-shadow-workspace-path": workspacePath,
-                        },
-                        body: JSON.stringify(execArgs),
-                        signal: AbortSignal.timeout(60000), // 60s timeout
-                      }
-                    );
-                    if (!resp.ok) {
-                      const errorText = await resp.text();
-                      throw new Error(
-                        `Tool API error: ${resp.status} - ${errorText}`
-                      );
-                    }
-                    return (await resp.json()) as unknown;
-                  };
-
-                  const first = await callOnce(workspacePathOverride);
-                  if (
-                    (first as any)?.success === false &&
-                    typeof (first as any)?.error === "string" &&
-                    ((first as any).error as string).includes("ENOENT") &&
-                    workspacePathOverride !== "/workspace"
-                  ) {
-                    console.log(
-                      `[STREAMING] [v7] ${state.toolName} ENOENT on ${workspacePathOverride}, retrying with /workspace`
-                    );
-                    return await callOnce("/workspace");
+                
+                if (fileBasedTools.has(state.toolName) && !(task as any)?.isScratchpad) {
+                  // Check if filetree exists for non-scratchpad tasks
+                  const files = await ctx.runQuery(api.files.getTree, { taskId: args.taskId });
+                  if (!files || files.length === 0) {
+                    console.warn(`[STREAMING] [v8] WORKSPACE_NOT_READY: No filetree for ${state.toolName}`);
+                    const notReadyResult = {
+                      success: false,
+                      error: "WORKSPACE_NOT_READY",
+                      message: "Workspace file tree is not yet available. Please wait for initialization.",
+                    };
+                    await ctx.runMutation(api.toolCallTracking.updateResult, {
+                      toolCallId,
+                      result: notReadyResult,
+                      status: "FAILED",
+                    });
+                    await ctx.runMutation(api.messages.appendStreamDelta, {
+                      messageId,
+                      deltaText: "",
+                      isFinal: false,
+                      parts: [
+                        { type: "tool-call", toolCallId, toolName: state.toolName, args: execArgs, partialArgs: execArgs, streamingState: "complete", argsComplete: true },
+                        { type: "tool-result", toolCallId, toolName: state.toolName, result: notReadyResult },
+                      ],
+                    });
+                    completedToolCalls.add(toolCallId);
+                    continue;
                   }
-                  return first;
-                };
+                }
+                
+                // VERCEL-ONLY: All tools run as Convex-native (no external server)
+                let toolResult: unknown;
 
                 const toolSignature = makeToolSignature(
                   state.toolName,
@@ -1864,18 +1948,10 @@ Review the above results. If you have enough information, provide your response.
                   };
                   console.warn(`[STREAMING] [DEDUP] Blocked duplicate: ${state.toolName} with signature ${toolSignature.substring(0, 80)}...`);
                 } else {
-                  // CRITICAL: For scratchpad tasks, ALWAYS use Convex-native tool execution
-                  // Never call server API for scratchpad tasks - they have no backend
-                  const isScratchpad = (task as any)?.isScratchpad === true;
-                  const shouldUseServerApi = serverBackedTools.has(state.toolName) && !isScratchpad;
-                  
-                  if (isScratchpad && serverBackedTools.has(state.toolName)) {
-                    console.log(`[STREAMING] [v7] Scratchpad task - using Convex-native tool execution for ${state.toolName}`);
-                  }
-                  
-                  toolResult = shouldUseServerApi
-                    ? await callToolApiWithWorkspaceFallback()
-                    : await toolDef.execute(execArgs);
+                  // VERCEL-ONLY: Always use Convex-native tool execution
+                  // No external server API - all tools run in Convex actions
+                  console.log(`[STREAMING] [v8] Convex-native tool execution for ${state.toolName}`);
+                  toolResult = await toolDef.execute(execArgs);
                   completedToolSignatures.add(toolSignature);
                   if (planSteps.length > 0) {
                     const nextIdx = planSteps.findIndex(
@@ -2026,78 +2102,13 @@ Review the above results. If you have enough information, provide your response.
                   forcedArgs
                 );
 
-                const candidateTaskWorkspace = (task as any)?.workspacePath as
-                  | string
-                  | undefined;
-                const workspacePathOverride =
-                  candidateTaskWorkspace || "/workspace";
-                const serverUrl =
-                  process.env.SHADOW_SERVER_URL || "http://localhost:4000";
-                const toolApiKey =
-                  process.env.CONVEX_TOOL_API_KEY || "shadow-internal-tool-key";
-
-                const serverBackedTools = new Set([
-                  "read_file",
-                  "edit_file",
-                  "search_replace",
-                  "run_terminal_cmd",
-                  "list_dir",
-                  "grep_search",
-                  "file_search",
-                  "delete_file",
-                  "semantic_search",
-                  "warp_grep",
-                ]);
-
-                const callToolApiWithWorkspaceFallback = async () => {
-                  const callOnce = async (workspacePath: string) => {
-                    const resp = await fetch(
-                      `${serverUrl}/api/tools/${args.taskId}/${step.toolName}`,
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          "x-convex-tool-key": toolApiKey,
-                          "x-shadow-workspace-path": workspacePath,
-                        },
-                        body: JSON.stringify(forcedArgs),
-                      }
-                    );
-                    if (!resp.ok) {
-                      const errorText = await resp.text();
-                      throw new Error(
-                        `Tool API error: ${resp.status} - ${errorText}`
-                      );
-                    }
-                    return (await resp.json()) as unknown;
-                  };
-
-                  const first = await callOnce(workspacePathOverride);
-                  if (
-                    (first as any)?.success === false &&
-                    typeof (first as any)?.error === "string" &&
-                    ((first as any).error as string).includes("ENOENT") &&
-                    workspacePathOverride !== "/workspace"
-                  ) {
-                    return await callOnce("/workspace");
-                  }
-                  return first;
-                };
-
+                // VERCEL-ONLY: All tools run as Convex-native (no external server)
                 let forcedResult: unknown;
                 try {
                   const toolDef = (aiTools as any)[step.toolName];
-                  // CRITICAL: For scratchpad tasks, ALWAYS use Convex-native tool execution
-                  const isScratchpad = (task as any)?.isScratchpad === true;
-                  const shouldUseServerApi = serverBackedTools.has(step.toolName) && !isScratchpad;
-                  
-                  if (isScratchpad && serverBackedTools.has(step.toolName)) {
-                    console.log(`[STREAMING] [v7] Scratchpad forced tool - using Convex-native for ${step.toolName}`);
-                  }
-                  
-                  forcedResult = shouldUseServerApi
-                    ? await callToolApiWithWorkspaceFallback()
-                    : await toolDef.execute(forcedArgs);
+                  // VERCEL-ONLY: Always use Convex-native tool execution
+                  console.log(`[STREAMING] [v8] Convex-native forced tool execution for ${step.toolName}`);
+                  forcedResult = await toolDef.execute(forcedArgs);
                 } catch (e) {
                   forcedResult = { success: false, error: String(e) };
                 }
@@ -2425,11 +2436,27 @@ Review the above results. If you have enough information, provide your response.
         content: `⚠️ ${userMessage}`,
       });
 
-      // Update task status to FAILED on error with error message for UI display
+      // Classify error for structured failure taxonomy
+      const classification = classifyError(error, { provider: args.model?.split("/")[0] });
+      
+      // Update task status to FAILED with all structured error fields
       await ctx.runMutation(api.tasks.update, {
         taskId: args.taskId,
         status: "FAILED",
-        errorMessage: userMessage.substring(0, 500), // Store error for sidebar display
+        errorMessage: classification.errorMessage.substring(0, 500),
+        errorCode: classification.errorCode as any,
+        errorSource: classification.errorSource,
+        errorDetails: classification.errorDetails.substring(0, 2000),
+        failedAt: Date.now(),
+        failedStep: lastToolName || "streaming",
+        failureTraceId: traceId,
+      });
+      
+      console.log(`[STREAMING] Task FAILED with structured error:`, {
+        errorCode: classification.errorCode,
+        errorSource: classification.errorSource,
+        failedStep: lastToolName || "streaming",
+        traceId,
       });
 
       throw error;

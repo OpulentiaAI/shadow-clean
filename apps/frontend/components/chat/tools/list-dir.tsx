@@ -28,7 +28,7 @@ export function ListDirTool({ message }: { message: Message }) {
         <div>
           {parsedResult?.success && parsedResult.contents ? (
             <div className="flex flex-col gap-0.5">
-              {parsedResult.contents.slice(0, 10).map((item) => (
+              {parsedResult.contents.slice(0, 10).map((item: { name: string; isDirectory: boolean }) => (
                 <div key={item.name} className="flex items-center gap-2 py-px">
                   {item.isDirectory ? (
                     <Folder className="size-4" />

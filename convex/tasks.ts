@@ -1,6 +1,6 @@
 import { mutation, query, action } from "./_generated/server";
 import { v } from "convex/values";
-import { TaskStatus, InitStatus } from "./schema";
+import { TaskStatus, InitStatus, ErrorCode, ErrorSource } from "./schema";
 import { api } from "./_generated/api";
 
 export const create = mutation({
@@ -56,6 +56,13 @@ export const update = mutation({
     workspacePath: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
     initializationError: v.optional(v.string()),
+    // Structured error fields for failure taxonomy
+    errorCode: v.optional(ErrorCode),
+    errorSource: v.optional(ErrorSource),
+    errorDetails: v.optional(v.string()),
+    failedAt: v.optional(v.number()),
+    failedStep: v.optional(v.string()),
+    failureTraceId: v.optional(v.string()),
     workspaceCleanedUp: v.optional(v.boolean()),
     hasBeenInitialized: v.optional(v.boolean()),
     pullRequestNumber: v.optional(v.number()),

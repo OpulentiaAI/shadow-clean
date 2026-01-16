@@ -1,5 +1,4 @@
-import { db } from "@repo/db";
-
+// Stub: Using Convex-native
 export type StackedPRInfo = {
   id: string;
   title: string;
@@ -8,20 +7,6 @@ export type StackedPRInfo = {
 } | null;
 
 export async function getStackedPRInfo(taskId: string): Promise<StackedPRInfo> {
-  try {
-    const task = await db.task.findUnique({
-      where: { id: taskId },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        shadowBranch: true,
-      },
-    });
-
-    return task || null;
-  } catch (err) {
-    console.error("Failed to fetch stacked PR info", err);
-    return null;
-  }
+  console.log(`[STUB] getStackedPRInfo called for ${taskId} - use Convex query`);
+  return null;
 }

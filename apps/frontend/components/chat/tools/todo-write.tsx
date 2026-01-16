@@ -44,7 +44,7 @@ function TodoList({ todos }: { todos: TodoItem[] }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-1 pb-1.5">
-        {todos.map((todo) => (
+        {todos.map((todo: { id: string; status: "pending" | "in_progress" | "completed" | "cancelled"; content: string }) => (
           <div key={todo.id} className="flex min-h-5 items-start gap-1.5 pt-1">
             <StatusIcon status={todo.status} />
             <div

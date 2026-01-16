@@ -11,13 +11,13 @@
     "check-types": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "node scripts/patch-nextjs.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "2.0.39",
     "@ai-sdk/openai": "2.0.57",
     "@monaco-editor/react": "^4.7.0",
-    "@next/swc-wasm-nodejs": "^15.4.6",
     "@octokit/auth-app": "^8.0.2",
     "@octokit/rest": "^22.0.0",
     "@octokit/types": "^14.1.0",
@@ -48,7 +48,7 @@
     "lucide-react": "^0.525.0",
     "marked": "^16.1.1",
     "material-icon-theme": "^5.25.0",
-    "next": "^15.5.9",
+    "next": "15.5.9",
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -59,7 +59,8 @@
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "use-stick-to-bottom": "^1.1.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@daytonaio/sdk": "^0.130.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",

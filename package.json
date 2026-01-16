@@ -1,6 +1,9 @@
 {
   "name": "shadow-monorepo",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --filter=!sidecar",
@@ -27,7 +30,7 @@
     "db:prod:migrate:resolve": "./scripts/db-prod.sh migrate resolve",
     "db:prod:migrate:diff": "./scripts/db-prod.sh migrate diff",
     "generate": "turbo run generate",
-    "postinstall": "turbo run generate",
+    "postinstall": "if [ -z \"$VERCEL\" ]; then turbo run generate; fi",
     "prebuild": "npm run generate",
     "start:railway": "cd apps/server && npm start",
     "start:production": "concurrently \"cd apps/server && npm start\" \"cd apps/sidecar && npm start\""
@@ -37,7 +40,6 @@
   },
   "devDependencies": {
     "@convex-dev/agent": "^0.3.2",
-    "@next/swc-wasm-nodejs": "^15.4.6",
     "@openrouter/ai-sdk-provider": "^1.5.3",
     "@shikijs/transformers": "^3.21.0",
     "@tailwindcss/postcss": "^4.1.18",
@@ -52,13 +54,11 @@
     "typescript": "5.8.3"
   },
   "overrides": {
+    "next": "15.5.9",
     "ai": "5.0.82",
     "@ai-sdk/provider-utils": "3.0.14",
     "@ai-sdk/openai": "2.0.57",
     "@ai-sdk/anthropic": "2.0.39"
-  },
-  "engines": {
-    "node": ">=18"
   },
   "packageManager": "npm@10.9.2",
   "workspaces": [

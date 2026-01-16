@@ -35,7 +35,7 @@ export function ListMemoriesTool({ message }: { message: Message }) {
                           {cat}
                         </div>
                         <ul className="ml-4 list-disc space-y-1">
-                          {memories.map((m) => (
+                          {memories.map((m: { id: string; content: string }) => (
                             <li key={m.id} className="text-xs">
                               {m.content}
                             </li>
@@ -46,7 +46,7 @@ export function ListMemoriesTool({ message }: { message: Message }) {
                   )
                 ) : (
                   <ul className="ml-4 list-disc space-y-1">
-                    {result.memories.map((m) => (
+                    {result.memories.map((m: { id: string; content: string }) => (
                       <li key={m.id} className="text-xs">
                         {m.content}
                       </li>

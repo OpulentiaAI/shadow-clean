@@ -66,6 +66,34 @@ export const ToolLogStatus = v.union(
   v.literal("FAILED")
 );
 
+// Structured error codes for failure taxonomy
+export const ErrorCode = v.union(
+  v.literal("TOOL_HTTP_404"),
+  v.literal("TOOL_HTTP_500"),
+  v.literal("TOOL_TIMEOUT"),
+  v.literal("TOOL_EXECUTION_ERROR"),
+  v.literal("LLM_PROVIDER_401"),
+  v.literal("LLM_PROVIDER_403"),
+  v.literal("LLM_PROVIDER_429"),
+  v.literal("LLM_PROVIDER_500"),
+  v.literal("LLM_NO_OUTPUT"),
+  v.literal("LLM_STREAM_ERROR"),
+  v.literal("WORKSPACE_NOT_READY"),
+  v.literal("WORKSPACE_FILETREE_MISSING"),
+  v.literal("CONVEX_ACTION_THROWN"),
+  v.literal("CONVEX_MUTATION_ERROR"),
+  v.literal("FRONTEND_ERROR"),
+  v.literal("UNKNOWN_ERROR")
+);
+
+export const ErrorSource = v.union(
+  v.literal("tool"),
+  v.literal("llm"),
+  v.literal("workspace"),
+  v.literal("convex"),
+  v.literal("frontend")
+);
+
 export const StreamType = v.union(
   v.literal("stdout"),
   v.literal("stderr")
@@ -141,6 +169,13 @@ export default defineSchema({
     scheduledCleanupAt: v.optional(v.number()),
     initializationError: v.optional(v.string()),
     errorMessage: v.optional(v.string()),
+    // Structured error fields for failure taxonomy
+    errorCode: v.optional(ErrorCode),
+    errorSource: v.optional(ErrorSource),
+    errorDetails: v.optional(v.string()), // Truncated JSON, no secrets
+    failedAt: v.optional(v.number()),
+    failedStep: v.optional(v.string()), // Tool name or operation that failed
+    failureTraceId: v.optional(v.string()), // Correlate across logs
     workspaceCleanedUp: v.boolean(),
     hasBeenInitialized: v.boolean(),
     createdAt: v.number(),

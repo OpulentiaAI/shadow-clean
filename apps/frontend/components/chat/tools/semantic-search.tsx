@@ -47,7 +47,7 @@ export function SemanticSearchTool({ message }: { message: Message }) {
         (parsedResult ? (
           parsedResult.success ? (
             <div className="flex flex-col gap-0.5">
-              {parsedResult.results.slice(0, 10).map((item) => (
+              {parsedResult.results.slice(0, 10).map((item: { id: string; path?: string; name?: string }) => (
                 <div key={item.id} className="flex items-center gap-2 py-px">
                   <File className="size-4 shrink-0" />
                   <span className="truncate">

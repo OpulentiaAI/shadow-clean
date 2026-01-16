@@ -22,6 +22,7 @@ export const AvailableModels = {
   GROK_CODE_FAST_1: "x-ai/grok-code-fast-1",
   ZAI_GLM_4_7: "z-ai/glm-4.7",
   MINIMAX_M2_1: "minimax/minimax-m2.1",
+  GPT_5_2_CODEX: "openai/gpt-5.2-codex",
   // Fireworks models
   FIREWORKS_GLM_4_7: "accounts/fireworks/models/glm-4p7",
   // NVIDIA NIM models (using nim: prefix to distinguish from OpenRouter versions)
@@ -92,6 +93,11 @@ export const ModelInfos: Record<ModelType, ModelInfo> = {
   [AvailableModels.MINIMAX_M2_1]: {
     id: AvailableModels.MINIMAX_M2_1,
     name: "MiniMax M2.1",
+    provider: "openrouter",
+  },
+  [AvailableModels.GPT_5_2_CODEX]: {
+    id: AvailableModels.GPT_5_2_CODEX,
+    name: "GPT-5.2-Codex",
     provider: "openrouter",
   },
   // Fireworks models
@@ -243,7 +249,8 @@ export async function getAllPossibleModels(
       AvailableModels.DEEPSEEK_V3,
       AvailableModels.GROK_CODE_FAST_1,
       AvailableModels.ZAI_GLM_4_7,
-      AvailableModels.MINIMAX_M2_1
+      AvailableModels.MINIMAX_M2_1,
+      AvailableModels.GPT_5_2_CODEX
     );
   }
 
@@ -284,7 +291,8 @@ export async function getDefaultSelectedModels(
       AvailableModels.DEEPSEEK_V3,
       AvailableModels.GROK_CODE_FAST_1,
       AvailableModels.ZAI_GLM_4_7,
-      AvailableModels.MINIMAX_M2_1
+      AvailableModels.MINIMAX_M2_1,
+      AvailableModels.GPT_5_2_CODEX
     );
   }
 

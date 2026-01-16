@@ -1,20 +1,7 @@
-import { db, Task } from "@repo/db";
-
+// Stub: Using Convex-native - archive via Convex mutations
 export async function archiveTask(
   taskId: string
-): Promise<{ success: boolean; task?: Task; error?: string }> {
-  try {
-    const updatedTask = await db.task.update({
-      where: { id: taskId },
-      data: { status: "ARCHIVED" },
-    });
-
-    return { success: true, task: updatedTask };
-  } catch (error) {
-    console.error(`Failed to archive task ${taskId}:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+): Promise<{ success: boolean; task?: unknown; error?: string }> {
+  console.log(`[STUB] archiveTask called for ${taskId} - use Convex mutation`);
+  return { success: false, error: "Use Convex mutation api.tasks.archive" };
 }

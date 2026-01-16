@@ -1,19 +1,7 @@
-import { db, Task } from "@repo/db";
-
+// Stub: Using Convex-native - delete via Convex mutations
 export async function deleteTask(
   taskId: string
-): Promise<{ success: boolean; task?: Task; error?: string }> {
-  try {
-    const deletedTask = await db.task.delete({
-      where: { id: taskId },
-    });
-
-    return { success: true, task: deletedTask };
-  } catch (error) {
-    console.error(`Failed to delete task ${taskId}:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+): Promise<{ success: boolean; task?: unknown; error?: string }> {
+  console.log(`[STUB] deleteTask called for ${taskId} - use Convex mutation`);
+  return { success: false, error: "Use Convex mutation api.tasks.remove" };
 }

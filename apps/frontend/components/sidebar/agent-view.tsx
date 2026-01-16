@@ -449,6 +449,7 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
             <SidebarMenuItem className="mt-2">
               <ExpandableErrorCard
                 errorMessage={task.errorMessage || "Unknown error"}
+                errorCode={task.errorCode}
               />
             </SidebarMenuItem>
           )}
@@ -547,14 +548,30 @@ export function SidebarAgentView({ taskId }: { taskId: string }) {
   );
 }
 
-function ExpandableErrorCard({ errorMessage }: { errorMessage: string }) {
+const ERROR_GUIDANCE: Record<string, string> = {
+  TOOL_HTTP_404: "Workspace not initialized. Create new task.",
+  TOOL_HTTP_500: "Backend error. Retry.",
+  TOOL_TIMEOUT: "Timed out. Retry.",
+  LLM_PROVIDER_401: "API key invalid. Update in Settings.",
+  LLM_PROVIDER_403: "API key lacks permission.",
+  LLM_PROVIDER_429: "Rate limited. Wait or switch model.",
+  LLM_NO_OUTPUT: "No response. Try different model.",
+  WORKSPACE_NOT_READY: "Workspace initializing. Wait.",
+  WORKSPACE_FILETREE_MISSING: "File tree missing. Retry.",
+};
+
+function ExpandableErrorCard({ errorMessage, errorCode }: { errorMessage: string; errorCode?: string | null }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const guidance = errorCode ? ERROR_GUIDANCE[errorCode] : null;
 
   return (
     <Card
       onClick={() => setIsExpanded(!isExpanded)}
       className="border-destructive/10 bg-destructive/5 max-h-96 cursor-pointer overflow-y-auto rounded-lg p-2"
     >
+      {guidance && (
+        <p className="text-muted-foreground mb-1 text-xs font-medium">💡 {guidance}</p>
+      )}
       <p
         className={cn(
           "text-destructive text-sm",
@@ -563,6 +580,9 @@ function ExpandableErrorCard({ errorMessage }: { errorMessage: string }) {
       >
         {errorMessage}
       </p>
+      {errorCode && (
+        <p className="text-muted-foreground mt-1 text-xs">Code: {errorCode}</p>
+      )}
     </Card>
   );
 }

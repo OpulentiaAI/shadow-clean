@@ -84,10 +84,20 @@ function TaskPageContent() {
              openrouter: !!apiKeys.openrouter,
              nvidia: !!apiKeys.nvidia,
              fireworks: !!apiKeys.fireworks,
-             // Debug: log nvidia key length if present
              nvidiaKeyLength: apiKeys.nvidia?.length || 0,
              model,
            });
+           
+           // Warn if required API key is missing for the selected model
+           const hasAnyKey = apiKeys.openrouter || apiKeys.anthropic || apiKeys.openai || apiKeys.nvidia || apiKeys.fireworks;
+           if (!hasAnyKey) {
+             console.warn("[TASK_CONTENT] No API keys found in cookies - user may need to re-enter keys on this domain");
+           }
+           
+           // Check if NVIDIA model is selected but key is missing
+           if (model.startsWith("nim:") && !apiKeys.nvidia) {
+             console.warn("[TASK_CONTENT] NVIDIA model selected but nvidia key is missing from cookies");
+           }
            
            await startStreamWithTools({
             taskId: convexTaskId,
