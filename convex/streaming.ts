@@ -2423,10 +2423,11 @@ Review the above results. If you have enough information, provide your response.
         content: `⚠️ ${userMessage}`,
       });
 
-      // Update task status to FAILED on error (preserve failure state)
+      // Update task status to FAILED on error with error message for UI display
       await ctx.runMutation(api.tasks.update, {
         taskId: args.taskId,
         status: "FAILED",
+        errorMessage: userMessage.substring(0, 500), // Store error for sidebar display
       });
 
       throw error;
