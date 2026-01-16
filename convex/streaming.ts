@@ -1810,6 +1810,7 @@ Review the above results. If you have enough information, provide your response.
                     `[STREAMING] [v7] Using direct tool API call (tool=${state.toolName}, workspaceOverride=${workspacePathOverride})`
                   );
                   const callOnce = async (workspacePath: string) => {
+                    // Add 60s timeout to prevent hanging on unresponsive server
                     const resp = await fetch(
                       `${serverUrl}/api/tools/${args.taskId}/${state.toolName}`,
                       {
@@ -1820,6 +1821,7 @@ Review the above results. If you have enough information, provide your response.
                           "x-shadow-workspace-path": workspacePath,
                         },
                         body: JSON.stringify(execArgs),
+                        signal: AbortSignal.timeout(60000), // 60s timeout
                       }
                     );
                     if (!resp.ok) {
